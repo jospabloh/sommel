@@ -2,7 +2,10 @@ import React from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { Wine, ShoppingCart, GlassWater, LayoutGrid, Users, Building2, LogOut } from 'lucide-react';
+import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
+
+const SOMMEL_LOGO = 'https://media.base44.com/images/public/6ab41c2a89f592a0eca074d2/068ca3173_Sommel_logo.png';
 
 const navFor = (user) => {
   const isPlatformAdmin = user?.role === 'admin';
@@ -34,7 +37,6 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const items = navFor(user);
-  const barName = user?.data?.tenant_id ? 'VinoPOS' : 'VinoPOS';
 
   const handleLogout = () => {
     logout(false);
@@ -45,10 +47,10 @@ export default function Layout() {
     <div className="dark min-h-screen bg-background text-foreground flex">
       <aside className="w-20 lg:w-60 shrink-0 border-r border-border bg-sidebar flex flex-col">
         <div className="h-16 flex items-center gap-2 px-4 lg:px-6 border-b border-sidebar-border">
-          <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
-            <Wine className="w-5 h-5 text-primary" />
+          <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 ring-1 ring-border">
+            <Image src={SOMMEL_LOGO} alt="Sommel" className="w-full h-full" fittingType="fill" />
           </div>
-          <span className="hidden lg:block font-display font-semibold text-lg tracking-tight">VinoPOS</span>
+          <span className="hidden lg:block font-display font-semibold text-lg tracking-tight">Sommel</span>
         </div>
         <nav className="flex-1 p-2 lg:p-3 space-y-1">
           {items.map((it) => {

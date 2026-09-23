@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
-import { Wine, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { Image } from '@/components/ui/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+
+const SOMMEL_LOGO = 'https://media.base44.com/images/public/6ab41c2a89f592a0eca074d2/068ca3173_Sommel_logo.png';
 
 export default function Onboarding() {
   const { user, checkUserAuth } = useAuth();
@@ -55,8 +58,8 @@ export default function Onboarding() {
     <div className="dark min-h-screen bg-background text-foreground flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center">
-            <Wine className="w-6 h-6 text-primary" />
+          <div className="w-12 h-12 rounded-xl overflow-hidden ring-1 ring-border">
+            <Image src={SOMMEL_LOGO} alt="Sommel" className="w-full h-full" fittingType="fill" />
           </div>
           <div>
             <h1 className="font-display text-2xl font-semibold">Configura tu Wine Bar</h1>
