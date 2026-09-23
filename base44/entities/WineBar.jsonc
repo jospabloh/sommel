@@ -1,0 +1,62 @@
+{
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the wine bar"
+    },
+    "address": {
+      "type": "string",
+      "description": "Physical address"
+    },
+    "subscription_status": {
+      "type": "string",
+      "enum": [
+        "trial",
+        "active",
+        "suspended",
+        "cancelled"
+      ],
+      "default": "trial"
+    },
+    "owner_id": {
+      "type": "string",
+      "description": "User id of the bar owner"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "name": "WineBar",
+  "type": "object",
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "id": "{{user.data.tenant_id}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "id": "{{user.data.tenant_id}}"
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

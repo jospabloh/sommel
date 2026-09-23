@@ -1,0 +1,30 @@
+{
+  "properties": {
+    "role": {
+      "type": "string",
+      "description": "Built-in platform role (admin = super admin of the SaaS platform)",
+      "enum": [
+        "admin",
+        "user"
+      ]
+    },
+    "app_role": {
+      "type": "string",
+      "description": "App-specific role within a wine bar",
+      "enum": [
+        "super_admin",
+        "bar_admin",
+        "staff"
+      ]
+    },
+    "tenant_id": {
+      "type": "string",
+      "description": "ID of the WineBar this user belongs to"
+    }
+  },
+  "required": [
+    "role"
+  ],
+  "name": "User",
+  "type": "object"
+}
