@@ -24,6 +24,11 @@
 // --tenant-admin  design B (Module 24): the app's tenant admins hold built-in
 //                 "admin", so "admin" is a TENANT role and must be scoped like
 //                 any other. Only "__service_role_only__" counts as platform.
+// --tenant-keys   User data fields that name a tenant (default: tenant_id,
+//                 business_id, school_id, family_id, company_id, parish_id).
+//                 Only a comparison against one of these, or {{user.id}} /
+//                 {{user.email}}, scopes a rule — `data.status ==
+//                 {{user.data.status}}` matches rows of every tenant.
 // --delegated     User fields a tenant admin assigns to members of their own
 //                 tenant (e.g. an investor's group). Their lock may be a tenant
 //                 role, as long as it is scoped to the tenant. Tenant pointers
@@ -33,7 +38,16 @@ import { join, relative } from 'node:path'
 
 export const PLATFORM_ROLES = new Set(['admin', '__service_role_only__'])
 export const SERVICE_ONLY = new Set(['__service_role_only__'])
-const TENANT_TEMPLATE = /^\{\{\s*user\.(id|email|data\.[A-Za-z0-9_]+)\s*\}\}$/
+const TEMPLATE = /^\{\{\s*user\.(id|email|data\.([A-Za-z0-9_]+))\s*\}\}$/
+export const DEFAULT_TENANT_KEYS = ['tenant_id', 'business_id', 'school_id', 'family_id', 'company_id', 'parish_id']
+let tenantKeys = new Set(DEFAULT_TENANT_KEYS)
+export function setTenantKeys(keys) { tenantKeys = new Set(keys) }
+
+function isTenantTemplate(v) {
+  const m = typeof v === 'string' && TEMPLATE.exec(v)
+  if (!m) return false
+  return m[2] === undefined || tenantKeys.has(m[2])
+}
 
 export function stripJsonc(text) {
   let out = ''
@@ -58,7 +72,7 @@ export function stripJsonc(text) {
 function isTenantMatch(node) {
   if (!node || typeof node !== 'object' || Array.isArray(node)) return false
   return Object.entries(node).some(([k, v]) =>
-    k !== 'user_condition' && !k.startsWith('$') && typeof v === 'string' && TENANT_TEMPLATE.test(v))
+    k !== 'user_condition' && !k.startsWith('$') && isTenantTemplate(v))
 }
 
 function isPlatformCondition(cond, platform = PLATFORM_ROLES) {
@@ -147,12 +161,14 @@ export function unlockedUserFields(fieldsUsed, userSchema, { platform = PLATFORM
 }
 
 const ASSIGN_ADMIN = /\brole\s*:\s*['"]admin['"]/
+// Positional role APIs: inviteUser(email, 'admin') grants it just the same.
+const POSITIONAL_ADMIN = /\b(inviteUser|updateUserRole|setRole)\s*\([^)]*,\s*['"]admin['"]/
 
 export function findAdminAssignments(source) {
   const hits = []
   source.split('\n').forEach((line, i) => {
     const code = line.replace(/\/\/.*$/, '')
-    if (ASSIGN_ADMIN.test(code) && !/user_condition/.test(code)) hits.push({ line: i + 1, text: line.trim() })
+    if ((ASSIGN_ADMIN.test(code) && !/user_condition/.test(code)) || POSITIONAL_ADMIN.test(code)) hits.push({ line: i + 1, text: line.trim() })
   })
   return hits
 }
@@ -173,6 +189,7 @@ function main() {
   const tenantAdmin = args.includes('--tenant-admin')
   const platform = tenantAdmin ? SERVICE_ONLY : PLATFORM_ROLES
   const delegated = new Set((opt('--delegated') ?? '').split(',').filter(Boolean))
+  if (opt('--tenant-keys')) setTenantKeys(opt('--tenant-keys').split(',').filter(Boolean))
   const problems = []
 
   const entDir = [join(root, 'base44/entities'), join(root, 'entities')].find(existsSync)

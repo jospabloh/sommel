@@ -40,8 +40,14 @@ export default async function(req: Request): Promise<Response> {
       } catch (e) {
         return Response.json({ error: 'No se pudo invitar: ' + (e as Error).message }, { status: 400 });
       }
+      // Re-check right before writing: the user may have joined another bar
+      // while the invite was in flight. Only an unassigned user is claimed.
+      // (Base44 has no conditional update, so a sub-second race remains.)
       const [target] = await base44.asServiceRole.entities.User.filter({ email });
-      if (target && target.data?.tenant_id !== tenantId) {
+      if (target?.data?.tenant_id && target.data.tenant_id !== tenantId) {
+        return Response.json({ error: 'Ese usuario ya pertenece a otro bar', code: 'already_in_a_bar' }, { status: 409 });
+      }
+      if (target && !target.data?.tenant_id) {
         await base44.asServiceRole.entities.User.update(target.id, {
           data: { ...(target.data ?? {}), tenant_id: tenantId, app_role: 'staff' }
         });
