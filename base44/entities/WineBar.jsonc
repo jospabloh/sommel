@@ -29,6 +29,18 @@
   "name": "WineBar",
   "type": "object",
   "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.owner_id": "{{user.id}}"
+        }
+      ]
+    },
     "read": {
       "$or": [
         {

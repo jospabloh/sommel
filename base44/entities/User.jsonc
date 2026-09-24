@@ -15,11 +15,25 @@
         "super_admin",
         "bar_admin",
         "staff"
-      ]
+      ],
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     },
     "tenant_id": {
       "type": "string",
-      "description": "ID of the WineBar this user belongs to"
+      "description": "ID of the WineBar this user belongs to",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     }
   },
   "required": [

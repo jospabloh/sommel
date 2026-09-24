@@ -27,6 +27,17 @@ export default async function(req: Request): Promise<Response> {
     if (action === 'invite') {
       const email = (body.email || '').toString().trim();
       if (!email) return Response.json({ error: 'Email requerido' }, { status: 400 });
+      // Check the target BEFORE inviting: an existing user who already belongs
+      // to a bar must never be re-pointed or re-roled by another bar's admin.
+      const existing = await base44.asServiceRole.entities.User.filter({ email });
+      const current = existing[0];
+      const currentTenant = current?.data?.tenant_id;
+      if (currentTenant && currentTenant !== tenantId) {
+        return Response.json({ error: 'Este email ya está vinculado a otro bar' }, { status: 409 });
+      }
+      if (currentTenant === tenantId) {
+        return Response.json({ ok: true, already_member: true });
+      }
       try {
         await base44.users.inviteUser(email, 'user');
       } catch (e) {
@@ -34,7 +45,8 @@ export default async function(req: Request): Promise<Response> {
       }
       const matches = await base44.asServiceRole.entities.User.filter({ email });
       const target = matches[0];
-      if (target) {
+      // Re-check after the invite: only a user with no bar may be assigned.
+      if (target && !target.data?.tenant_id) {
         await base44.asServiceRole.entities.User.update(target.id, {
           data: { tenant_id: tenantId, app_role: 'staff' }
         });
