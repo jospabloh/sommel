@@ -16,11 +16,25 @@
         "suspended",
         "cancelled"
       ],
-      "default": "trial"
+      "default": "trial",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     },
     "owner_id": {
       "type": "string",
-      "description": "User id of the bar owner"
+      "description": "User id of the bar owner",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     }
   },
   "required": [
@@ -54,6 +68,11 @@
       ]
     },
     "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
       "user_condition": {
         "role": "admin"
       }

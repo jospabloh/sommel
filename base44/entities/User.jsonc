@@ -10,16 +10,22 @@
     },
     "app_role": {
       "type": "string",
-      "description": "App-specific role within a wine bar",
+      "description": "App-specific role within a wine bar. Server-authoritative: sólo lo escriben createWineBar y manageStaff (service role). write:false para que nadie se dé bar_admin con updateMe (módulo 24 del estándar).",
       "enum": [
         "super_admin",
         "bar_admin",
         "staff"
-      ]
+      ],
+      "rls": {
+        "write": false
+      }
     },
     "tenant_id": {
       "type": "string",
-      "description": "ID of the WineBar this user belongs to"
+      "description": "ID of the WineBar this user belongs to. Server-authoritative: sólo lo escriben createWineBar y manageStaff (service role). write:false: con updateMe cualquiera podía apuntarse al bar de otro y leer sus datos (módulo 24 del estándar).",
+      "rls": {
+        "write": false
+      }
     }
   },
   "required": [
