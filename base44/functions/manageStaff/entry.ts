@@ -5,8 +5,10 @@ export default async function(req: Request): Promise<Response> {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    const tenantId = user.data?.tenant_id;
-    const appRole = user.data?.app_role;
+    // Re-read the stored profile: auth.me()'s .data is not what RLS reads.
+    const [self] = await base44.asServiceRole.entities.User.filter({ id: user.id });
+    const tenantId = self?.data?.tenant_id;
+    const appRole = self?.data?.app_role;
     const isPlatformAdmin = user.role === 'admin';
     if (!tenantId || (appRole !== 'bar_admin' && !isPlatformAdmin)) {
       return Response.json({ error: 'Solo el administrador del bar puede gestionar staff' }, { status: 403 });
@@ -27,16 +29,27 @@ export default async function(req: Request): Promise<Response> {
     if (action === 'invite') {
       const email = (body.email || '').toString().trim();
       if (!email) return Response.json({ error: 'Email requerido' }, { status: 400 });
+      // Never pull someone out of another bar: that would move their access
+      // into this one. Checked before inviting, so a refusal sends nothing.
+      const [existing] = await base44.asServiceRole.entities.User.filter({ email });
+      if (existing?.data?.tenant_id && existing.data.tenant_id !== tenantId) {
+        return Response.json({ error: 'Ese usuario ya pertenece a otro bar', code: 'already_in_a_bar' }, { status: 409 });
+      }
       try {
         await base44.users.inviteUser(email, 'user');
       } catch (e) {
-        return Response.json({ error: 'No se pudo invitar: ' + e.message }, { status: 400 });
+        return Response.json({ error: 'No se pudo invitar: ' + (e as Error).message }, { status: 400 });
       }
-      const matches = await base44.asServiceRole.entities.User.filter({ email });
-      const target = matches[0];
-      if (target) {
+      // Re-check right before writing: the user may have joined another bar
+      // while the invite was in flight. Only an unassigned user is claimed.
+      // (Base44 has no conditional update, so a sub-second race remains.)
+      const [target] = await base44.asServiceRole.entities.User.filter({ email });
+      if (target?.data?.tenant_id && target.data.tenant_id !== tenantId) {
+        return Response.json({ error: 'Ese usuario ya pertenece a otro bar', code: 'already_in_a_bar' }, { status: 409 });
+      }
+      if (target && !target.data?.tenant_id) {
         await base44.asServiceRole.entities.User.update(target.id, {
-          data: { tenant_id: tenantId, app_role: 'staff' }
+          data: { ...(target.data ?? {}), tenant_id: tenantId, app_role: 'staff' }
         });
       }
       return Response.json({ ok: true });
