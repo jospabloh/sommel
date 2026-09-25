@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 const SOMMEL_LOGO = 'https://media.base44.com/images/public/6ab41c2a89f592a0eca074d2/068ca3173_Sommel_logo.png';
 
 export default function Onboarding() {
-  const { checkUserAuth } = useAuth();
+  const { user, checkUserAuth } = useAuth();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,12 +21,14 @@ export default function Onboarding() {
     if (!name.trim()) { setError('El nombre del bar es obligatorio'); return; }
     setLoading(true); setError('');
     try {
-      // Bar creation and role assignment happen server-side (createBar):
-      // tenant_id / app_role are write-locked on User.
-      await base44.functions.invoke('createBar', { name: name.trim(), address: address.trim() });
+      // Server-side: the bar, the owner's tenant_id/app_role (locked on User)
+      // and the starter catalog + tables.
+      const res = await base44.functions.invoke('createWineBar', { name: name.trim(), address: address.trim() });
+      if (res?.data?.error) throw new Error(res.data.error);
 
       await checkUserAuth();
     } catch (err) {
+      // A non-2xx rejects; the function's own message is in response.data.
       setError(err.response?.data?.error || err.message || 'No se pudo crear el bar');
       setLoading(false);
     }
