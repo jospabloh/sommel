@@ -55,22 +55,55 @@ export default async function(req: Request): Promise<Response> {
     });
     const total = orderItems.reduce((sum: number, i: any) => sum + i.subtotal, 0);
 
-    const order = await base44.entities.Order.create({
-      tenant_id: tenantId,
-      table_id: table_id || null,
-      table_name: table_name || null,
-      type: type || 'bar',
-      status: 'paid',
-      total,
-      items: orderItems,
-      paid_at: new Date().toISOString()
-    });
+    // Reserve stock BEFORE recording the sale, from a fresh read taken right
+    // before the write, then re-read: if the stored value is not exactly what
+    // this sale wrote, another sale wrote in between, so this one gives the
+    // units back and is rejected instead of recorded. Base44 has no atomic
+    // decrement, so this narrows the race rather than closing it — two sales
+    // writing the same value within the same instant still go undetected.
+    const tracked = Object.keys(qtyByProduct).filter((id) => typeof productMap[id].data.stock === 'number');
+    const readStock = async () => {
+      const fresh = tracked.length ? await base44.entities.Product.filter({ id: { $in: tracked } }) : [];
+      const stock: Record<string, number> = {};
+      fresh.forEach((p: any) => { stock[p.id] = p.data?.stock; });
+      return stock;
+    };
+    const release = async () => {
+      const now = await readStock();
+      await base44.entities.Product.bulkUpdate(tracked.map((id) => ({ id, stock: now[id] + qtyByProduct[id] })));
+    };
 
-    // Decrement stock for tracked products
-    const updates = Object.entries(qtyByProduct)
-      .filter(([id]) => typeof productMap[id].data.stock === 'number')
-      .map(([id, qty]) => ({ id, stock: productMap[id].data.stock - qty }));
-    if (updates.length) await base44.entities.Product.bulkUpdate(updates);
+    if (tracked.length) {
+      const before = await readStock();
+      for (const id of tracked) {
+        if (typeof before[id] !== 'number' || before[id] < qtyByProduct[id]) {
+          return Response.json({ error: `Stock insuficiente para ${productMap[id].data.name}` }, { status: 400 });
+        }
+      }
+      await base44.entities.Product.bulkUpdate(tracked.map((id) => ({ id, stock: before[id] - qtyByProduct[id] })));
+      const after = await readStock();
+      if (tracked.some((id) => after[id] !== before[id] - qtyByProduct[id])) {
+        await release();
+        return Response.json({ error: 'Otra venta tomó ese stock al mismo tiempo. Intenta de nuevo.' }, { status: 409 });
+      }
+    }
+
+    let order;
+    try {
+      order = await base44.entities.Order.create({
+        tenant_id: tenantId,
+        table_id: table_id || null,
+        table_name: table_name || null,
+        type: type || 'bar',
+        status: 'paid',
+        total,
+        items: orderItems,
+        paid_at: new Date().toISOString()
+      });
+    } catch (e) {
+      if (tracked.length) await release();
+      throw e;
+    }
 
     // Free the table if it was a table order
     if (table_id) {
