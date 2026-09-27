@@ -63,7 +63,16 @@
           }
         },
         {
-          "id": "{{user.data.tenant_id}}"
+          "$and": [
+            {
+              "id": "{{user.data.tenant_id}}"
+            },
+            {
+              "user_condition": {
+                "data.app_role": "bar_admin"
+              }
+            }
+          ]
         }
       ]
     },
