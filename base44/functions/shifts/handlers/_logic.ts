@@ -321,9 +321,69 @@ export interface CorteMeta {
   closed_by?: string | null;
 }
 
+/** Escapes text for HTML: reasons, comments and names are typed by people. */
+export function escapeHtml(text: unknown): string {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Email palette. Inline styles only: Gmail and Outlook drop <style> blocks
+// and external CSS, so every rule lives on the element that needs it.
+const C = {
+  page: '#F3EFEE',
+  card: '#FFFFFF',
+  ink: '#2B2320',
+  muted: '#7C706A',
+  hair: '#E8E1DE',
+  wine: '#6E1F33',
+  ok: '#2F6B4F',
+  okBg: '#EAF3EE',
+  short: '#A3342B',
+  shortBg: '#FBECEA',
+  over: '#8A5A12',
+  overBg: '#FBF3E4',
+};
+const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
+const SERIF = "Georgia,'Times New Roman',serif";
+
+/** Headline for the cash check: what Alby needs to know first. */
+export function cashVerdict(difference: number): { title: string; color: string; bg: string } {
+  if (difference === 0) return { title: 'La caja cuadra', color: C.ok, bg: C.okBg };
+  if (difference < 0) return { title: `Faltan ${fmtMoney(-difference)}`, color: C.short, bg: C.shortBg };
+  return { title: `Sobran ${fmtMoney(difference)}`, color: C.over, bg: C.overBg };
+}
+
+function emailRow(label: string, value: string, opts: { strong?: boolean; muted?: boolean; indent?: boolean; top?: boolean } = {}): string {
+  const weight = opts.strong ? '700' : '400';
+  const color = opts.muted ? C.muted : C.ink;
+  const border = opts.top ? `border-top:1px solid ${C.hair};` : '';
+  const pad = opts.indent ? 'padding:4px 0 4px 14px;' : 'padding:7px 0;';
+  return `<tr><td style="${pad}${border}font:${weight} 15px/1.4 ${SANS};color:${color};">${label}</td>` +
+    `<td align="right" style="${pad}${border}font:${weight} 15px/1.4 ${SANS};color:${color};white-space:nowrap;font-variant-numeric:tabular-nums;">${value}</td></tr>`;
+}
+
+function emailSection(title: string, rows: string): string {
+  return `<tr><td style="padding:22px 24px 0;">` +
+    `<div style="font:700 11px/1 ${SANS};letter-spacing:1.2px;text-transform:uppercase;color:${C.wine};padding-bottom:8px;border-bottom:2px solid ${C.wine};">${title}</div>` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rows}</table></td></tr>`;
+}
+
+function emailStat(label: string, value: string): string {
+  return `<td width="33%" valign="top" style="padding:12px 8px;text-align:center;background:${C.page};border-radius:8px;">` +
+    `<div style="font:700 17px/1.2 ${SERIF};color:${C.ink};font-variant-numeric:tabular-nums;">${value}</div>` +
+    `<div style="font:400 12px/1.3 ${SANS};color:${C.muted};padding-top:4px;">${label}</div></td>`;
+}
+
 /**
- * Plain-text email, readable on a phone. No costs, no utility (D7): the
- * summary never carries them, and this only prints what the summary has.
+ * HTML email, built for a phone at closing time. Base44's SendEmail renders
+ * the body as HTML (a plain-text body arrived as one run-on paragraph,
+ * 2026-09-28), so structure has to be real markup. No costs, no utility
+ * (D7): the summary never carries them, and this only prints what it has.
+ * Every string a person typed goes through escapeHtml.
  */
 export function buildCorteEmail(
   meta: CorteMeta,
@@ -332,43 +392,67 @@ export function buildCorteEmail(
 ): { subject: string; body: string } {
   const date = formatLocalDateTime(meta.closed_at, offsetMin).slice(0, 10);
   const subject = `Corte de caja · ${meta.bar_name} · ${date}`;
-  const L: string[] = [];
-  L.push(`Corte de caja de ${meta.bar_name}`);
-  L.push(`Fecha: ${date}`);
-  L.push(`Turno: ${localTime(meta.opened_at, offsetMin)} a ${localTime(meta.closed_at, offsetMin)}`);
-  if (meta.opened_by) L.push(`Abrió: ${meta.opened_by}`);
-  if (meta.closed_by) L.push(`Cerró: ${meta.closed_by}`);
-  L.push('');
-  L.push('VENTAS');
-  if (summary.sales_by_method.length === 0) L.push('Sin ventas en el turno');
-  for (const m of summary.sales_by_method) L.push(`${m.label}: ${fmtMoney(m.amount)} (${m.count})`);
-  L.push(`Total vendido: ${fmtMoney(summary.sales_total)}`);
-  L.push(`Cuentas cobradas: ${summary.orders_paid}`);
-  L.push(`Ticket promedio: ${fmtMoney(summary.avg_ticket)}`);
-  L.push(`Propinas: ${fmtMoney(summary.tips)}`);
-  L.push(`Descuentos: ${summary.discounts.count} por ${fmtMoney(summary.discounts.amount)}`);
-  L.push(`Cortesías: ${summary.courtesies.count} por ${fmtMoney(summary.courtesies.amount)}`);
-  L.push(`Renglones cancelados: ${summary.cancelled_items}`);
-  L.push('');
-  L.push('EFECTIVO');
-  L.push(`Fondo inicial: ${fmtMoney(summary.opening_float)}`);
-  L.push(`Ventas en efectivo: ${fmtMoney(summary.cash_sales)}`);
-  if (summary.cash_outs.length === 0) {
-    L.push('Salidas de efectivo: ninguna');
-  } else {
-    L.push(`Salidas de efectivo: ${fmtMoney(summary.cash_outs_total)}`);
-    for (const o of summary.cash_outs) L.push(`  - ${o.reason}: ${fmtMoney(o.amount)}`);
-  }
-  L.push(`Esperado en caja: ${fmtMoney(summary.expected_cash)}`);
-  L.push(`Contado: ${fmtMoney(summary.counted_cash)}`);
-  L.push(`${differenceLabel(summary.difference)}: ${fmtMoney(summary.difference)}`);
-  if (summary.comment) {
-    L.push('');
-    L.push(`Comentario: ${summary.comment}`);
-  }
-  L.push('');
-  L.push('Enviado por Sommel.');
-  return { subject, body: L.join('\n') };
+  const [y, mo, d] = date.split('-');
+  const niceDate = `${d}/${mo}/${y}`;
+  const shiftSpan = `${localTime(meta.opened_at, offsetMin)} a ${localTime(meta.closed_at, offsetMin)}`;
+  const verdict = cashVerdict(summary.difference);
+  const e = escapeHtml;
+
+  const salesRows = (summary.sales_by_method.length === 0
+    ? emailRow('Sin ventas en el turno', '', { muted: true })
+    : summary.sales_by_method
+        .map((m) => emailRow(`${e(m.label)} <span style="color:${C.muted};">· ${m.count}</span>`, fmtMoney(m.amount)))
+        .join('')) + emailRow('Total vendido', fmtMoney(summary.sales_total), { strong: true, top: true });
+
+  const adjustRows =
+    emailRow('Propinas', fmtMoney(summary.tips)) +
+    emailRow(`Descuentos <span style="color:${C.muted};">· ${summary.discounts.count}</span>`, fmtMoney(summary.discounts.amount)) +
+    emailRow(`Cortesías <span style="color:${C.muted};">· ${summary.courtesies.count}</span>`, fmtMoney(summary.courtesies.amount)) +
+    emailRow('Platillos cancelados', String(summary.cancelled_items));
+
+  const outs = summary.cash_outs.length === 0
+    ? emailRow('Salidas de efectivo', 'Ninguna', { muted: true })
+    : emailRow('Salidas de efectivo', `-${fmtMoney(summary.cash_outs_total)}`) +
+      summary.cash_outs.map((o) => emailRow(e(o.reason), fmtMoney(o.amount), { muted: true, indent: true })).join('');
+  const cashRows =
+    emailRow('Fondo inicial', fmtMoney(summary.opening_float)) +
+    emailRow('Ventas en efectivo', `+${fmtMoney(summary.cash_sales)}`) +
+    outs +
+    emailRow('Esperado en caja', fmtMoney(summary.expected_cash), { strong: true, top: true }) +
+    emailRow('Contado', fmtMoney(summary.counted_cash), { strong: true });
+
+  const comment = summary.comment
+    ? `<div style="margin-top:14px;padding:10px 12px;background:${C.card};border-radius:6px;font:italic 400 14px/1.45 ${SANS};color:${C.ink};">“${e(summary.comment)}”</div>`
+    : '';
+  const people = [meta.opened_by ? `Abrió ${e(meta.opened_by)}` : '', meta.closed_by ? `Cerró ${e(meta.closed_by)}` : '']
+    .filter(Boolean)
+    .join('<br>');
+
+  const body = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${e(subject)}</title></head>
+<body style="margin:0;padding:0;background:${C.page};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.page};"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:${C.card};border-radius:14px;border-collapse:separate;">
+<tr><td style="padding:24px 24px 0;">
+  <div style="font:700 11px/1 ${SANS};letter-spacing:1.2px;text-transform:uppercase;color:${C.muted};">Corte de caja</div>
+  <div style="font:700 26px/1.2 ${SERIF};color:${C.wine};padding-top:6px;">${e(meta.bar_name)}</div>
+  <div style="font:400 14px/1.4 ${SANS};color:${C.muted};padding-top:4px;">${niceDate} · Turno de ${shiftSpan}</div>
+</td></tr>
+<tr><td style="padding:18px 24px 0;">
+  <div style="background:${verdict.bg};border-left:4px solid ${verdict.color};border-radius:8px;padding:16px 16px 14px;">
+    <div style="font:700 24px/1.2 ${SERIF};color:${verdict.color};">${verdict.title}</div>
+    <div style="font:400 14px/1.5 ${SANS};color:${C.ink};padding-top:6px;font-variant-numeric:tabular-nums;">Esperado ${fmtMoney(summary.expected_cash)} · Contado ${fmtMoney(summary.counted_cash)}</div>
+    ${comment}
+  </div>
+</td></tr>
+<tr><td style="padding:16px 18px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="6"><tr>
+  ${emailStat('Vendido', fmtMoney(summary.sales_total))}${emailStat('Cuentas', String(summary.orders_paid))}${emailStat('Ticket promedio', fmtMoney(summary.avg_ticket))}
+</tr></table></td></tr>
+${emailSection('Ventas por forma de pago', salesRows)}
+${emailSection('Propinas y ajustes', adjustRows)}
+${emailSection('Efectivo', cashRows)}
+<tr><td style="padding:22px 24px 24px;"><div style="border-top:1px solid ${C.hair};padding-top:14px;font:400 12px/1.5 ${SANS};color:${C.muted};">${people ? people + '<br>' : ''}Enviado por Sommel</div></td></tr>
+</table></td></tr></table></body></html>`;
+  return { subject, body };
 }
 
 /** Word-wraps to `width` columns; hard-cuts words longer than a line. */

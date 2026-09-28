@@ -4,6 +4,7 @@
 import {
   LogicError,
   buildCorteEmail,
+  cashVerdict,
   buildCorteLines,
   buildSummary,
   cashMethodKeys,
@@ -216,31 +217,44 @@ const META = {
   closed_by: 'luis@bar.mx',
 };
 
-Deno.test('buildCorteEmail: subject, local date, figures, comment; no cost words', () => {
+// The corte is read on a phone at closing time. Base44 renders the body as
+// HTML (a plain-text body arrived as one run-on paragraph), so these assert
+// on real markup: the cash verdict first, every figure present, typed text
+// escaped, and never a cost/utility word (D7).
+const textOf = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+
+Deno.test('buildCorteEmail: HTML, verdict first, figures, comment; no cost words', () => {
   const summary = sampleSummary(78550, 'Faltó cambio');
   const { subject, body } = buildCorteEmail(META, summary, BAR_UTC_OFFSET_MIN);
   assertEquals(subject, 'Corte de caja · Vindima · 2026-09-28');
+  if (!body.startsWith('<!doctype html>')) throw new Error('body must be an HTML document');
+  const text = textOf(body);
   const has = (t: string) => {
-    if (!body.includes(t)) throw new Error(`body should include "${t}"\n${body}`);
+    if (!text.includes(t)) throw new Error(`body should include "${t}"\n${text}`);
   };
-  has('Turno: 07:00 a 22:30');
-  has('Efectivo: $450.50 (2)');
-  has('Tarjeta: $600.00 (1)');
-  has('Total vendido: $1,050.50');
-  has('Propinas: $60.00');
-  has('Cortesías: 1 por $200.00');
-  has('  - Hielo: $150.00');
-  has('Esperado en caja: $800.50');
-  has('Contado: $785.50');
-  has('Faltante: -$15.00');
-  has('Comentario: Faltó cambio');
-  const lower = body.toLowerCase();
+  has('28/09/2026 · Turno de 07:00 a 22:30');
+  has('Faltan $15.00');
+  has('Esperado $800.50 · Contado $785.50');
+  has('Efectivo · 2 $450.50');
+  has('Tarjeta · 1 $600.00');
+  has('Total vendido $1,050.50');
+  has('Propinas $60.00');
+  has('Cortesías · 1 $200.00');
+  has('Hielo $150.00');
+  has('Esperado en caja $800.50');
+  has('Contado $785.50');
+  has('“Faltó cambio”');
+  has('Abrió ana@bar.mx');
+  if (text.indexOf('Faltan $15.00') > text.indexOf('Ventas por forma de pago')) {
+    throw new Error('the cash verdict must come before the sales breakdown');
+  }
+  const lower = text.toLowerCase();
   for (const bad of ['costo', 'utilidad', 'margen', '—']) {
     if (lower.includes(bad)) throw new Error(`body must not contain "${bad}"`);
   }
 });
 
-Deno.test('buildCorteEmail: no sales / no cash outs / no difference', () => {
+Deno.test('buildCorteEmail: no sales / no cash outs / cuadra', () => {
   const summary = buildSummary({
     opening_float: 10000,
     payments: [],
@@ -251,11 +265,29 @@ Deno.test('buildCorteEmail: no sales / no cash outs / no difference', () => {
     counted_cash: 10000,
     comment: '',
   });
-  const { body } = buildCorteEmail(META, summary, BAR_UTC_OFFSET_MIN);
-  for (const t of ['Sin ventas en el turno', 'Salidas de efectivo: ninguna', 'Sin diferencia: $0.00']) {
-    if (!body.includes(t)) throw new Error(`body should include "${t}"`);
+  const text = textOf(buildCorteEmail(META, summary, BAR_UTC_OFFSET_MIN).body);
+  for (const t of ['La caja cuadra', 'Sin ventas en el turno', 'Salidas de efectivo Ninguna']) {
+    if (!text.includes(t)) throw new Error(`body should include "${t}"\n${text}`);
   }
-  if (body.includes('Comentario:')) throw new Error('no comment line expected');
+  if (text.includes('“')) throw new Error('no comment block expected');
+});
+
+// A cash-out reason or comment is typed by staff; it must not become markup
+// in the owner's inbox.
+Deno.test('buildCorteEmail: typed text is escaped', () => {
+  const summary = sampleSummary(78550, '<b>ojo</b> & "listo"');
+  summary.cash_outs = [{ amount: 100, reason: '<img src=x onerror=alert(1)>', created_by: 'x' } as any];
+  const { body } = buildCorteEmail({ ...META, bar_name: 'Bar <script>' }, summary, BAR_UTC_OFFSET_MIN);
+  for (const bad of ['<b>ojo', '<img src=x', '<script>']) {
+    if (body.includes(bad)) throw new Error(`unescaped "${bad}" in body`);
+  }
+  if (!body.includes('&lt;b&gt;ojo&lt;/b&gt; &amp; &quot;listo&quot;')) throw new Error('comment not escaped as expected');
+});
+
+Deno.test('cashVerdict: cuadra / faltan / sobran', () => {
+  assertEquals(cashVerdict(0).title, 'La caja cuadra');
+  assertEquals(cashVerdict(-1500).title, 'Faltan $15.00');
+  assertEquals(cashVerdict(2000).title, 'Sobran $20.00');
 });
 
 Deno.test('wrapText: wraps on words, hard-cuts long words', () => {
