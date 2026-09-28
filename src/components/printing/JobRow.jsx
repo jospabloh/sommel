@@ -35,7 +35,7 @@ export default function JobRow({ job, deviceId, isNext, busy, onPrint, onRetry, 
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-label={`Ver contenido de ${jobTitle(job)}`}
-          className="flex items-center gap-2 min-w-0 flex-1 text-left"
+          className="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1 text-left"
         >
           <ChevronDown className={cn('w-4 h-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
           <span className="min-w-0">
