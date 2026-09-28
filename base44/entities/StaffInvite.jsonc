@@ -1,0 +1,71 @@
+{
+  // Módulo 19/22 — invitación pendiente de staff (fix 2026-09-28).
+  //
+  // manageStaff.invite solo asignaba tenant_id/app_role cuando el usuario
+  // invitado YA existía. Alguien sin cuenta recibía el correo de invitación
+  // de Base44, se registraba, y llegaba a /onboarding sin bar ninguno — el
+  // servidor nunca tenía dónde anotar "este correo va a este bar" hasta que
+  // la cuenta ya existiera. Esta entidad es esa nota: una fila por invitación
+  // pendiente, reclamada por manageStaff.claimInvite cuando el correo por fin
+  // inicia sesión.
+  //
+  // Solo el servidor (asServiceRole) escribe esta entidad — igual que
+  // PermissionProfile tras el cierre del módulo 14/24: un `staff` no debe
+  // poder crearse, revocar o "aceptar a mano" su propia invitación, porque
+  // eso deshace el 409 already_in_a_bar y el reclamo por correo almacenado
+  // que claimInvite depende de que nadie más pueda tocar.
+  "name": "StaffInvite",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "WineBar que invitó. Solo lo escribe el servidor (manageStaff, asServiceRole) — nunca tomado del cuerpo de la petición al leer/reclamar, siempre de la fila almacenada."
+    },
+    "email": {
+      "type": "string",
+      "description": "Correo invitado, normalizado en minúsculas y sin espacios por el servidor antes de guardar. claimInvite busca por el correo ALMACENADO del usuario que llama (re-leído con asServiceRole), nunca por un correo que llegue en el cuerpo — así nadie reclama la invitación de otra persona."
+    },
+    "app_role": {
+      "type": "string",
+      "enum": ["staff", "bar_admin"],
+      "default": "staff",
+      "description": "Rol que tendrá al aceptar. bar_admin solo lo puede poner un llamador que ya es bar_admin de ese bar — el mismo gate de manageStaff.invite que ya exige eso para el resto de la acción."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "accepted", "revoked"],
+      "default": "pending",
+      "description": "Módulo 19: solo lo escribe el servidor. pending => accepted lo hace claimInvite al reclamar; pending => revoked lo hace manageStaff.revokeInvite (bar_admin) o el propio claimInvite al descartar invitaciones más viejas del mismo correo."
+    },
+    "invited_by": {
+      "type": "string",
+      "description": "Correo de quien invitó (auditoría)"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "14 días desde la invitación (o desde el último reenvío al mismo correo+bar). claimInvite ignora una fila pending ya vencida."
+    },
+    "accepted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Cuándo se reclamó"
+    },
+    "accepted_user_id": {
+      "type": "string",
+      "description": "User.id de quien reclamó la invitación"
+    }
+  },
+  "required": ["tenant_id", "email"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}
