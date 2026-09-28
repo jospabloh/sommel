@@ -1,20 +1,55 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Loader2 } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/components/ui/use-toast';
 
 const SOMMEL_LOGO = 'https://media.base44.com/images/public/6ab41c2a89f592a0eca074d2/068ca3173_Sommel_logo.png';
 
 export default function Onboarding() {
   const { user, checkUserAuth } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Módulo 19/22 (fix 2026-09-28): a person who registered from a Base44
+  // invite email (StaffInvite pending, no account yet at invite time) lands
+  // here with no bar of their own. Before showing "create your bar", check
+  // whether a pending invite is waiting for this exact email and claim it —
+  // that's what actually assigns tenant_id/app_role for that case.
+  const [claiming, setClaiming] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function claim() {
+      try {
+        const res = await base44.functions.invoke('manageStaff', { action: 'claimInvite' });
+        if (cancelled) return;
+        if (res?.data?.claimed) {
+          toast({
+            title: res.data.bar_name ? `Te uniste a ${res.data.bar_name}` : 'Te uniste al bar',
+          });
+          await checkUserAuth();
+          navigate('/mesas', { replace: true });
+          return;
+        }
+      } catch {
+        // Best-effort: if the claim check fails, just fall through to the
+        // "create your bar" form — nothing here is destructive.
+      }
+      if (!cancelled) setClaiming(false);
+    }
+    claim();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -33,6 +68,17 @@ export default function Onboarding() {
       setLoading(false);
     }
   };
+
+  if (claiming) {
+    return (
+      <div className="dark min-h-screen bg-background text-foreground flex items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <p className="text-sm">Buscando invitaciones pendientes…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dark min-h-screen bg-background text-foreground flex items-center justify-center p-6">
@@ -60,6 +106,9 @@ export default function Onboarding() {
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Crear mi bar'}
           </Button>
         </form>
+        <p className="text-xs text-muted-foreground text-center mt-4">
+          ¿Te invitaron? Pide a tu administrador que te invite con este mismo correo.
+        </p>
       </div>
     </div>
   );

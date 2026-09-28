@@ -153,6 +153,28 @@ esa RLS; en vez de eso, `Estacion.jsx` lee `prep_goal_kitchen_min`/
 `prep_goal_bar_min` a través de esta acción, que sirve `ctx.bar` (ya cargado
 con `asServiceRole` en `requireContext`).
 
+### `manageStaff` (standalone, no usa `_guard.ts` — contrato §5, agente Base)
+
+Módulo 19/22 (fix 2026-09-28): `invite` solo asignaba `tenant_id`/`app_role`
+cuando el `User` invitado ya existía. Una persona sin cuenta recibía el
+correo de invitación de Base44, se registraba y llegaba a `/onboarding` sin
+ningún bar. `StaffInvite` (`base44/entities/StaffInvite.jsonc`) es la fila
+que recuerda "este correo va a este bar" hasta que esa cuenta exista;
+`claimInvite` la reclama la primera vez que ese correo inicia sesión.
+
+| action | payload | respuesta | permiso |
+|---|---|---|---|
+| `list` | `{}` | `{ staff: [...], invites: [...] }` — `invites` son las `StaffInvite` `pending` y no vencidas del bar del llamador | bar_admin (o plataforma) |
+| `invite` | `{ email, app_role? }` | `{ ok, invited_existing: bool }` — si el correo ya tiene cuenta sin bar, la asigna directo (`invited_existing: true`); si no existe cuenta, crea/refresca un `StaffInvite` pendiente (`invited_existing: false`) y manda el correo de invitación de Base44 igual. `app_role` (`staff` default, `bar_admin` opcional) solo se concede `bar_admin` si quien invita ya es `bar_admin` de ese bar | bar_admin (o plataforma); 409 `already_in_a_bar` si el correo ya es de otro bar; 402 `read_only` si el bar está `view_only`/`suspended` |
+| `revokeInvite` | `{ invite_id }` | `{ ok }` | bar_admin; 404 `not_found` si el invite no existe o es de otro bar (misma respuesta para no filtrar cuáles ids existen en otros bares) |
+| `claimInvite` | `{}` | `{ ok, claimed: bool, tenant_id?, bar_name?, reason? }` — corre **antes** del gate de bar_admin, cualquier usuario autenticado puede llamarla: es cómo consigue un bar. Busca `StaffInvite` `pending` y no vencidas por el correo **almacenado** de quien llama (releído con `asServiceRole`, nunca del cuerpo), nunca del cuerpo de la petición. Si ya tiene `tenant_id` → `{claimed:false, reason:'already_in_a_bar'}` sin tocar nada. Si hay varias (bares distintos), toma la más reciente y revoca las demás. Sin sesión → 401 `unauthenticated` | ninguno (cualquier usuario autenticado) |
+
+Lógica pura (normalización de correo, elección del invite entre candidatos,
+vencimiento, decisión de refrescar-vs-crear) en
+`base44/functions/manageStaff/_invite_logic.ts` (cero imports, igual que
+`_guard_logic.ts`) — probada en
+`base44/tests/staff_invites_logic_test.ts`.
+
 ## 5. Pantallas y dueño de cada archivo
 
 | Agente | Archivos que posee (nadie más los toca) |
