@@ -7,7 +7,7 @@ import { Users, UserPlus, Mail } from 'lucide-react';
 
 export default function Staff() {
   const { user } = useAuth();
-  const tenantId = user?.data?.tenant_id;
+  const tenantId = user?.tenant_id;
   const [staff, setStaff] = useState(null);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);

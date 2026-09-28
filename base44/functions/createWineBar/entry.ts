@@ -19,10 +19,11 @@ export default async function(req: Request): Promise<Response> {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const svc = base44.asServiceRole;
 
-    // Re-read the stored profile: auth.me()'s .data is not what RLS reads.
+    // Re-read the stored profile: auth.me()'s own copy can be stale — the
+    // SDK returns User rows (and every entity row) flat, so this reads
+    // self.tenant_id directly, never self.data.tenant_id.
     const [self] = await svc.entities.User.filter({ id: user.id });
-    const selfData = self?.data ?? {};
-    if (selfData.tenant_id) {
+    if (self?.tenant_id) {
       return Response.json({ error: 'Ya perteneces a un bar', code: 'already_in_a_bar' }, { status: 409 });
     }
 
@@ -36,7 +37,7 @@ export default async function(req: Request): Promise<Response> {
       name, address, billing_status: 'trial', trial_end_at: trialEndAt, owner_id: user.id
     });
     await svc.entities.User.update(user.id, {
-      data: { ...selfData, tenant_id: bar.id, app_role: 'bar_admin' }
+      tenant_id: bar.id, app_role: 'bar_admin'
     });
     return Response.json({ ok: true, bar_id: bar.id });
   } catch (error) {

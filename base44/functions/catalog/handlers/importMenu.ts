@@ -47,9 +47,9 @@ export async function importMenu(ctx: Ctx, body: any) {
   const categoryIdByKey = new Map<string, string>();
   const categoryStationDefaultByKey = new Map<string, string>();
   for (const row of existingCategories) {
-    const key = normalizeCategoryKey(row.data?.name);
+    const key = normalizeCategoryKey(row.name);
     categoryIdByKey.set(key, row.id);
-    categoryStationDefaultByKey.set(key, row.data?.station_default ?? 'none');
+    categoryStationDefaultByKey.set(key, row.station_default ?? 'none');
   }
 
   for (const rawCat of menu.categories) {
@@ -84,12 +84,12 @@ export async function importMenu(ctx: Ctx, body: any) {
   // ---- Products ----
   const existingProducts = await ctx.svc.entities.Product.filter({ tenant_id: tenantId });
   const categoryNameById = new Map<string, string>(
-    existingCategories.map((c: any) => [c.id, c.data?.name ?? ''])
+    existingCategories.map((c: any) => [c.id, c.name ?? ''])
   );
   const existingProductKeys = new Set<string>();
   for (const row of existingProducts) {
-    const categoryName = categoryNameById.get(row.data?.category_id) ?? '';
-    existingProductKeys.add(productImportKey(categoryName, row.data?.name));
+    const categoryName = categoryNameById.get(row.category_id) ?? '';
+    existingProductKeys.add(productImportKey(categoryName, row.name));
   }
 
   for (const rawProd of menu.products) {

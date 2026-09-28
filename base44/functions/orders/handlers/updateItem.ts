@@ -9,15 +9,15 @@ import { recomputeOrderTotals } from './_shared.ts';
 
 export const updateItem: Route = async (ctx: Ctx, body: any) => {
   const item = await loadOwned(ctx, 'OrderItem', body?.item_id);
-  const order = await loadOwned(ctx, 'Order', item.data?.order_id);
+  const order = await loadOwned(ctx, 'Order', item.order_id);
 
   await requirePermission(ctx, 'Comandas:tomar');
   requireWritable(ctx);
 
-  if (!isOrderOpen(order.data?.status)) {
+  if (!isOrderOpen(order.status)) {
     httpError(409, 'order_closed', 'Esta comanda ya no está abierta');
   }
-  if (!canEditItem(item.data?.status)) {
+  if (!canEditItem(item.status)) {
     httpError(409, 'already_sent', 'Este renglón ya fue enviado a cocina/barra');
   }
 
@@ -33,9 +33,9 @@ export const updateItem: Route = async (ctx: Ctx, body: any) => {
   }
 
   if (body?.modifiers !== undefined) {
-    const product = await loadOwned(ctx, 'Product', item.data?.product_id);
+    const product = await loadOwned(ctx, 'Product', item.product_id);
     try {
-      patch.modifiers = resolveModifiers(product.data?.modifiers, body.modifiers);
+      patch.modifiers = resolveModifiers(product.modifiers, body.modifiers);
     } catch (err) {
       if (err instanceof LogicError) throw new HttpError(400, err.code, err.message);
       throw err;

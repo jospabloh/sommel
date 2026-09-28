@@ -12,12 +12,12 @@ import { recomputeOrderTotals } from './_shared.ts';
 
 export const cancelItem: Route = async (ctx: Ctx, body: any) => {
   const item = await loadOwned(ctx, 'OrderItem', body?.item_id);
-  const order = await loadOwned(ctx, 'Order', item.data?.order_id);
+  const order = await loadOwned(ctx, 'Order', item.order_id);
 
   await requirePermission(ctx, 'Comandas:cancelar_enviado');
   requireWritable(ctx);
 
-  if (!isOrderOpen(order.data?.status)) {
+  if (!isOrderOpen(order.status)) {
     httpError(409, 'order_closed', 'Esta comanda ya no está abierta');
   }
 
@@ -29,7 +29,7 @@ export const cancelItem: Route = async (ctx: Ctx, body: any) => {
     throw err;
   }
 
-  if (!canCancelItem(item.data?.status)) {
+  if (!canCancelItem(item.status)) {
     httpError(409, 'invalid_status', 'Solo se puede cancelar un renglón ya enviado');
   }
 
@@ -40,7 +40,7 @@ export const cancelItem: Route = async (ctx: Ctx, body: any) => {
     prepared: !!body?.prepared,
   });
 
-  await recomputeOrderTotals(ctx, item.data.order_id);
+  await recomputeOrderTotals(ctx, item.order_id);
 
   return { item: updated };
 };

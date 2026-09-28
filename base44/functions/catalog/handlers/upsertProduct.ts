@@ -28,17 +28,17 @@ export async function upsertProduct(ctx: Ctx, body: any) {
 
   const categoryId = typeof body?.category_id === 'string' && body.category_id
     ? body.category_id
-    : existing?.data?.category_id;
+    : existing?.category_id;
   if (!categoryId) throw httpError(400, 'invalid_body', 'La categoría es obligatoria');
   // loadOwned also confirms the category belongs to this same tenant.
   const category = await loadOwned(ctx, 'Category', categoryId);
 
   const canSeeCosts = await hasPermission(ctx, 'Menú:ver_costos');
 
-  const fields = normalizeProductFields(body, category.data?.station_default, existing);
-  const storedCost = existing?.data?.cost ?? null;
+  const fields = normalizeProductFields(body, category.station_default, existing);
+  const storedCost = existing?.cost ?? null;
   const cost = applyCost(body, canSeeCosts, storedCost);
-  const variants = applyVariantCosts(fields.variants, canSeeCosts, existing?.data?.variants);
+  const variants = applyVariantCosts(fields.variants, canSeeCosts, existing?.variants);
 
   const error = validateProduct(fields, cost, variants);
   if (error) throw httpError(400, 'invalid_body', error);
@@ -50,7 +50,7 @@ export async function upsertProduct(ctx: Ctx, body: any) {
   // platform admin edited it. On create, ctx.tenantId IS the right value
   // (there is no existing row to inherit from).
   const payload = {
-    tenant_id: existing ? existing.data?.tenant_id : ctx.tenantId,
+    tenant_id: existing ? existing.tenant_id : ctx.tenantId,
     name: fields.name,
     category_id: categoryId,
     station: fields.station,

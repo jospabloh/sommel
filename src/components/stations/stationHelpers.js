@@ -21,11 +21,14 @@ export const STATION_TITLES = {
 export const STATIONS = ['kitchen', 'bar'];
 
 /**
- * Base44 rows come back as `{ id, data: {...}, created_date, updated_date }`
- * from direct entity reads and `subscribe()` events alike; `stations`'s own
- * Safe-function responses (markReady/markDelivered/undoReady) return the raw
- * `OrderItem` row the same nested way (see the handlers — they hand back
- * whatever `ctx.svc.entities.OrderItem.update()` returns, unflattened).
+ * Base44 rows come back FLAT from the SDK — `{ id, created_date,
+ * updated_date, ...fields }` — from direct entity reads, `subscribe()`
+ * events, and `stations`'s own Safe-function responses
+ * (markReady/markDelivered/undoReady, which hand back whatever
+ * `ctx.svc.entities.OrderItem.update()` returns) alike (confirmed
+ * 2026-09-28, see `src/components/orders/helpers.js`'s own comment for the
+ * evidence). `flattenRow` is kept only as a defensive no-op/copy for the old
+ * nested `{id, data:{...}}` shape, which no real caller here produces.
  */
 export function flattenRow(row) {
   if (!row) return null;

@@ -14,21 +14,21 @@ export const moveTable: Route = async (ctx: Ctx, body: any) => {
   await requirePermission(ctx, 'Comandas:mover_mesas');
   requireWritable(ctx);
 
-  if (!isOrderOpen(order.data?.status)) {
+  if (!isOrderOpen(order.status)) {
     httpError(409, 'order_closed', 'Esta comanda ya no está abierta');
   }
 
-  const currentTableIds: string[] = order.data?.table_ids ?? [];
+  const currentTableIds: string[] = order.table_ids ?? [];
   if (currentTableIds.includes(toTableId)) {
     // Already there (e.g. a retried request) — idempotent no-op.
     return { order };
   }
 
-  if (toTable.data?.status === 'occupied') {
+  if (toTable.status === 'occupied') {
     // Same structured order_id as orders.open (fixed 2026-09-28), so the
     // client can offer to jump to the order actually occupying it.
     const openOrders = await ctx.svc.entities.Order.filter({ tenant_id: ctx.tenantId, status: 'abierta' });
-    const existing = openOrders.find((o: any) => (o.data?.table_ids ?? []).includes(toTableId));
+    const existing = openOrders.find((o: any) => (o.table_ids ?? []).includes(toTableId));
     httpError(
       409,
       'table_busy',

@@ -26,7 +26,7 @@ export const markDelivered: Route = async (ctx: Ctx, body: any) => {
 
   const result: any[] = [];
   for (const item of items) {
-    const status = item.data?.status;
+    const status = item.status;
     if (!canMarkDelivered(status)) continue;
     if (isAlreadyDelivered(status)) {
       result.push(item);

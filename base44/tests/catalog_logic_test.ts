@@ -57,8 +57,8 @@ Deno.test('resolveStation: garbage input and garbage category default both fall 
 
 // ---- shapeRow ----
 
-Deno.test('shapeRow: flattens data.* alongside id/created_date/updated_date', () => {
-  const row = { id: 'abc', created_date: '2026-01-01', updated_date: '2026-01-02', data: { name: 'Tinto', sort: 10 } };
+Deno.test('shapeRow: copies a flat row as-is (the SDK returns rows flat, not {id, data:{...}})', () => {
+  const row = { id: 'abc', created_date: '2026-01-01', updated_date: '2026-01-02', name: 'Tinto', sort: 10 };
   assertEquals(shapeRow(row), { id: 'abc', created_date: '2026-01-01', updated_date: '2026-01-02', name: 'Tinto', sort: 10 });
 });
 
@@ -73,10 +73,19 @@ Deno.test('normalizeCategoryInput: fills defaults on create', () => {
   assertEquals(fields, { name: 'Tapas', sort: 0, station_default: 'none' });
 });
 
-Deno.test('normalizeCategoryInput: on update, an omitted field keeps the stored value', () => {
-  const existing = { data: { name: 'Tapas', sort: 70, station_default: 'kitchen' } };
+Deno.test('normalizeCategoryInput: on update, an omitted field keeps the stored value (flat row)', () => {
+  const existing = { id: 'x', name: 'Tapas', sort: 70, station_default: 'kitchen' };
   const fields = normalizeCategoryInput({ id: 'x', sort: 80 }, existing);
   assertEquals(fields, { name: 'Tapas', sort: 80, station_default: 'kitchen' });
+});
+
+Deno.test('normalizeCategoryInput: a flat row is read directly, NOT via existing.data (would silently lose the stored name/station_default)', () => {
+  const existing = { id: 'x', name: 'Tapas', sort: 70, station_default: 'kitchen' };
+  // Same fixture read the old (wrong) way would see undefined for name/station_default.
+  const wrongWay = (existing as any).data ?? {};
+  assert(wrongWay.name === undefined, 'sanity check: the old .data read finds nothing on a flat row');
+  const fields = normalizeCategoryInput({ id: 'x' }, existing);
+  assertEquals(fields, { name: 'Tapas', sort: 70, station_default: 'kitchen' });
 });
 
 Deno.test('validateCategory: empty name is rejected', () => {
@@ -111,17 +120,16 @@ Deno.test('normalizeProductFields: create fills sensible defaults, inherits stat
   assertEquals(fields, { name: 'Terracota', station: 'bar', price: 9000, variants: [], modifiers: [], active: true, seasonal: false });
 });
 
-Deno.test('normalizeProductFields: update with a partial body keeps everything else stored', () => {
+Deno.test('normalizeProductFields: update with a partial body keeps everything else stored (flat row)', () => {
   const existing = {
-    data: {
-      name: '4 Estaciones',
-      station: 'kitchen',
-      price: 0,
-      variants: [{ key: 'chico', label: 'Chico', price: 65000, cost: null }],
-      modifiers: [],
-      active: true,
-      seasonal: false,
-    },
+    id: 'p1',
+    name: '4 Estaciones',
+    station: 'kitchen',
+    price: 0,
+    variants: [{ key: 'chico', label: 'Chico', price: 65000, cost: null }],
+    modifiers: [],
+    active: true,
+    seasonal: false,
   };
   const fields = normalizeProductFields({ id: 'p1', active: false }, 'kitchen', existing);
   assertEquals(fields, {
@@ -266,19 +274,19 @@ Deno.test('stripProductCosts: a product with no variants array passes through un
 // ---- End-to-end: a caller without ver_costos never receives cost, and
 // cannot overwrite it either (the exact scenario the contract calls out). ----
 
-Deno.test('end-to-end: staff without ver_costos edits a product — cost is preserved server-side AND never returned', () => {
-  const existing = { data: { name: 'Malbec', category_id: 'cat1', station: 'bar', price: 50000, cost: 25000, variants: [], modifiers: [], active: true, seasonal: false } };
+Deno.test('end-to-end: staff without ver_costos edits a product — cost is preserved server-side AND never returned (flat row)', () => {
+  const existing = { id: 'prod1', name: 'Malbec', category_id: 'cat1', station: 'bar', price: 50000, cost: 25000, variants: [], modifiers: [], active: true, seasonal: false };
   const body = { id: 'prod1', price: 55000, cost: 1 }; // staff tries to smuggle cost: 1
   const canSeeCosts = false;
 
   const fields = normalizeProductFields(body, 'bar', existing);
-  const cost = applyCost(body, canSeeCosts, existing.data.cost);
-  const variants = applyVariantCosts(fields.variants, canSeeCosts, existing.data.variants);
+  const cost = applyCost(body, canSeeCosts, existing.cost);
+  const variants = applyVariantCosts(fields.variants, canSeeCosts, existing.variants);
   const error = validateProduct(fields, cost, variants);
   assertEquals(error, null);
   assertEquals(cost, 25000, 'the smuggled cost:1 must never be written');
 
-  const writtenRow = { id: 'prod1', data: { ...existing.data, ...fields, cost } };
+  const writtenRow = { ...existing, ...fields, cost, id: 'prod1' };
   const responseShape = stripProductCosts(shapeRow(writtenRow));
   assert(!Object.prototype.hasOwnProperty.call(responseShape, 'cost'), 'response must never carry cost for this caller');
   assertEquals(responseShape.price, 55000, 'the legitimate price edit still goes through');

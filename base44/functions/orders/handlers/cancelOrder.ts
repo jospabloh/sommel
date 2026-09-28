@@ -19,7 +19,7 @@ export const cancelOrder: Route = async (ctx: Ctx, body: any) => {
     throw err;
   }
 
-  if (!isOrderOpen(order.data?.status)) {
+  if (!isOrderOpen(order.status)) {
     httpError(409, 'order_closed', 'Esta comanda ya no está abierta');
   }
 
@@ -32,13 +32,13 @@ export const cancelOrder: Route = async (ctx: Ctx, body: any) => {
 
   const items = await ctx.svc.entities.OrderItem.filter({ order_id: order.id });
   for (const item of items) {
-    if (item.data?.status === 'cancelado') continue;
+    if (item.status === 'cancelado') continue;
     // Only 'listo'/'entregado' lines were actually prepared (fixed
     // 2026-09-28): canCancelItem also returns true for 'enviado' (just sent,
     // never touched by the kitchen/bar), which used to be miscounted as
     // prepared here and would overstate merma once Entrega 2 reads
     // `prepared` for waste reporting.
-    const wasPrepared = item.data?.status === 'listo' || item.data?.status === 'entregado';
+    const wasPrepared = item.status === 'listo' || item.status === 'entregado';
     await ctx.svc.entities.OrderItem.update(item.id, {
       status: 'cancelado',
       cancel_reason: reason,
@@ -51,7 +51,7 @@ export const cancelOrder: Route = async (ctx: Ctx, body: any) => {
   // order without changing its `type`, so gating this on `type === 'mesa'`
   // left that table permanently 'occupied' with no open order pointing at
   // it — unusable until an admin deleted and recreated it.
-  for (const tableId of order.data?.table_ids ?? []) {
+  for (const tableId of order.table_ids ?? []) {
     await ctx.svc.entities.BarTable.update(tableId, { status: 'available' });
   }
 

@@ -12,7 +12,7 @@ export const deleteTable: Route = async (ctx: Ctx, body: any) => {
   requireWritable(ctx);
 
   const openOrders = await ctx.svc.entities.Order.filter({ tenant_id: ctx.tenantId, status: 'abierta' });
-  const inUse = openOrders.some((o: any) => (o.data?.table_ids ?? []).includes(table.id));
+  const inUse = openOrders.some((o: any) => (o.table_ids ?? []).includes(table.id));
   if (inUse) {
     httpError(409, 'table_busy', 'Esta mesa tiene una comanda abierta');
   }

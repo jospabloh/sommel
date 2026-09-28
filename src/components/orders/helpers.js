@@ -4,18 +4,16 @@
 // the server computes subtotal/discount/tip/total).
 
 /**
- * Base44 rows returned by direct entity reads (`filter`/`get`/`create`) AND
- * by every `orders`/`catalog` Safe-function response come back as
- * `{ id, data: {...fields}, created_date, updated_date }` — confirmed
- * against `src/pages/SuperAdmin.jsx` (`b.data.name`) and against the
- * `orders` handlers themselves (`order.data?.status`). `catalog`'s
- * `listProducts`/`upsertProduct`/`upsertCategory` are the one exception:
- * they call `shapeRow()` server-side and already return flattened
- * `{ id, ...fields }` objects. `flattenRow` normalizes the nested shape so
- * every component in this directory can read fields the same way
- * regardless of which side produced the row (including realtime
- * `subscribe()` events, whose payload shape isn't spelled out beyond "the
- * entity data after the change" — defensive either way).
+ * Base44 rows returned by direct entity reads (`filter`/`get`/`create`), by
+ * every `orders`/`catalog` Safe-function response, and by `catalog`'s own
+ * server-side `shapeRow()` are ALL already flat: `{ id, created_date,
+ * updated_date, ...fields }` (confirmed 2026-09-28 against the SDK's own
+ * `EntityRecord` type and against StockFlow in production, which reads
+ * `record.business_id` — never `record.data.business_id` — 400+ times). The
+ * `data.` prefix exists only inside RLS rule JSON, never on a row the SDK
+ * hands back. `flattenRow` is kept only as a defensive no-op/copy — it
+ * tolerates the old nested `{id, data:{...}}` shape if it were ever seen
+ * again, but every real caller today already gets a flat row.
  */
 export function flattenRow(row) {
   if (!row) return null;
@@ -27,11 +25,10 @@ export function flattenRow(row) {
 
 /**
  * Normalizes a `RealtimeEvent` from `base44.entities.X.subscribe()` into the
- * same flat `{ id, ...fields }` shape `flattenRow` produces. The SDK's own
- * types only promise `event.data` is "the entity data after the change" and
- * `event.id` is always the affected row's id — whether `event.data` itself
- * arrives nested (`{id, data:{...}}`, like every other read) or already flat
- * isn't spelled out, so this handles both and always falls back to
+ * same flat `{ id, ...fields }` shape `flattenRow` produces. The SDK passes
+ * `{ type, data, id }` where `data` IS already the flat record (e.g.
+ * `event.data.status` reads directly) — `flattenRow` is still run over it
+ * defensively (see its own comment), and this always falls back to
  * `event.id` when `data` doesn't carry its own id (e.g. a `delete` event).
  */
 export function flattenEvent(evt) {

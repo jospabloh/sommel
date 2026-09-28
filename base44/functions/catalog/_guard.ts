@@ -16,6 +16,7 @@ import {
   PERMISSION_DEFAULTS,
   resolvePermission,
   isBlockedBillingStatus,
+  rowBelongsToTenant,
   HttpError,
   isValidCents,
   sumCents,
@@ -69,8 +70,8 @@ export async function requireContext(
   const [self] = await svc.entities.User.filter({ id: user.id });
   if (!self) throw new HttpError(401, 'unauthorized', 'Usuario no encontrado');
 
-  const tenantId: string | null = self.data?.tenant_id ?? null;
-  const appRole: AppRole | null = self.data?.app_role ?? null;
+  const tenantId: string | null = self.tenant_id ?? null;
+  const appRole: AppRole | null = self.app_role ?? null;
   // Fixed 2026-09-28: derive isPlatform from the freshly re-read `self` row,
   // not `user` (auth.me()'s own payload) — this function's whole point,
   // stated in its own comment above, is to never trust auth.me() for an
@@ -106,7 +107,7 @@ export async function hasPermission(ctx: Ctx, key: string): Promise<boolean> {
       tenant_id: ctx.tenantId,
       role: ctx.appRole,
     });
-    overrides = profile?.data?.overrides;
+    overrides = profile?.overrides;
   }
   return resolvePermission(key, { isPlatform: ctx.isPlatform, appRole: ctx.appRole, overrides });
 }
@@ -122,7 +123,7 @@ export async function requirePermission(ctx: Ctx, key: string): Promise<void> {
  * blocked here — there is nothing to gate against.
  */
 export function requireWritable(ctx: Ctx): void {
-  const status = ctx.bar?.data?.billing_status;
+  const status = ctx.bar?.billing_status;
   if (isBlockedBillingStatus(status)) {
     throw new HttpError(402, 'read_only', 'El bar está en modo solo lectura o suspendido');
   }
@@ -141,7 +142,7 @@ export async function loadOwned(ctx: Ctx, entity: string, id: string): Promise<a
   if (!entityClient) throw new HttpError(500, 'internal_error', `Entidad desconocida: ${entity}`);
   const [row] = await entityClient.filter({ id });
   if (!row) throw new HttpError(404, 'not_found', 'No encontrado');
-  if (!ctx.isPlatform && row.data?.tenant_id !== ctx.tenantId) {
+  if (!rowBelongsToTenant(row, ctx.tenantId, ctx.isPlatform)) {
     throw new HttpError(404, 'not_found', 'No encontrado');
   }
   return row;

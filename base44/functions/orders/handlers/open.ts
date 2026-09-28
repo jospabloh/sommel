@@ -27,11 +27,11 @@ export const open: Route = async (ctx: Ctx, body: any) => {
   await requirePermission(ctx, 'Comandas:tomar');
   requireWritable(ctx);
 
-  if (type === 'mesa' && table.data?.status === 'occupied') {
+  if (type === 'mesa' && table.status === 'occupied') {
     // Find the order that actually occupies it, so the client can jump there
     // instead of dead-ending on a plain "busy" message.
     const openOrders = await ctx.svc.entities.Order.filter({ tenant_id: ctx.tenantId, status: 'abierta' });
-    const existing = openOrders.find((o: any) => (o.data?.table_ids ?? []).includes(table.id));
+    const existing = openOrders.find((o: any) => (o.table_ids ?? []).includes(table.id));
     // Fixed 2026-09-28: _guard.ts's HttpError now carries an optional
     // `extra` object that handle() spreads into the JSON body, so the
     // existing order's id travels structured (`{ order_id }`) instead of

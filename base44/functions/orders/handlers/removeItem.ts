@@ -7,15 +7,15 @@ import { recomputeOrderTotals } from './_shared.ts';
 
 export const removeItem: Route = async (ctx: Ctx, body: any) => {
   const item = await loadOwned(ctx, 'OrderItem', body?.item_id);
-  const order = await loadOwned(ctx, 'Order', item.data?.order_id);
+  const order = await loadOwned(ctx, 'Order', item.order_id);
 
   await requirePermission(ctx, 'Comandas:tomar');
   requireWritable(ctx);
 
-  if (!isOrderOpen(order.data?.status)) {
+  if (!isOrderOpen(order.status)) {
     httpError(409, 'order_closed', 'Esta comanda ya no está abierta');
   }
-  if (!canEditItem(item.data?.status)) {
+  if (!canEditItem(item.status)) {
     httpError(409, 'already_sent', 'Este renglón ya fue enviado a cocina/barra');
   }
 

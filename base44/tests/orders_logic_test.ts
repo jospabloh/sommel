@@ -38,6 +38,31 @@ function assertThrowsCode(fn: () => unknown, code: string) {
   throw new Error('expected function to throw');
 }
 
+// ---- resolveItemPricing takes the Product row exactly as `loadOwned`
+// returns it — flat (id, ...fields), never {id, data:{...fields}}. Fixed
+// 2026-09-28: a handler that regressed to reading `product.data` before
+// calling this (or passing `product.data` itself) would hand `active`,
+// `price`, `variants`... all as `undefined`. ----
+
+Deno.test('resolveItemPricing: a FLAT product row (as loadOwned actually returns it) prices correctly', () => {
+  const flatRow = { id: 'p1', tenant_id: 'bar_a', name: 'Copa de la casa', price: 8000, cost: 3000, active: true };
+  const result = resolveItemPricing(flatRow as any, {});
+  assertEquals(result.unit_price, 8000);
+  assertEquals(result.unit_cost, 3000);
+});
+
+Deno.test('resolveItemPricing: a WRONGLY-NESTED product row ({id, data:{...}}) silently mis-prices — every field reads undefined instead of 404ing loudly', () => {
+  // Same product's real fields, but shaped the old (wrong) way. If a
+  // handler regressed to `product.data?.x` reads (or passed `product.data`
+  // itself), this is the object it would end up passing to
+  // resolveItemPricing by mistake — worse than a crash, it would freeze a
+  // real order line at price 0 with no name, instead of failing loudly.
+  const wronglyNestedRow: any = { id: 'p1', data: { name: 'Copa de la casa', price: 8000, cost: 3000, active: true } };
+  const result = resolveItemPricing(wronglyNestedRow, {});
+  assertEquals(result.name, undefined, 'name must be undefined on the nested shape — proves the bug, not a false pass');
+  assertEquals(result.unit_price, 0, 'price silently falls back to 0 on the nested shape — the exact "free product" risk this fix closes');
+});
+
 // ---- resolveItemPricing: price/cost come from the PRODUCT, never the client ----
 
 Deno.test('resolveItemPricing: simple product uses Product.price/cost, ignores any client price', () => {

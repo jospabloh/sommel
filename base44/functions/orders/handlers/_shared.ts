@@ -14,7 +14,7 @@ import { computeOrderTotals } from './_logic.ts';
 export async function recomputeOrderTotals(ctx: Ctx, orderId: string): Promise<void> {
   const allItems = await ctx.svc.entities.OrderItem.filter({ order_id: orderId });
   const { subtotal, total } = computeOrderTotals(
-    allItems.map((i: any) => ({ status: i.data?.status, unit_price: i.data?.unit_price ?? 0, qty: i.data?.qty ?? 0 }))
+    allItems.map((i: any) => ({ status: i.status, unit_price: i.unit_price ?? 0, qty: i.qty ?? 0 }))
   );
   await ctx.svc.entities.Order.update(orderId, { subtotal, total });
 }

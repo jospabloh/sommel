@@ -11,8 +11,22 @@ entre agentes; si algo no cuadra, se corrige aquí primero.
 - Dinero: **enteros en centavos MXN** en entidades y API. La UI formatea con
   `formatMXN(cents)` de `src/lib/money.js`.
 - Tiempo: ISO-8601 UTC escrito por el servidor (`new Date().toISOString()`).
-- Inquilino: `User.data.tenant_id`; rol del bar: `User.data.app_role`
+- Inquilino: `User.tenant_id`; rol del bar: `User.app_role`
   (`bar_admin` | `staff`). Built-in `role: admin` = dueño de la plataforma.
+- **Forma de los registros (verificado 2026-09-28):** el SDK de Base44
+  devuelve toda fila de entidad **plana** — `{ id, created_date, updated_date,
+  ...campos }`, nunca `{ id, data: {...campos} }` — y `create`/`update`
+  reciben también un objeto plano de campos. Esto vale para `User` igual
+  que para cualquier otra entidad: `User.tenant_id`/`User.app_role` se leen
+  y escriben planos, nunca bajo `.data`. Confirmado contra este mismo app
+  Base44 en vivo, contra el tipo `EntityRecord = EntityTypeRegistry[K] &
+  ServerEntityFields` del propio SDK, y contra StockFlow en producción
+  (`record.business_id` 400+ veces, cero `record.data.business_id`). El
+  prefijo `data.` existe **solo** dentro del JSON de una regla RLS
+  (`"data.tenant_id"`, `{{user.data.tenant_id}}`) — nunca en una fila que el
+  SDK entrega o recibe. `_guard.ts`, los handlers de `catalog`/`orders`/
+  `stations`, y `createWineBar`/`manageStaff` leen y escriben en
+  consecuencia.
 - Ninguna página escribe entidades directo (`base44.entities.X.create/update/delete`
   prohibido en `src/`). Lecturas y `subscribe()` directas sí, salvo `Product`
   para quien no tiene `Menú:ver_costos` (usar `catalog.listProducts`).

@@ -38,7 +38,7 @@ const STAFF_ITEMS = [
 
 function navFor(user) {
   const isPlatformAdmin = user?.role === 'admin';
-  const appRole = user?.data?.app_role;
+  const appRole = user?.app_role;
   if (isPlatformAdmin) {
     return [{ label: 'Plataforma', to: '/super-admin', icon: Building2 }, ...BASE_ITEMS];
   }

@@ -90,7 +90,7 @@ export default function Orden() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { can } = usePermission();
-  const tenantId = user?.data?.tenant_id ?? null;
+  const tenantId = user?.tenant_id ?? null;
 
   const isNew = orderId === 'nueva';
   const { order, items, loading, notFound, reload, setItems } = useOrderRealtime(orderId);

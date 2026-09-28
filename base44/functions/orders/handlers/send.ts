@@ -10,12 +10,12 @@ export const send: Route = async (ctx: Ctx, body: any) => {
   await requirePermission(ctx, 'Comandas:tomar');
   requireWritable(ctx);
 
-  if (!isOrderOpen(order.data?.status)) {
+  if (!isOrderOpen(order.status)) {
     httpError(409, 'order_closed', 'Esta comanda ya no está abierta');
   }
 
   const items = await ctx.svc.entities.OrderItem.filter({ order_id: order.id });
-  const toSend = items.filter((i: any) => canSendItem(i.data?.status));
+  const toSend = items.filter((i: any) => canSendItem(i.status));
 
   const now = new Date().toISOString();
   const sent: any[] = [];

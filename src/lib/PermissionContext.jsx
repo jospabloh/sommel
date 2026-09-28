@@ -18,8 +18,8 @@ export const PermissionContext = createContext({
 export function PermissionProvider({ children }) {
   const { user } = useAuth();
   const isPlatform = user?.role === 'admin';
-  const appRole = user?.data?.app_role ?? null;
-  const tenantId = user?.data?.tenant_id ?? null;
+  const appRole = user?.app_role ?? null;
+  const tenantId = user?.tenant_id ?? null;
   const [overrides, setOverrides] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +41,7 @@ export function PermissionProvider({ children }) {
           tenant_id: tenantId,
           role: appRole,
         });
-        if (!cancelled) setOverrides(profile?.data?.overrides || null);
+        if (!cancelled) setOverrides(profile?.overrides || null);
       } catch {
         if (!cancelled) setOverrides(null);
       } finally {

@@ -16,7 +16,7 @@ export const mergeOrders: Route = async (ctx: Ctx, body: any) => {
   if (intoOrder.id === fromOrder.id) {
     httpError(400, 'same_order', 'No puedes unir una comanda consigo misma');
   }
-  if (!isOrderOpen(intoOrder.data?.status) || !isOrderOpen(fromOrder.data?.status)) {
+  if (!isOrderOpen(intoOrder.status) || !isOrderOpen(fromOrder.status)) {
     httpError(409, 'order_closed', 'Ambas comandas deben estar abiertas para unirlas');
   }
 
@@ -27,7 +27,7 @@ export const mergeOrders: Route = async (ctx: Ctx, body: any) => {
     await ctx.svc.entities.OrderItem.update(item.id, { order_id: intoOrder.id });
   }
 
-  const mergedTableIds = mergeTableIds(intoOrder.data?.table_ids, fromOrder.data?.table_ids);
+  const mergedTableIds = mergeTableIds(intoOrder.table_ids, fromOrder.table_ids);
   // Every table now covered by `intoOrder` stays/becomes occupied; the ones
   // that were exclusive to `fromOrder` are already 'occupied' and remain so
   // (they're still in use, just under the surviving order now).

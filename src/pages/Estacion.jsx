@@ -34,7 +34,7 @@ export default function Estacion() {
   const { station } = useParams();
   const { user } = useAuth();
   const { can } = usePermission();
-  const tenantId = user?.data?.tenant_id ?? null;
+  const tenantId = user?.tenant_id ?? null;
   const canOperate = can('Estaciones:operar');
 
   const [bar, setBar] = useState(null);

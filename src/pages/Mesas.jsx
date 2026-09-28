@@ -20,7 +20,7 @@ export default function Mesas() {
   const { user } = useAuth();
   const { can } = usePermission();
   const navigate = useNavigate();
-  const tenantId = user?.data?.tenant_id ?? null;
+  const tenantId = user?.tenant_id ?? null;
 
   const [tables, setTables] = useState([]);
   const [openOrders, setOpenOrders] = useState([]);

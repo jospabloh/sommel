@@ -31,7 +31,7 @@ export const markReady: Route = async (ctx: Ctx, body: any) => {
   const now = new Date().toISOString();
   const result: any[] = [];
   for (const item of items) {
-    const status = item.data?.status;
+    const status = item.status;
     if (!canMarkReady(status)) continue;
     if (isAlreadyReady(status)) {
       result.push(item);

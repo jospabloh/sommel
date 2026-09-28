@@ -9,7 +9,7 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
   await requirePermission(ctx, 'Comandas:tomar');
   requireWritable(ctx);
 
-  if (!isOrderOpen(order.data?.status)) {
+  if (!isOrderOpen(order.status)) {
     httpError(409, 'order_closed', 'Esta comanda ya no está abierta');
   }
 
@@ -26,7 +26,7 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
     const product = await loadOwned(ctx, 'Product', raw.product_id);
     try {
       const qty = validateQty(raw.qty);
-      const pricing = resolveItemPricing(product.data, { variant: raw.variant, modifiers: raw.modifiers });
+      const pricing = resolveItemPricing(product, { variant: raw.variant, modifiers: raw.modifiers });
       resolved.push({
         product_id: raw.product_id,
         qty,
@@ -49,7 +49,7 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
       // a tenant's order: invisible to that bar's own staff under RLS, while
       // still counted in the order's own totals (recomputeOrderTotals reads
       // by order_id, not tenant_id).
-      tenant_id: order.data?.tenant_id,
+      tenant_id: order.tenant_id,
       order_id: order.id,
       product_id: line.product_id,
       variant: line.variant,

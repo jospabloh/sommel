@@ -7,6 +7,7 @@
 import {
   resolvePermission,
   isBlockedBillingStatus,
+  rowBelongsToTenant,
   isValidCents,
   sumCents,
   lineTotalCents,
@@ -81,6 +82,48 @@ Deno.test('PERMISSION_DEFAULTS: every row from the contract has bar_admin=true (
   for (const [key, v] of Object.entries(PERMISSION_DEFAULTS)) {
     if (!v.bar_admin) throw new Error(`${key} should default bar_admin to true per contract §3`);
   }
+});
+
+// ---- rowBelongsToTenant: loadOwned's ownership check, pinned flat (fixed
+// 2026-09-28 — used to read row.data?.tenant_id, always undefined on a real
+// flat row, which made loadOwned 404 on every id for every non-platform
+// caller, including their own bar's own rows). ----
+
+Deno.test('rowBelongsToTenant: a flat row with a matching tenant_id belongs to the caller', () => {
+  const row = { id: 'prod1', tenant_id: 'bar_a', name: 'Malbec' };
+  assertEquals(rowBelongsToTenant(row, 'bar_a', false), true);
+});
+
+Deno.test('rowBelongsToTenant: a flat row with a DIFFERENT tenant_id does not belong (cross-tenant read blocked)', () => {
+  const row = { id: 'prod1', tenant_id: 'bar_b', name: 'Malbec' };
+  assertEquals(rowBelongsToTenant(row, 'bar_a', false), false);
+});
+
+Deno.test('rowBelongsToTenant: reading a nested {data:{tenant_id}} shape (the bug) always fails to match — this is why the fix reads tenant_id flat', () => {
+  // A row shaped the OLD (wrong) way `{ id, data: { tenant_id } }` has no
+  // top-level `tenant_id` at all, so a handler that regressed to
+  // `row.data.tenant_id` would see `undefined` here — this fixture proves
+  // rowBelongsToTenant, reading the flat field, still correctly denies a
+  // genuinely different tenant AND still correctly allows a genuine match
+  // once the row is (as it always is in production) actually flat.
+  const wronglyNestedRow: any = { id: 'prod1', data: { tenant_id: 'bar_a' } };
+  assertEquals(
+    rowBelongsToTenant(wronglyNestedRow, 'bar_a', false),
+    false,
+    'a row with no flat tenant_id must never be treated as belonging to the caller'
+  );
+  const flatRow = { id: 'prod1', tenant_id: 'bar_a' };
+  assertEquals(rowBelongsToTenant(flatRow, 'bar_a', false), true);
+});
+
+Deno.test('rowBelongsToTenant: platform bypasses the tenant check entirely, even for a null/foreign row', () => {
+  assertEquals(rowBelongsToTenant(null, 'bar_a', true), true);
+  assertEquals(rowBelongsToTenant({ id: 'x', tenant_id: 'bar_b' }, 'bar_a', true), true);
+});
+
+Deno.test('rowBelongsToTenant: a missing row never belongs, for a non-platform caller', () => {
+  assertEquals(rowBelongsToTenant(null, 'bar_a', false), false);
+  assertEquals(rowBelongsToTenant(undefined, 'bar_a', false), false);
 });
 
 // ---- billing gate ----

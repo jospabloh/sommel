@@ -40,6 +40,33 @@ function assertThrows(fn: () => unknown, msg?: string) {
   throw new Error(msg || 'expected function to throw');
 }
 
+// ---- markReady.ts/markDelivered.ts/undoReady.ts read `item.status` from
+// the loadOwned row — flat, never `item.data.status`. Fixed 2026-09-28: a
+// row shaped the old (wrong) way `{id, data:{status}}` has no top-level
+// `status` at all, so `canMarkReady`/`canMarkDelivered` would see
+// `undefined` and silently skip every requested item instead of acting on
+// it or failing loudly. Pinned here since the extraction itself is a
+// one-line read inside the (impure) handlers, which `deno test` can't load
+// directly — this fixture proves the flat read is the one that must happen. ----
+
+Deno.test('canMarkReady: a FLAT item row (as loadOwned actually returns it) is read correctly', () => {
+  const flatRow = { id: 'i1', tenant_id: 'bar_a', status: 'enviado' };
+  assert(canMarkReady(flatRow.status), 'a flat row\'s own .status must make canMarkReady eligible');
+});
+
+Deno.test('canMarkReady: a WRONGLY-NESTED item row ({id, data:{status}}) — reading .status flat off it (as the fixed handler does off a REAL row) finds nothing', () => {
+  // This is the inverse fixture: a row shaped the OLD (wrong) way has no
+  // top-level `status` at all. If the handler's flat `item.status` read
+  // were ever pointed at a row like this, canMarkReady would see
+  // `undefined` and silently skip the item (contract §4's "skip rather than
+  // fail the whole batch" now masking a real bug instead of an
+  // intentionally-ineligible line) — which is exactly why the fix confirms
+  // real rows ARE flat (see the sibling test above) rather than reading
+  // `.data.status` to "handle both".
+  const wronglyNestedRow: any = { id: 'i1', data: { status: 'enviado' } };
+  assert(!canMarkReady(wronglyNestedRow.status), 'a flat read off a nested-shaped row must find no eligible status');
+});
+
 // ---- canMarkReady / isAlreadyReady ----
 
 Deno.test('canMarkReady: enviado is eligible', () => {

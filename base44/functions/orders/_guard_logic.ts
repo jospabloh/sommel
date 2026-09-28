@@ -61,6 +61,26 @@ export function isBlockedBillingStatus(billingStatus: string | null | undefined)
   return !!billingStatus && BLOCKED_BILLING_STATUSES.has(billingStatus);
 }
 
+/**
+ * Ownership check used by `_guard.ts`'s `loadOwned`: a row belongs to the
+ * caller's tenant when the caller is platform, or the row's OWN `tenant_id`
+ * (rows come back FLAT from the Base44 SDK — see module 22's note in
+ * `_guard.ts` — never `row.data.tenant_id`) matches `ctx.tenantId`. Pulled
+ * out here, pure, so `deno test` can pin this exact comparison: fixed
+ * 2026-09-28, this used to read `row.data?.tenant_id`, which is `undefined`
+ * on every real (flat) row — for a non-platform caller that made EVERY
+ * row read as belonging to no tenant, so `loadOwned` 404'd on every id
+ * (including the caller's own bar's rows) the moment a real row reached it.
+ */
+export function rowBelongsToTenant(
+  row: ({ tenant_id?: string | null } & Record<string, unknown>) | null | undefined,
+  tenantId: string | null,
+  isPlatform: boolean
+): boolean {
+  if (isPlatform) return true;
+  return !!row && row.tenant_id === tenantId;
+}
+
 // A typed error the router (`handle`) maps to an HTTP response. Deliberately
 // a plain class with no imports, so the pure logic above can throw it too
 // and the unit tests can assert on `.status`/`.code` without touching the

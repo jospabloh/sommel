@@ -20,11 +20,11 @@ export const undoReady: Route = async (ctx: Ctx, body: any) => {
   await requirePermission(ctx, 'Estaciones:operar');
   requireWritable(ctx);
 
-  if (!canUndoReady(item.data?.status)) {
+  if (!canUndoReady(item.status)) {
     httpError(409, 'invalid_status', 'Solo se puede deshacer un renglón marcado listo');
   }
 
-  if (!isWithinUndoWindow(item.data?.ready_at, new Date())) {
+  if (!isWithinUndoWindow(item.ready_at, new Date())) {
     httpError(409, 'too_late', 'Ya pasaron más de 5 minutos desde que se marcó listo');
   }
 

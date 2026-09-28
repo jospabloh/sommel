@@ -58,14 +58,15 @@ export function resolveStation(input: unknown, categoryDefault: unknown): 'kitch
 }
 
 // ---------------------------------------------------------------------------
-// Row shaping — flattens a Base44 row ({ id, data: {...} }) into a plain
-// object the API responds with. Pure: takes/returns plain objects only.
+// Row shaping — the Base44 SDK already returns rows flat ({ id,
+// created_date, updated_date, ...fields }), so this is just a defensive
+// plain-object copy for the API response. Pure: takes/returns plain objects
+// only.
 // ---------------------------------------------------------------------------
 
 export function shapeRow(row: any): any {
   if (!row) return null;
-  const { id, created_date, updated_date, data } = row;
-  return { id, created_date, updated_date, ...(data ?? {}) };
+  return { ...row };
 }
 
 // ---------------------------------------------------------------------------
@@ -79,7 +80,7 @@ export interface CategoryFields {
 }
 
 export function normalizeCategoryInput(body: any, existing?: any): CategoryFields {
-  const existingData = existing?.data ?? {};
+  const existingData = existing ?? {};
   const name = body?.name !== undefined ? str(body.name) : str(existingData.name);
   const sort = body?.sort !== undefined ? (intOrNull(body.sort) ?? 0) : (existingData.sort ?? 0);
   const stationDefaultInput = body?.station_default !== undefined ? body.station_default : existingData.station_default;
@@ -151,7 +152,7 @@ export interface ProductFields {
  * `{ id, active: false }` from `toggleProduct`) never wipes the rest.
  */
 export function normalizeProductFields(body: any, categoryStationDefault: unknown, existing?: any): ProductFields {
-  const existingData = existing?.data ?? {};
+  const existingData = existing ?? {};
   const name = body?.name !== undefined ? str(body.name) : str(existingData.name);
   const stationInput = body?.station !== undefined ? body.station : existingData.station;
   const station = resolveStation(stationInput, categoryStationDefault);
