@@ -3,8 +3,15 @@
   // precio y costo en centavos, variantes (tamaños) con su propio precio y
   // costo, modificadores SIN costo (no afectan la utilidad reportada). El
   // costo nunca debe llegar al navegador de quien no tiene `Menú:ver_costos`
-  // — eso lo hace la función `catalog` (listProducts redacta el costo), no
-  // esta entidad: RLS aquí no distingue campos, solo tenant.
+  // — eso lo hace la función `catalog` (listProducts redacta el costo), pero
+  // RLS no puede distinguir `cost` de `variants[].cost` dentro de este mismo
+  // objeto (un lock de campo no puede aislar un sub-campo de un array), así
+  // que la única forma de que la redacción de `listProducts` sea real y no
+  // solo una convención es que NADIE lea `Product` directo — auditoría
+  // 2026-09-28: confirmado por grep que ningún código de `src/` lee
+  // `Product` directo salvo `SuperAdmin.jsx` (plataforma). `read` queda
+  // bloqueado a la plataforma; el servicio (`asServiceRole`, usado por
+  // `catalog`) evalúa como `role: admin` y sigue leyendo sin problema.
   "name": "Product",
   "type": "object",
   "properties": {
@@ -21,24 +28,25 @@
     "cost": { "type": "integer", "description": "Costo en centavos MXN. Nunca se manda al cliente sin Menú:ver_costos" },
     "variants": {
       "type": "array",
-      "description": "Tamaños del mismo producto (p.ej. copa chica/mediana/grande), cada uno con su propio precio y costo",
+      "description": "Tamaños del mismo producto (p.ej. copa chica/mediana/grande). Con variantes, price/cost del producto se ignoran y cada renglón elige una (contrato §4)",
       "items": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
+          "key": { "type": "string", "description": "Identificador estable de la variante, p.ej. 'chico'" },
+          "label": { "type": "string", "description": "Etiqueta visible, p.ej. 'Chico (2-4 personas)'" },
           "price": { "type": "integer", "description": "Precio de esta variante en centavos MXN" },
-          "cost": { "type": "integer", "description": "Costo de esta variante en centavos MXN" }
+          "cost": { "type": ["integer", "null"], "description": "Costo de esta variante en centavos MXN. Puede ser null (aún no capturado)" }
         }
       }
     },
     "modifiers": {
       "type": "array",
-      "description": "Extras/modificadores del producto. Sin costo a propósito: no afectan la utilidad reportada",
+      "description": "Extras/modificadores del producto: solo key/label, sin precio ni costo — no afectan la utilidad reportada (contrato §4, p.ej. 'En leche')",
       "items": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
-          "price": { "type": "integer", "description": "Precio del modificador en centavos MXN" }
+          "key": { "type": "string", "description": "Identificador estable del modificador, p.ej. 'leche'" },
+          "label": { "type": "string", "description": "Etiqueta visible, p.ej. 'En leche (300 ml)'" }
         }
       }
     },
@@ -54,12 +62,7 @@
   },
   "required": ["tenant_id", "name"],
   "rls": {
-    "read": {
-      "$or": [
-        { "data.tenant_id": "{{user.data.tenant_id}}" },
-        { "user_condition": { "role": "admin" } }
-      ]
-    },
+    "read": { "user_condition": { "role": "admin" } },
     "create": { "user_condition": { "role": "admin" } },
     "update": { "user_condition": { "role": "admin" } },
     "delete": { "user_condition": { "role": "admin" } }

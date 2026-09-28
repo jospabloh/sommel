@@ -143,6 +143,52 @@ Requisitos de UI que vienen de la propuesta y sus pantallas de ejemplo:
 - Todo en español, tema claro y oscuro con los tokens existentes, sin colores
   fijos nuevos.
 
+## 6b. Desviaciones aceptadas contra este documento (revisión 2026-09-28)
+
+Una revisión de dos agentes encontró varios puntos donde el código construido
+se separó de lo escrito arriba. Los que no eran errores se anotan aquí en vez
+de forzar el código a coincidir con una redacción que ya no aplica:
+
+- **`catalog.importMenu` recibe `tenant_id` en el payload**, no solo `menu`/
+  `dry_run` como dice la tabla del §4. Es necesario: quien corre el import es
+  la plataforma (`ctx.isPlatform`, vía `allowNoTenant`), que normalmente no
+  tiene bar propio — no hay otro lugar de donde tomar a qué bar va el menú.
+- **Las respuestas de `orders`/`stations` devuelven filas `{id, data}` sin
+  aplanar**; solo `catalog` aplana server-side (`shapeRow`). `src/components/
+  orders/helpers.js` y `src/components/stations/stationHelpers.js` cada uno
+  trae su propio `flattenRow`/`flattenEvent` — duplicado a propósito (cada
+  agente de UI es dueño de su carpeta, contrato §5), documentado en el
+  comentario de cada copia. No se unifica en esta pasada: cambiar la forma de
+  respuesta de `orders`/`stations` para que coincida con `catalog` es un
+  cambio de contrato con más superficie de la que esta revisión debía tocar.
+- **`orders.cancelOrder` SÍ persiste el motivo** — `Order.cancel_reason`
+  (campo agregado 2026-09-28) — y **`orders.cancelItem`/`cancelOrder`
+  registran quién** vía `OrderItem.cancelled_by` (campo agregado el mismo
+  día), cerrando el "queda registrado quién y por qué" del §3 que antes solo
+  se cumplía a medias.
+- **El 409 `table_busy` de `orders.open`/`orders.moveTable` ahora manda
+  `order_id` estructurado**, no solo dentro del texto del mensaje —
+  `_guard.ts`'s `HttpError` ganó un `extra` opcional que `handle()` mezcla en
+  el cuerpo JSON (scripts/templates/_guard.ts, regenerado a las tres copias).
+- **`Product.variants[].cost` sigue sin un candado de RLS propio** — un lock
+  de campo no puede aislar un sub-campo dentro de un array, así que en vez de
+  eso se bloqueó la lectura de `Product` entero a la plataforma (§1 más
+  abajo, revisado). `variants[].price` (que si necesita llegar a cualquier
+  operador) solo se sirve vía `catalog.listProducts`, nunca por lectura
+  directa — confirmado por grep que nada en `src/` lee `Product` directo
+  salvo `SuperAdmin.jsx` (plataforma).
+- **`SuperAdmin.jsx` escribe `WineBar.billing_status` directo**
+  (`base44.entities.WineBar.update`), lo que a primera vista contradice el
+  "Ninguna página escribe entidades directo" del §1. Es una excepción
+  deliberada: esa página es exclusiva de la plataforma (`user.role ===
+  'admin'`, comprobado tanto en el cliente como por el `rls.write:
+  {role:admin}` del propio campo en `WineBar.jsonc`), pre-existente al
+  prototipo, y el campo que toca ya está bloqueado a ese mismo rol en RLS —
+  no hay bypass posible, solo una redacción del §1 que no contempló páginas
+  de plataforma. El §1 queda así: "Ninguna página del bar escribe entidades
+  directo; páginas exclusivas de la plataforma (SuperAdmin) pueden, siempre
+  que el campo que tocan ya esté bloqueado por RLS al mismo rol."
+
 ## 6. Pruebas y verificación
 
 - Cada API agente escribe lógica pura (cálculos, validaciones, transiciones

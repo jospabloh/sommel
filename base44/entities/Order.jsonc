@@ -18,6 +18,7 @@
     "opened_by": { "type": "string", "description": "Email de quien abrió la comanda" },
     "opened_at": { "type": "string", "format": "date-time" },
     "closed_at": { "type": "string", "format": "date-time" },
+    "cancel_reason": { "type": "string", "description": "Motivo de cancelación de la comanda entera (orders.cancelOrder), separado del cancel_reason por renglón de OrderItem" },
     "subtotal": { "type": "integer", "default": 0, "description": "Suma de los renglones, en centavos MXN. Solo lo escribe el servidor" },
     "discount": { "type": "integer", "default": 0, "description": "Descuento aplicado, en centavos MXN. Solo lo escribe el servidor" },
     "discount_reason": { "type": "string", "description": "Motivo del descuento o cortesía" },

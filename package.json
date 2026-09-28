@@ -13,6 +13,8 @@
     "validate:rls": "node scripts/validate-entity-rls.mjs",
     "validate:functions": "node scripts/validate-functions.mjs",
     "validate:tenant-roles": "node scripts/check-tenant-roles.mjs",
+    "generate:guards": "node scripts/generate-guards.mjs",
+    "check:guards": "node scripts/generate-guards.mjs --check",
     "deploy": "node scripts/base44-deploy.mjs",
     "deploy:site": "node scripts/base44-deploy.mjs --site",
     "deploy:entities": "node scripts/base44-deploy.mjs --entities",

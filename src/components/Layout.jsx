@@ -1,41 +1,59 @@
 import React from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { Wine, ShoppingCart, GlassWater, LayoutGrid, Users, Building2, LogOut } from 'lucide-react';
+import { LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut, Sun, Moon, Monitor } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/lib/useTheme';
+
+// Módulo 12 (fixed 2026-09-28): Sun / Moon / Monitor, cycling light -> dark ->
+// system -> light. Existing tokens only, no new fixed colors.
+const THEME_CYCLE = { light: 'dark', dark: 'system', system: 'light' };
+const THEME_ICON = { light: Sun, dark: Moon, system: Monitor };
+const THEME_LABEL = { light: 'Claro', dark: 'Oscuro', system: 'Sistema' };
 
 const SOMMEL_LOGO = 'https://media.base44.com/images/public/6ab41c2a89f592a0eca074d2/068ca3173_Sommel_logo.png';
 
-const navFor = (user) => {
+// Nav por rol (contrato §5): bar_admin ve Mesas/Menú/Cocina/Barra/Staff;
+// staff solo Mesas/Cocina/Barra (sin editar menú ni gestionar staff); la
+// plataforma conserva /super-admin además de todo lo del bar_admin.
+const BASE_ITEMS = [
+  { label: 'Mesas', to: '/mesas', icon: LayoutGrid },
+  { label: 'Menú', to: '/menu', icon: GlassWater },
+  { label: 'Cocina', to: '/estacion/kitchen', icon: ChefHat },
+  { label: 'Barra', to: '/estacion/bar', icon: Beer },
+  { label: 'Staff', to: '/staff', icon: Users },
+];
+// Fixed 2026-09-28: STAFF_ITEMS used to omit Menú entirely, so staff could
+// only reach /menu by typing the URL — but contract §3's permission table
+// grants staff `Menú:ver` ✓ (read-only; `Menú:editar`/`Menú:ver_costos` stay
+// bar_admin-only, and Menu.jsx already gates editing/costs on those, not on
+// being able to reach the page at all).
+const STAFF_ITEMS = [
+  { label: 'Mesas', to: '/mesas', icon: LayoutGrid },
+  { label: 'Menú', to: '/menu', icon: GlassWater },
+  { label: 'Cocina', to: '/estacion/kitchen', icon: ChefHat },
+  { label: 'Barra', to: '/estacion/bar', icon: Beer },
+];
+
+function navFor(user) {
   const isPlatformAdmin = user?.role === 'admin';
   const appRole = user?.data?.app_role;
   if (isPlatformAdmin) {
-    return [
-      { label: 'Plataforma', to: '/super-admin', icon: Building2 },
-      { label: 'POS', to: '/pos', icon: ShoppingCart },
-      { label: 'Productos', to: '/products', icon: GlassWater },
-      { label: 'Mesas', to: '/tables', icon: LayoutGrid },
-    ];
+    return [{ label: 'Plataforma', to: '/super-admin', icon: Building2 }, ...BASE_ITEMS];
   }
-  if (appRole === 'bar_admin') {
-    return [
-      { label: 'Resumen', to: '/', icon: Wine },
-      { label: 'POS', to: '/pos', icon: ShoppingCart },
-      { label: 'Productos', to: '/products', icon: GlassWater },
-      { label: 'Mesas', to: '/tables', icon: LayoutGrid },
-      { label: 'Staff', to: '/staff', icon: Users },
-    ];
-  }
-  return [
-    { label: 'POS', to: '/pos', icon: ShoppingCart },
-  ];
-};
+  if (appRole === 'bar_admin') return BASE_ITEMS;
+  if (appRole === 'staff') return STAFF_ITEMS;
+  return [];
+}
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { preference, setPreference } = useTheme();
+  // Derivado del pathname en cada render (módulo 23) — nunca de un estado
+  // local que podría desincronizarse de la URL real.
   const items = navFor(user);
 
   const handleLogout = () => {
@@ -43,8 +61,14 @@ export default function Layout() {
     navigate('/login');
   };
 
+  const ThemeIcon = THEME_ICON[preference];
+
   return (
-    <div className="dark min-h-screen bg-background text-foreground flex">
+    // Fixed 2026-09-28: this div used to hardcode `dark`, forcing every
+    // screen dark regardless of device or the person's own choice — the
+    // resolved theme now comes from useTheme()/index.html's pre-mount
+    // script, applied to <html>, not forced here.
+    <div className="min-h-screen bg-background text-foreground flex">
       <aside className="w-20 lg:w-60 shrink-0 border-r border-border bg-sidebar flex flex-col">
         <div className="h-16 flex items-center gap-2 px-4 lg:px-6 border-b border-sidebar-border">
           <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 ring-1 ring-border">
@@ -71,7 +95,16 @@ export default function Layout() {
             );
           })}
         </nav>
-        <div className="p-2 lg:p-3 border-t border-sidebar-border">
+        <div className="p-2 lg:p-3 border-t border-sidebar-border space-y-1">
+          <button
+            type="button"
+            onClick={() => setPreference(THEME_CYCLE[preference])}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+            aria-label={`Tema: ${THEME_LABEL[preference]}. Toca para cambiar.`}
+          >
+            <ThemeIcon className="w-5 h-5 shrink-0" />
+            <span className="hidden lg:block">Tema: {THEME_LABEL[preference]}</span>
+          </button>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"

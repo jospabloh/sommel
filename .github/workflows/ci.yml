@@ -13,3 +13,8 @@ jobs:
       - run: npm run build
       - run: npm run validate:rls
       - run: npm run validate:tenant-roles
+      - run: npm run check:guards
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno test --allow-env base44/tests/

@@ -2,8 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Light/dark theme tokens (module 12, fixed 2026-09-28). Sommel had NO light
+ * theme at all: Layout.jsx hardcoded a `dark` class on its root <div> and
+ * this file only ever defined one (dark) set of values under `:root`, so
+ * every screen rendered dark regardless of device preference — contract §5
+ * ("tema claro y oscuro con los tokens existentes") was unmet.
+ *
+ * Same shape as the rest of the ACACIA portfolio (StockFlow/acaciaco-site's
+ * own CLAUDE.md "Selector de tema" sections): the DARK values below are
+ * exactly what `:root` used to hold, moved under `.dark` unchanged (every
+ * screen that was already tuned against them looks identical in dark mode);
+ * `:root` now holds a real light palette in the same hues (warm terracotta/
+ * wine, per the Sommel brand) rather than reusing the dark numbers inverted,
+ * which tends to produce washed-out or low-contrast UI.
+ *
+ * The class itself is applied by the pre-mount script in index.html (so the
+ * first frame already renders the right color — no flash) and kept in sync
+ * live by src/lib/useTheme.js, which Layout.jsx's toggle button calls. Both
+ * share the same localStorage key/values; each comments at the other.
+ */
 @layer base {
   :root {
+    --background: 30 25% 97%;
+    --foreground: 20 30% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 30% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 30% 12%;
+    --primary: 28 75% 42%;
+    --primary-foreground: 36 30% 98%;
+    --secondary: 30 20% 92%;
+    --secondary-foreground: 20 30% 14%;
+    --muted: 30 18% 92%;
+    --muted-foreground: 20 12% 40%;
+    --accent: 345 55% 42%;
+    --accent-foreground: 36 30% 98%;
+    --destructive: 0 65% 42%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 30 15% 85%;
+    --input: 30 15% 85%;
+    --ring: 28 75% 42%;
+    --chart-1: 28 75% 42%;
+    --chart-2: 345 55% 42%;
+    --chart-3: 173 45% 32%;
+    --chart-4: 197 45% 38%;
+    --chart-5: 27 80% 46%;
+    --radius: 0.75rem;
+    --font-heading: ui-sans-serif, system-ui, sans-serif;
+    --font-body: ui-sans-serif, system-ui, sans-serif;
+    --font-display: ui-sans-serif, system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --sidebar-background: 30 25% 94%;
+    --sidebar-foreground: 20 20% 24%;
+    --sidebar-primary: 28 75% 42%;
+    --sidebar-primary-foreground: 36 30% 98%;
+    --sidebar-accent: 30 20% 88%;
+    --sidebar-accent-foreground: 20 30% 14%;
+    --sidebar-border: 30 15% 84%;
+    --sidebar-ring: 28 75% 42%;
+  }
+
+  /* Unchanged from the original (only ever) :root block — every screen
+     already looks the same in dark mode as before this fix. */
+  .dark {
     --background: 20 30% 6%;
     --foreground: 36 30% 94%;
     --card: 20 25% 9%;
@@ -28,11 +90,6 @@
     --chart-3: 173 40% 45%;
     --chart-4: 197 37% 50%;
     --chart-5: 27 80% 60%;
-    --radius: 0.75rem;
-    --font-heading: ui-sans-serif, system-ui, sans-serif;
-    --font-body: ui-sans-serif, system-ui, sans-serif;
-    --font-display: ui-sans-serif, system-ui, sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     --sidebar-background: 20 28% 7%;
     --sidebar-foreground: 36 20% 80%;
     --sidebar-primary: 38 85% 58%;
