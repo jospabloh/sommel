@@ -245,6 +245,7 @@ Deno.test('buildCorteEmail: HTML, verdict first, figures, comment; no cost words
   has('Contado $785.50');
   has('“Faltó cambio”');
   has('Abrió ana@bar.mx');
+  has('Sommel · by ACACIA Consultoría');
   if (text.indexOf('Faltan $15.00') > text.indexOf('Ventas por forma de pago')) {
     throw new Error('the cash verdict must come before the sales breakdown');
   }

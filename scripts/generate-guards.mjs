@@ -42,6 +42,11 @@ export const TARGET_DIRS = [
 ];
 const COPIED_FILES = ['_guard_logic.ts', '_guard.ts'];
 
+// Function groups that send email get a copy of the shared email layout
+// (scripts/templates/_email.ts). manageStaff is standalone (no _guard.ts),
+// so it is listed here only.
+export const EMAIL_TARGET_DIRS = ['shifts', 'manageStaff'];
+
 const BEGIN_MARK = '// AUTOGEN:PERMISSION_DEFAULTS:BEGIN';
 const END_MARK = '// AUTOGEN:PERMISSION_DEFAULTS:END';
 
@@ -90,6 +95,7 @@ export async function buildExpectedFiles() {
   const rawGuardLogic = readFileSync(join(TEMPLATES_DIR, '_guard_logic.ts'), 'utf8');
   const guardLogic = replaceAutogenBlock(rawGuardLogic, block);
   const guard = readFileSync(join(TEMPLATES_DIR, '_guard.ts'), 'utf8');
+  const email = readFileSync(join(TEMPLATES_DIR, '_email.ts'), 'utf8');
 
   const files = new Map();
   files.set(join(TEMPLATES_DIR, '_guard_logic.ts'), guardLogic);
@@ -98,6 +104,9 @@ export async function buildExpectedFiles() {
     const fnDir = join(FUNCTIONS_DIR, dir);
     files.set(join(fnDir, '_guard_logic.ts'), guardLogic);
     files.set(join(fnDir, '_guard.ts'), guard);
+  }
+  for (const dir of EMAIL_TARGET_DIRS) {
+    files.set(join(FUNCTIONS_DIR, dir, '_email.ts'), email);
   }
   return files;
 }

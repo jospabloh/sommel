@@ -12,7 +12,14 @@ import { toast } from "@/components/ui/use-toast";
 import { safeReturnTo } from "@/lib/authReturnTo";
 
 export default function Register() {
-  const [email, setEmail] = useState("");
+  // Prefilled from the invitation email link (/register?email=...).
+  const [email, setEmail] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("email") || "";
+    } catch {
+      return "";
+    }
+  });
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");

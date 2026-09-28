@@ -6,6 +6,7 @@ import {
   inviteIdsToRevoke,
   shouldRefreshExistingInvite,
 } from './_invite_logic.ts';
+import { buildInviteEmail } from './_invite_email.ts';
 
 // Standalone function (does not use _guard.ts — contrato §5, manageStaff is
 // owned by "Base" and kept self-contained on purpose).
@@ -97,11 +98,28 @@ export default async function(req: Request): Promise<Response> {
       if (existing?.tenant_id && existing.tenant_id !== tenantId) {
         return Response.json({ error: 'Ese usuario ya pertenece a otro bar', code: 'already_in_a_bar' }, { status: 409 });
       }
-      try {
-        await base44.users.inviteUser(email, 'user');
-      } catch (e) {
-        return Response.json({ error: 'No se pudo invitar: ' + (e as Error).message }, { status: 400 });
-      }
+      // Our own invitation email replaces Base44's inviteUser (2026-09-28):
+      // registration is open, so the account doesn't need Base44's invite,
+      // and ours names the bar and who invited. Sent AFTER the access is
+      // recorded; a mail failure never undoes the invite (email_sent: false
+      // tells the UI to share the link another way).
+      const [bar] = await svc.entities.WineBar.filter({ id: tenantId });
+      const sendInvite = async (existingAccount: boolean, expiresAt?: string): Promise<boolean> => {
+        try {
+          const { subject, body: html } = buildInviteEmail({
+            barName: bar?.name || 'tu bar',
+            inviterName: self.full_name || self.email,
+            email,
+            role: requestedRole,
+            existingAccount,
+            expiresAt,
+          });
+          await svc.integrations.Core.SendEmail({ to: email, subject, body: html });
+          return true;
+        } catch (_e) {
+          return false;
+        }
+      };
       // Re-check right before writing: the user may have joined another bar
       // while the invite was in flight. Only an unassigned user is claimed.
       // (Base44 has no conditional update, so a sub-second race remains.)
@@ -113,7 +131,7 @@ export default async function(req: Request): Promise<Response> {
         await svc.entities.User.update(target.id, {
           tenant_id: tenantId, app_role: requestedRole
         });
-        return Response.json({ ok: true, invited_existing: true });
+        return Response.json({ ok: true, invited_existing: true, email_sent: await sendInvite(true) });
       }
 
       // No account yet: remember the invite server-side so claimInvite can
@@ -132,7 +150,7 @@ export default async function(req: Request): Promise<Response> {
           invited_by: self.email, expires_at: expiresAt
         });
       }
-      return Response.json({ ok: true, invited_existing: false });
+      return Response.json({ ok: true, invited_existing: false, email_sent: await sendInvite(false, expiresAt) });
     }
 
     if (action === 'revokeInvite') {
