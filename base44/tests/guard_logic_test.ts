@@ -27,6 +27,7 @@ import {
   localDateString,
   localHour,
   splitEqual,
+  isRateLimitError,
 } from '../../scripts/templates/_guard_logic.ts';
 
 function assertEquals(actual: unknown, expected: unknown, msg?: string) {
@@ -371,4 +372,15 @@ Deno.test('PERMISSION_DEFAULTS: entrega 2 keys and defaults', () => {
   const both = ['Cobro:cobrar', 'Turno:operar', 'Inventario:ver', 'Inventario:merma', 'Impresion:operar'];
   for (const k of admin) assertEquals(PERMISSION_DEFAULTS[k], { bar_admin: true, staff: false }, k);
   for (const k of both) assertEquals(PERMISSION_DEFAULTS[k], { bar_admin: true, staff: true }, k);
+});
+
+// Base44 answered a burst of calls with "Rate limit exceeded"; the bar must
+// see a Spanish "try again" (429), not a 500 in English that reads like a bug.
+Deno.test('isRateLimitError: SDK rate-limit shapes yes, real failures no', () => {
+  assertEquals(isRateLimitError(new Error('Rate limit exceeded')), true);
+  assertEquals(isRateLimitError({ status: 429 }), true);
+  assertEquals(isRateLimitError({ response: { status: 429 } }), true);
+  assertEquals(isRateLimitError(new Error('Authentication required')), false);
+  assertEquals(isRateLimitError({ status: 500 }), false);
+  assertEquals(isRateLimitError(null), false);
 });

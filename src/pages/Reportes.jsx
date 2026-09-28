@@ -89,7 +89,7 @@ export default function Reportes() {
   const showCosts = data && data.costs;
 
   const productColumns = [
-    { key: 'name', label: 'Producto', render: (r) => <span className="font-medium break-words">{r.name}</span> },
+    { key: 'name', label: 'Producto', render: (r) => <span className="font-medium break-all">{r.name}</span> },
     { key: 'qty', label: 'Cant.', align: 'right', render: qtyFmt },
     { key: 'sales', label: 'Ventas', align: 'right', render: money },
   ];

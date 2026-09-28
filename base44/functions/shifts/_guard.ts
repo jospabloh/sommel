@@ -35,6 +35,7 @@ import {
   localDateString,
   localHour,
   splitEqual,
+  isRateLimitError,
   type AppRole,
   type PaymentMethodDef,
 } from './_guard_logic.ts';
@@ -59,6 +60,7 @@ export {
   localDateString,
   localHour,
   splitEqual,
+  isRateLimitError,
 };
 export type { PaymentMethodDef };
 
@@ -232,6 +234,12 @@ export async function handle(req: Request, routes: Record<string, Route>): Promi
       return Response.json(
         { ...(error.extra ?? {}), error: error.message, code: error.code },
         { status: error.status }
+      );
+    }
+    if (isRateLimitError(error)) {
+      return Response.json(
+        { error: 'Hay muchas solicitudes seguidas. Espera unos segundos e intenta de nuevo.', code: 'rate_limited' },
+        { status: 429 }
       );
     }
     const message = error instanceof Error ? error.message : 'Error interno';

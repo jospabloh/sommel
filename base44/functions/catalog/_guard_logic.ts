@@ -96,6 +96,19 @@ export function rowBelongsToTenant(
 // a plain class with no imports, so the pure logic above can throw it too
 // and the unit tests can assert on `.status`/`.code` without touching the
 // network-facing `_guard.ts`.
+/**
+ * True when an error thrown by the Base44 SDK is the platform's rate limit
+ * (seen live 2026-09-28 as a plain "Rate limit exceeded" message). `handle()`
+ * maps it to 429 with a Spanish message instead of a 500 in English.
+ */
+export function isRateLimitError(error: unknown): boolean {
+  const e = error as any;
+  const status = e?.status ?? e?.response?.status;
+  if (status === 429) return true;
+  const message = typeof e?.message === 'string' ? e.message : '';
+  return /rate limit/i.test(message);
+}
+
 export class HttpError extends Error {
   status: number;
   code: string;
