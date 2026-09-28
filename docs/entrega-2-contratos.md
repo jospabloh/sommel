@@ -354,9 +354,9 @@ en verde. No se despliega nada. No se hace commit.
   dos veces); el recálculo de `stock` pagina de a 500 como `inventory`.
 - **`payments.findOpenShift`** toma el turno abierto más VIEJO, igual que `shifts`.
 - **`Orden.jsx`** muestra `order.total` del servidor.
-- **Cierre a ciegas, aceptado como parcial**: `shifts.current` sigue devolviendo
-  `opening_float` (la pantalla del turno lo muestra a quien abrió la caja, que
-  lo capturó) y totales por forma de pago (el contrato los pide). Quien opera
-  el turno puede derivar el esperado en efectivo; el ciego solo evita mostrarlo
-  ni pedirlo. Decisión de producto pendiente con Alby.
+- **Cierre a ciegas, cerrado por el orquestador**: sin `Turno:ver_corte`,
+  `shifts.current` manda `amount: null` en las formas de pago en efectivo y
+  `sales_total: null` (el total permitía despejar el efectivo restando). Se
+  conservan conteos, formas no efectivo, fondo y salidas, que por sí solos no
+  dan el esperado. La pantalla muestra "Se revisa en el corte".
 - No se reimplementó la reversa de inventario al anular un pago (desviación 7 sigue).
