@@ -29,7 +29,17 @@ const TEMPLATES_DIR = join(ROOT, 'scripts', 'templates');
 const FUNCTIONS_DIR = join(ROOT, 'base44', 'functions');
 const REGISTRY_PATH = join(ROOT, 'src', 'lib', 'permissionRegistry.js');
 
-export const TARGET_DIRS = ['catalog', 'orders', 'stations'];
+export const TARGET_DIRS = [
+  'catalog',
+  'orders',
+  'stations',
+  'payments',
+  'shifts',
+  'inventory',
+  'printing',
+  'reports',
+  'settings',
+];
 const COPIED_FILES = ['_guard_logic.ts', '_guard.ts'];
 
 const BEGIN_MARK = '// AUTOGEN:PERMISSION_DEFAULTS:BEGIN';

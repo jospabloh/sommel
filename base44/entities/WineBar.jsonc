@@ -89,6 +89,19 @@
       "items": { "type": "string" },
       "description": "Correos a los que se manda el corte de turno (D11)"
     },
+    "payment_methods": {
+      "type": "array",
+      "description": "Formas de pago del bar (Entrega 2, §0/§5). Vacío = default Efectivo/Tarjeta/Transferencia. Se edita solo por la función settings",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string", "description": "Identificador estable (slug), p.ej. 'vales'" },
+          "label": { "type": "string", "description": "Nombre visible, p.ej. 'Vales'" },
+          "is_cash": { "type": "boolean", "description": "true si es efectivo (pide recibido y calcula cambio)" },
+          "active": { "type": "boolean", "description": "Si se ofrece al cobrar" }
+        }
+      }
+    },
     "prep_goal_kitchen_min": {
       "type": "number",
       "default": 15,

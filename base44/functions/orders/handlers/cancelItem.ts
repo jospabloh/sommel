@@ -8,7 +8,7 @@
 // order could still be cancelled and its totals recomputed.
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCost, type Ctx, type Route } from '../_guard.ts';
 import { LogicError, validateReason, isOrderOpen, canCancelItem } from './_logic.ts';
-import { recomputeOrderTotals } from './_shared.ts';
+import { recomputeOrderTotals, assertTotalCoversPayments } from './_shared.ts';
 
 export const cancelItem: Route = async (ctx: Ctx, body: any) => {
   const item = await loadOwned(ctx, 'OrderItem', body?.item_id);
@@ -32,6 +32,8 @@ export const cancelItem: Route = async (ctx: Ctx, body: any) => {
   if (!canCancelItem(item.status)) {
     httpError(409, 'invalid_status', 'Solo se puede cancelar un renglón ya enviado');
   }
+
+  await assertTotalCoversPayments(ctx, order, item.id);
 
   const updated = await ctx.svc.entities.OrderItem.update(item.id, {
     status: 'cancelado',

@@ -14,7 +14,13 @@
       "description": "Tipo de movimiento"
     },
     "qty": { "type": "number", "description": "Cantidad del movimiento (signo según el tipo)" },
-    "unit_cost": { "type": "integer", "description": "Costo por unidad al momento del movimiento, en centavos MXN" },
+    "unit_cost": {
+      "type": ["integer", "null"],
+      "description": "Costo por unidad al momento del movimiento, en centavos MXN. Bloqueado a la plataforma como OrderItem.unit_cost (D7)",
+      "rls": {
+        "read": { "user_condition": { "role": "admin" } }
+      }
+    },
     "reason": { "type": "string", "description": "Motivo (merma, conteo, devolución...)" },
     "order_item_id": { "type": "string", "description": "OrderItem que originó este movimiento, si aplica" },
     "idempotency_key": { "type": "string", "description": "Llave para no duplicar el mismo movimiento en un reintento" },

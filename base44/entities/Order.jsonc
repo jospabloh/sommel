@@ -22,9 +22,13 @@
     "subtotal": { "type": "integer", "default": 0, "description": "Suma de los renglones, en centavos MXN. Solo lo escribe el servidor" },
     "discount": { "type": "integer", "default": 0, "description": "Descuento aplicado, en centavos MXN. Solo lo escribe el servidor" },
     "discount_reason": { "type": "string", "description": "Motivo del descuento o cortesía" },
+    "discount_pct": { "type": ["number", "null"], "description": "Porcentaje de descuento aplicado, si el descuento se dio en porcentaje. Solo lo escribe el servidor" },
+    "tip_pct": { "type": ["number", "null"], "description": "Porcentaje de propina, si la propina se dio en porcentaje. Solo lo escribe el servidor" },
     "discount_kind": { "type": "string", "enum": ["descuento", "cortesia"], "description": "Una cortesía es un descuento del 100% con motivo (§5)" },
     "tip": { "type": "integer", "default": 0, "description": "Propina, en centavos MXN. Solo lo escribe el servidor" },
     "total": { "type": "integer", "default": 0, "description": "Total a cobrar, en centavos MXN. Solo lo escribe el servidor" },
+    "paid": { "type": "integer", "default": 0, "description": "Suma de pagos vigentes al cerrar la comanda, en centavos MXN. Solo lo escribe el servidor" },
+    "closed_by": { "type": "string", "description": "Email de quien cobró y cerró la comanda" },
     "shift_id": { "type": "string", "description": "Turno (Shift) en el que se abrió esta comanda" }
   },
   "required": ["tenant_id", "type"],

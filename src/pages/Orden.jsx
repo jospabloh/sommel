@@ -4,7 +4,7 @@
 // — esta página nunca escribe `Order`/`OrderItem`/`BarTable` directo.
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Send, MoreVertical, Ban } from 'lucide-react';
+import { ArrowLeft, Plus, Send, MoreVertical, Ban, Wallet } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { usePermission } from '@/lib/usePermission';
@@ -35,6 +35,7 @@ import VariantModifierSheet from '@/components/orders/VariantModifierSheet';
 import OrderLineItem from '@/components/orders/OrderLineItem';
 import CancelItemDialog from '@/components/orders/CancelItemDialog';
 import MoveMergeSheet from '@/components/orders/MoveMergeSheet';
+import CobroPanel from '@/components/payments/CobroPanel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 const REMOVE_UNDO_MS = 4000;
@@ -110,11 +111,13 @@ export default function Orden() {
   const [cancelOrderBusy, setCancelOrderBusy] = useState(false);
   const [rowBusy, setRowBusy] = useState({});
   const [hiddenIds, setHiddenIds] = useState(() => new Set());
+  const [cobroOpen, setCobroOpen] = useState(false);
 
   const canEdit = can('Comandas:tomar');
   const canCancelSent = can('Comandas:cancelar_enviado');
   const canMoveMerge = can('Comandas:mover_mesas');
   const canCancelOrder = can('Comandas:cancelar_orden');
+  const canCobrar = can('Cobro:cobrar');
 
   const loadTablesAndOtherOrders = useCallback(async () => {
     if (!tenantId || isNew) return;
@@ -132,7 +135,10 @@ export default function Orden() {
 
   const visibleItems = useMemo(() => items.filter((i) => !hiddenIds.has(i.id)), [items, hiddenIds]);
   const unsentCount = visibleItems.filter((i) => i.status === 'nuevo').length;
-  const total = visibleItems.reduce((sum, i) => (i.status === 'cancelado' ? sum : sum + i.unit_price * i.qty), 0);
+  // Server total (includes discount and tip, refreshed by the Order subscription);
+  // the line sum is only a fallback until the order row carries a total.
+  const lineSum = visibleItems.reduce((sum, i) => (i.status === 'cancelado' ? sum : sum + i.unit_price * i.qty), 0);
+  const total = typeof order?.total === 'number' ? order.total : lineSum;
 
   const tableLabel = useMemo(() => {
     if (!order || order.type !== 'mesa') return null;
@@ -410,6 +416,11 @@ export default function Orden() {
         {closed && (
           <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
             Esta comanda ya no está abierta.
+            {order.status === 'cobrada' && canCobrar && (
+              <Button variant="outline" size="sm" className="ml-3" onClick={() => setCobroOpen(true)}>
+                Ver cobro
+              </Button>
+            )}
           </div>
         )}
         {visibleItems.length === 0 ? (
@@ -436,7 +447,14 @@ export default function Orden() {
         <div className="fixed bottom-0 left-20 right-0 lg:left-60 bg-background border-t border-border p-4 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Total</span>
-            <span className="text-xl font-display font-semibold">{formatMXN(total)}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xl font-display font-semibold">{formatMXN(total)}</span>
+              {canCobrar && visibleItems.length > 0 && (
+                <Button className="h-10" onClick={() => setCobroOpen(true)}>
+                  <Wallet className="w-4 h-4 mr-1.5" /> Cobrar
+                </Button>
+              )}
+            </div>
           </div>
           <div className="flex gap-2.5">
             {canEdit && (
@@ -494,6 +512,10 @@ export default function Orden() {
         onMerge={handleMerge}
         submitting={moveMergeBusy}
       />
+
+      {canCobrar && (
+        <CobroPanel open={cobroOpen} onOpenChange={setCobroOpen} orderId={order.id} onChanged={loadTablesAndOtherOrders} />
+      )}
 
       <Dialog open={cancelOrderOpen} onOpenChange={setCancelOrderOpen}>
         <DialogContent className="max-w-sm">

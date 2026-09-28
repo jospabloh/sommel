@@ -20,6 +20,13 @@ export const mergeOrders: Route = async (ctx: Ctx, body: any) => {
     httpError(409, 'order_closed', 'Ambas comandas deben estar abiertas para unirlas');
   }
 
+  // Same rule as cancelOrder: an order with live payments cannot be absorbed,
+  // its payments would stay attached to a cancelled order.
+  const fromPayments = await ctx.svc.entities.Payment.filter({ order_id: fromOrder.id });
+  if (fromPayments.some((p: any) => !p.voided_at)) {
+    httpError(409, 'has_payments', 'La comanda de origen tiene pagos. Anúlalos antes de unirla');
+  }
+
   // Move every line — including already-cancelled ones — to keep the audit
   // trail intact under the surviving order.
   const fromItems = await ctx.svc.entities.OrderItem.filter({ order_id: fromOrder.id });

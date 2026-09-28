@@ -35,7 +35,8 @@
           "key": { "type": "string", "description": "Identificador estable de la variante, p.ej. 'chico'" },
           "label": { "type": "string", "description": "Etiqueta visible, p.ej. 'Chico (2-4 personas)'" },
           "price": { "type": "integer", "description": "Precio de esta variante en centavos MXN" },
-          "cost": { "type": ["integer", "null"], "description": "Costo de esta variante en centavos MXN. Puede ser null (aún no capturado)" }
+          "cost": { "type": ["integer", "null"], "description": "Costo de esta variante en centavos MXN. Puede ser null (aún no capturado)" },
+          "inventory_qty": { "type": "number", "description": "Cuánto descuenta del insumo una unidad vendida de esta variante" }
         }
       }
     },
@@ -55,9 +56,10 @@
     "track_inventory": { "type": "boolean", "default": false, "description": "Si descuenta de un InventoryItem al venderse" },
     "stock_unit": {
       "type": "string",
-      "enum": ["pieza", "botella", "g"],
+      "enum": ["pieza", "botella", "g", "ml"],
       "description": "Unidad en la que se mide su inventario, si track_inventory es true"
     },
+    "inventory_qty": { "type": "number", "description": "Cuánto descuenta del insumo una unidad vendida (Entrega 2). Con variantes, cada una lleva el suyo en variants[].inventory_qty" },
     "inventory_item_id": { "type": "string", "description": "InventoryItem del que descuenta, si track_inventory es true" }
   },
   "required": ["tenant_id", "name"],

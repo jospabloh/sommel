@@ -5,8 +5,9 @@
   "properties": {
     "tenant_id": { "type": "string", "description": "WineBar dueño de este movimiento" },
     "shift_id": { "type": "string", "description": "Turno en el que se registró" },
-    "amount": { "type": "integer", "description": "Monto retirado, en centavos MXN" },
+    "amount": { "type": "integer", "description": "Monto de la salida en centavos MXN, guardado NEGATIVO" },
     "reason": { "type": "string", "description": "Motivo del retiro" },
+    "idempotency_key": { "type": "string", "description": "Llave generada en el cliente; el servidor no crea dos salidas con la misma" },
     "created_by": { "type": "string", "description": "Email de quien registró el retiro" }
   },
   "required": ["tenant_id", "shift_id", "amount"],

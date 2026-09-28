@@ -1,10 +1,14 @@
 import React from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut, Sun, Moon, Monitor } from 'lucide-react';
+import {
+  LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut, Sun, Moon, Monitor,
+  Clock, Package, BarChart3, Printer, Settings,
+} from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/useTheme';
+import { usePermission } from '@/lib/usePermission';
 
 // Módulo 12 (fixed 2026-09-28): Sun / Moon / Monitor, cycling light -> dark ->
 // system -> light. Existing tokens only, no new fixed colors.
@@ -14,37 +18,34 @@ const THEME_LABEL = { light: 'Claro', dark: 'Oscuro', system: 'Sistema' };
 
 const SOMMEL_LOGO = 'https://media.base44.com/images/public/6ab41c2a89f592a0eca074d2/068ca3173_Sommel_logo.png';
 
-// Nav por rol (contrato §5): bar_admin ve Mesas/Menú/Cocina/Barra/Staff;
-// staff solo Mesas/Cocina/Barra (sin editar menú ni gestionar staff); la
-// plataforma conserva /super-admin además de todo lo del bar_admin.
-const BASE_ITEMS = [
+// Nav (contrato Entrega 2 §6): cada entrada se muestra según el permiso que
+// abre su pantalla (mismo `can()` que el servidor), no según el rol a secas.
+// Staff y Plataforma siguen siendo por rol. Sin app_role ni plataforma, no hay
+// nav. Los reportes, ajustes y demás quedan fuera de la vista de quien no
+// puede abrirlos (App.jsx además los protege por ruta).
+const NAV_ITEMS = [
+  { label: 'Plataforma', to: '/super-admin', icon: Building2, only: 'platform' },
   { label: 'Mesas', to: '/mesas', icon: LayoutGrid },
-  { label: 'Menú', to: '/menu', icon: GlassWater },
-  { label: 'Cocina', to: '/estacion/kitchen', icon: ChefHat },
-  { label: 'Barra', to: '/estacion/bar', icon: Beer },
-  { label: 'Staff', to: '/staff', icon: Users },
-];
-// Fixed 2026-09-28: STAFF_ITEMS used to omit Menú entirely, so staff could
-// only reach /menu by typing the URL — but contract §3's permission table
-// grants staff `Menú:ver` ✓ (read-only; `Menú:editar`/`Menú:ver_costos` stay
-// bar_admin-only, and Menu.jsx already gates editing/costs on those, not on
-// being able to reach the page at all).
-const STAFF_ITEMS = [
-  { label: 'Mesas', to: '/mesas', icon: LayoutGrid },
-  { label: 'Menú', to: '/menu', icon: GlassWater },
-  { label: 'Cocina', to: '/estacion/kitchen', icon: ChefHat },
-  { label: 'Barra', to: '/estacion/bar', icon: Beer },
+  { label: 'Menú', to: '/menu', icon: GlassWater, perm: 'Menú:ver' },
+  { label: 'Cocina', to: '/estacion/kitchen', icon: ChefHat, perm: 'Estaciones:operar' },
+  { label: 'Barra', to: '/estacion/bar', icon: Beer, perm: 'Estaciones:operar' },
+  { label: 'Turno', to: '/turno', icon: Clock, perm: 'Turno:operar' },
+  { label: 'Inventario', to: '/inventario', icon: Package, perm: 'Inventario:ver' },
+  { label: 'Reportes', to: '/reportes', icon: BarChart3, perm: 'Reportes:ver' },
+  { label: 'Impresión', to: '/estacion/impresion', icon: Printer, perm: 'Impresion:operar' },
+  { label: 'Staff', to: '/staff', icon: Users, only: 'bar_admin' },
+  { label: 'Ajustes', to: '/ajustes', icon: Settings, perm: 'Ajustes:editar' },
 ];
 
-function navFor(user) {
+function navFor(user, can) {
   const isPlatformAdmin = user?.role === 'admin';
   const appRole = user?.app_role;
-  if (isPlatformAdmin) {
-    return [{ label: 'Plataforma', to: '/super-admin', icon: Building2 }, ...BASE_ITEMS];
-  }
-  if (appRole === 'bar_admin') return BASE_ITEMS;
-  if (appRole === 'staff') return STAFF_ITEMS;
-  return [];
+  if (!isPlatformAdmin && !appRole) return [];
+  return NAV_ITEMS.filter((it) => {
+    if (it.only === 'platform') return isPlatformAdmin;
+    if (it.only === 'bar_admin') return isPlatformAdmin || appRole === 'bar_admin';
+    return !it.perm || can(it.perm);
+  });
 }
 
 export default function Layout() {
@@ -54,7 +55,8 @@ export default function Layout() {
   const { preference, setPreference } = useTheme();
   // Derivado del pathname en cada render (módulo 23) — nunca de un estado
   // local que podría desincronizarse de la URL real.
-  const items = navFor(user);
+  const { can } = usePermission();
+  const items = navFor(user, can);
 
   const handleLogout = () => {
     logout(false);
@@ -76,7 +78,7 @@ export default function Layout() {
           </div>
           <span className="hidden lg:block font-display font-semibold text-lg tracking-tight">Sommel</span>
         </div>
-        <nav className="flex-1 p-2 lg:p-3 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-2 lg:p-3 space-y-1">
           {items.map((it) => {
             const Icon = it.icon;
             const active = location.pathname === it.to || (it.to !== '/' && location.pathname.startsWith(it.to));
@@ -84,6 +86,8 @@ export default function Layout() {
               <Link
                 key={it.to}
                 to={it.to}
+                title={it.label}
+                aria-label={it.label}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                   active ? 'bg-primary text-primary-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent'

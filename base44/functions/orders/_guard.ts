@@ -25,7 +25,18 @@ import {
   centsToPesos,
   redactItemCost,
   redactItemCosts,
+  BAR_UTC_OFFSET_MIN,
+  DEFAULT_PAYMENT_METHODS,
+  computeOrderTotals,
+  activePaymentsTotal,
+  pickSurvivor,
+  padLine,
+  localDayRange,
+  localDateString,
+  localHour,
+  splitEqual,
   type AppRole,
+  type PaymentMethodDef,
 } from './_guard_logic.ts';
 
 export {
@@ -38,7 +49,18 @@ export {
   centsToPesos,
   redactItemCost,
   redactItemCosts,
+  BAR_UTC_OFFSET_MIN,
+  DEFAULT_PAYMENT_METHODS,
+  computeOrderTotals,
+  activePaymentsTotal,
+  pickSurvivor,
+  padLine,
+  localDayRange,
+  localDateString,
+  localHour,
+  splitEqual,
 };
+export type { PaymentMethodDef };
 
 export interface Ctx {
   base44: ReturnType<typeof createClientFromRequest>;

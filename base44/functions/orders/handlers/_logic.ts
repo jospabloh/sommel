@@ -156,29 +156,8 @@ export function resolveItemPricing(
   return { name: product.name, unit_price, unit_cost, station, variant, variant_label, modifiers };
 }
 
-// ---- Order totals ----
-
-export interface OrderItemLike {
-  status: string;
-  unit_price: number;
-  qty: number;
-}
-
-/**
- * Contract §4: "Totales de la orden (subtotal, total) se recalculan en el
- * servidor tras cada cambio de renglones: suma de unit_price*qty de
- * renglones no cancelados." Entrega 1 has no discount/tip yet (payments —
- * D-out-of-scope, plan-tecnico.md §0), so total === subtotal here; those two
- * fields diverge once `payments.applyDiscount`/`setTip` exist in Entrega 2.
- */
-export function computeOrderTotals(items: OrderItemLike[]): { subtotal: number; total: number } {
-  const subtotal = items.reduce((sum, item) => {
-    if (item.status === 'cancelado') return sum;
-    const qty = typeof item.qty === 'number' && item.qty > 0 ? item.qty : 0;
-    return sum + Math.round(item.unit_price * qty);
-  }, 0);
-  return { subtotal, total: subtotal };
-}
+// Order totals live in the shared guard logic (`computeOrderTotals` in
+// `_guard_logic.ts`), so `orders` and `payments` compute the same numbers.
 
 // ---- State machine ----
 

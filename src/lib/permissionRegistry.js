@@ -27,6 +27,17 @@ export const PERMISSION_DEFAULTS = {
   'Comandas:mover_mesas': { bar_admin: true, staff: true },
   'Comandas:cancelar_orden': { bar_admin: true, staff: false },
   'Estaciones:operar': { bar_admin: true, staff: true },
+  'Cobro:cobrar': { bar_admin: true, staff: true },
+  'Cobro:descuento': { bar_admin: true, staff: false },
+  'Cobro:anular_pago': { bar_admin: true, staff: false },
+  'Turno:operar': { bar_admin: true, staff: true },
+  'Turno:ver_corte': { bar_admin: true, staff: false },
+  'Inventario:ver': { bar_admin: true, staff: true },
+  'Inventario:merma': { bar_admin: true, staff: true },
+  'Inventario:editar': { bar_admin: true, staff: false },
+  'Impresion:operar': { bar_admin: true, staff: true },
+  'Reportes:ver': { bar_admin: true, staff: false },
+  'Ajustes:editar': { bar_admin: true, staff: false },
 };
 // AUTOGEN:PERMISSION_DEFAULTS:END
 

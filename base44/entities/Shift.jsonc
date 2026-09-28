@@ -16,7 +16,9 @@
     "difference": { "type": "integer", "description": "counted_cash - expected_cash, en centavos MXN. Solo lo calcula el servidor" },
     "close_comment": { "type": "string", "description": "Comentario libre al cerrar el turno" },
     "email_status": { "type": "string", "enum": ["pendiente", "enviado", "fallido"], "default": "pendiente", "description": "Estado del correo del corte (D11)" },
-    "email_sent_at": { "type": "string", "format": "date-time" }
+    "email_sent_at": { "type": "string", "format": "date-time" },
+    "email_error": { "type": "string", "description": "Motivo si el correo del corte falló ('sin_destinatarios' o el error del envío)" },
+    "summary": { "type": "object", "description": "Foto congelada del corte al cerrar: ventas por forma de pago, propinas, descuentos, cancelados, salidas, esperado, contado y diferencia" }
   },
   "required": ["tenant_id"],
   "rls": {

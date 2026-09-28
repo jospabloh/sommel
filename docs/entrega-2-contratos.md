@@ -268,6 +268,51 @@ propina. Nombres de personas: `User.full_name` o el correo, leídos con `svc`.
 - Layout: navegación agrega Turno, Inventario, Reportes, Ajustes, Impresión
   según permiso.
 
+## 6b. Desviaciones
+
+Registradas por el agente Base. Todas son aditivas; ninguna rompe la firma del
+contrato.
+
+- **`localDayRange(dateStr)`**: `toISO` es la **medianoche local siguiente,
+  exclusiva** (`[fromISO, toISO)`), no 23:59:59.999. Filtrar con `>= fromISO` y
+  `< toISO`. Para 2026-09-28: `2026-09-28T06:00:00.000Z` a `2026-09-29T06:00:00.000Z`.
+- **`computeOrderTotals(items, opts)`** devuelve `{ subtotal, discount, tip, total }`.
+  Precedencia del descuento: `discount_kind: 'cortesia'` gana; luego
+  `discount_pct` (si es número >= 0); si no, `discount` capado al subtotal.
+  Propina: `tip_pct` sobre `subtotal - discount`; si no, `tip`. Los renglones
+  cancelados no cuentan. La versión local de `orders/handlers/_logic.ts` se
+  eliminó (quedaba muerta); sus pruebas ahora importan la compartida.
+- **Helpers extra** en `_guard_logic.ts` (re-exportados por `_guard.ts`):
+  `activePaymentsTotal(payments)` (suma de pagos sin `voided_at`),
+  `localDateString(iso)` ('YYYY-MM-DD' local, útil para el asunto del correo),
+  `DEFAULT_PAYMENT_METHODS`, tipo `PaymentMethodDef`.
+- **`pickSurvivor(rows)`** devuelve la fila (o `null` si no hay), no el id.
+- **`PrintJob.lines`**: el esquema tenía `items: string`; se cambió a objetos
+  `{ text, align?, bold?, size? }` para que coincida con §1. Sin datos previos.
+- **`Product.stock_unit`** gana `"ml"` en el enum (§5 `inventory.upsertItem`
+  admite `ml`). `Product.variants[].inventory_qty` se agregó al esquema de la
+  variante, como pide §3.
+- **`InventoryItem.unit_cost` / `InventoryMovement.unit_cost`** ahora son
+  `integer | null` además del candado de lectura solo plataforma.
+- **`settings.update`** rechaza `name` y cualquier campo desconocido con 400
+  `field_not_editable`. Reglas extra de `payment_methods`: una forma existente
+  no se puede quitar (se desactiva; los pagos viejos conservan su nombre) ni
+  cambiar entre efectivo y no efectivo (`method_removed`, `cash_flag_locked`);
+  `key` se genera del nombre si no llega. `rfc` se valida (12 o 13
+  caracteres) y `corte_emails` admite hasta 10. Las metas de preparación se
+  aceptan en `update` pero Ajustes no las muestra todavía.
+- **`settings.get`** devuelve además `address`, `rfc` y `name`; no hay billing gate.
+- **`orders.updateItem`** no revisa `paid_exceeds_total` (el contrato solo
+  nombra `cancelItem` y `removeItem`); `cancelOrder` ahora solo bloquea con pagos
+  vigentes (`voided_at` vacío).
+- **Nav**: las entradas se filtran por `can()` (antes por rol). `Staff` sigue
+  siendo solo `bar_admin`/plataforma. Rutas nuevas protegidas con
+  `RequirePermission` en `App.jsx`.
+- **Stubs**: `payments`, `shifts`, `inventory`, `printing`, `reports` traen un
+  `entry.ts` mínimo (`handle(req, {})`) para que el conteo de funciones y
+  `check:guards` pasen; cada agente lo reemplaza. Endpoints totales: 12
+  (techo 40).
+
 ## 7. Dueño de cada archivo
 
 | Agente | Archivos |
@@ -290,3 +335,28 @@ pruebas `deno test` en `base44/tests/` (binario de Deno en el scratchpad;
 `deno.land`/`jsr.io` bloqueados). Todos: `npm run lint`, `npm run build`,
 `npm run validate:rls`, `npm run validate:tenant-roles`, `npm run check:guards`
 en verde. No se despliega nada. No se hace commit.
+
+### Correcciones de revisión (fix agent)
+
+- **`orders.updateItem`** ahora sí responde 409 `paid_exceeds_total` al bajar
+  `qty` si el total quedaría bajo lo pagado (sustituye la desviación anterior).
+- **`orders.mergeOrders`** responde 409 `has_payments` si la comanda de origen
+  tiene pagos vigentes (misma regla que `cancelOrder`).
+- **`CashMovement.idempotency_key`** se agrega al esquema (aditivo; entra en el
+  `entities push`). `amount` se guarda negativo.
+- **`settings.update`** usa `ctx.bar` (WineBar no tiene `tenant_id`, `loadOwned`
+  siempre daba 404).
+- **`addPayment`**: si dos cajas con llaves distintas sobrepagan, el pago más
+  nuevo se anula (`voided_by: 'sistema'`, `void_reason: 'excede_total'`) y
+  responde 409 `amount_exceeds_remaining`.
+- **Inventario al cobrar**: no se genera `merma:<id>` si ya existe un
+  `venta:<id>` con qty distinta de 0 (reabrir y volver a cerrar no descuenta
+  dos veces); el recálculo de `stock` pagina de a 500 como `inventory`.
+- **`payments.findOpenShift`** toma el turno abierto más VIEJO, igual que `shifts`.
+- **`Orden.jsx`** muestra `order.total` del servidor.
+- **Cierre a ciegas, cerrado por el orquestador**: sin `Turno:ver_corte`,
+  `shifts.current` manda `amount: null` en las formas de pago en efectivo y
+  `sales_total: null` (el total permitía despejar el efectivo restando). Se
+  conservan conteos, formas no efectivo, fondo y salidas, que por sí solos no
+  dan el esperado. La pantalla muestra "Se revisa en el corte".
+- No se reimplementó la reversa de inventario al anular un pago (desviación 7 sigue).
