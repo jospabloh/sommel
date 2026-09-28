@@ -1,0 +1,57 @@
+/*
+ * Ticket paper (Impresión, entrega-2-contratos.md §6): 58 mm roll, 48 mm
+ * printable, monospace, 32 columns. The server pads every line to 32 columns
+ * (padLine), so lines keep their spaces (pre-wrap) and the font size is what
+ * makes 32 characters fit 48 mm: 48 / 32 = 1.5 mm per column, and a monospace
+ * glyph is about 0.6 em wide, so 2.5 mm.
+ *
+ * On screen `.tk-paper` is a preview. For printing, the station mounts a
+ * `.sommel-print-area` straight under <body> (a portal), hidden on screen;
+ * @media print hides every other body child, so the app shell never takes
+ * space on the roll. Colors are system keywords: with `color-scheme: light`
+ * forced for print they resolve to black on white in either app theme.
+ */
+.tk-paper {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  max-width: 34ch;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tk-line { min-height: 1.25em; }
+.tk-center { text-align: center; }
+.tk-right { text-align: right; }
+.tk-bold { font-weight: 700; }
+/* "big" lines are meant to be short (about 21 columns fit at 1.5x). */
+.tk-big { font-size: 1.5em; line-height: 1.15; }
+
+.sommel-print-area { display: none; }
+
+@media print {
+  @page { size: 58mm auto; margin: 0; }
+  :root { color-scheme: light; }
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: Canvas !important;
+  }
+  body > *:not(.sommel-print-area) { display: none !important; }
+  .sommel-print-area {
+    display: block;
+    width: 58mm;
+    padding: 0 5mm;
+    box-sizing: border-box;
+    background: Canvas;
+    color: CanvasText;
+  }
+  .sommel-print-area .tk-paper {
+    width: 48mm;
+    max-width: none;
+    font-size: 2.5mm;
+    line-height: 1.2;
+    color: CanvasText;
+  }
+  /* Blank feed at the end so the cutter clears the last line. */
+  .sommel-print-area .tk-feed { height: 8mm; }
+}

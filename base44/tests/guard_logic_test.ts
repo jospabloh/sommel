@@ -17,6 +17,16 @@ import {
   redactItemCosts,
   HttpError,
   PERMISSION_DEFAULTS,
+  BAR_UTC_OFFSET_MIN,
+  DEFAULT_PAYMENT_METHODS,
+  computeOrderTotals,
+  activePaymentsTotal,
+  pickSurvivor,
+  padLine,
+  localDayRange,
+  localDateString,
+  localHour,
+  splitEqual,
 } from '../../scripts/templates/_guard_logic.ts';
 
 function assertEquals(actual: unknown, expected: unknown, msg?: string) {
@@ -249,4 +259,116 @@ Deno.test('redactItemCosts: returns the SAME array reference when the caller can
 Deno.test('redactItemCosts: an empty array stays empty either way', () => {
   assertEquals(redactItemCosts([], false), []);
   assertEquals(redactItemCosts([], true), []);
+});
+
+// ---- Entrega 2 shared logic ----
+
+const LINES = [
+  { status: 'enviado', unit_price: 56000, qty: 2 }, // 112000
+  { status: 'nuevo', unit_price: 9000, qty: 1 }, // 9000
+  { status: 'cancelado', unit_price: 99999, qty: 9 }, // excluded
+];
+
+Deno.test('computeOrderTotals: no options -> total = subtotal', () => {
+  assertEquals(computeOrderTotals(LINES), { subtotal: 121000, discount: 0, tip: 0, total: 121000 });
+});
+
+Deno.test('computeOrderTotals: cortesia discounts the whole subtotal', () => {
+  const t = computeOrderTotals(LINES, { discount_kind: 'cortesia', discount: 5 });
+  assertEquals(t, { subtotal: 121000, discount: 121000, tip: 0, total: 0 });
+});
+
+Deno.test('computeOrderTotals: discount_pct rounds; fixed discount is capped at subtotal', () => {
+  assertEquals(computeOrderTotals(LINES, { discount_kind: 'descuento', discount_pct: 10 }).discount, 12100);
+  assertEquals(computeOrderTotals([{ status: 'nuevo', unit_price: 333, qty: 1 }], { discount_pct: 50 }).discount, 167);
+  assertEquals(computeOrderTotals(LINES, { discount: 999999 }).discount, 121000);
+  assertEquals(computeOrderTotals(LINES, { discount: 5000 }).total, 116000);
+});
+
+Deno.test('computeOrderTotals: discount_pct wins over fixed discount', () => {
+  assertEquals(computeOrderTotals(LINES, { discount_pct: 10, discount: 1 }).discount, 12100);
+});
+
+Deno.test('computeOrderTotals: tip_pct applies to subtotal minus discount', () => {
+  const t = computeOrderTotals(LINES, { discount_pct: 10, tip_pct: 10 });
+  assertEquals(t, { subtotal: 121000, discount: 12100, tip: 10890, total: 119790 });
+});
+
+Deno.test('computeOrderTotals: fixed tip and null pct fall back to amount', () => {
+  const t = computeOrderTotals(LINES, { tip: 2000, tip_pct: null, discount_pct: null });
+  assertEquals(t, { subtotal: 121000, discount: 0, tip: 2000, total: 123000 });
+});
+
+Deno.test('computeOrderTotals: cancelling lines shrinks a pct discount with the subtotal', () => {
+  const t = computeOrderTotals([{ status: 'nuevo', unit_price: 1000, qty: 1 }], { discount_pct: 10, tip: 50 });
+  assertEquals(t, { subtotal: 1000, discount: 100, tip: 50, total: 950 });
+});
+
+Deno.test('activePaymentsTotal: ignores voided payments', () => {
+  assertEquals(
+    activePaymentsTotal([{ amount: 500 }, { amount: 300, voided_at: '2026-09-28T00:00:00Z' }, { amount: 200, voided_at: null }]),
+    700
+  );
+});
+
+Deno.test('pickSurvivor: oldest created_date wins, id breaks ties, empty -> null', () => {
+  assertEquals(pickSurvivor([]), null);
+  const rows = [
+    { id: 'b', created_date: '2026-09-28T10:00:00.000Z' },
+    { id: 'c', created_date: '2026-09-28T09:00:00.000Z' },
+    { id: 'a', created_date: '2026-09-28T09:00:00.000Z' },
+  ];
+  assertEquals(pickSurvivor(rows)?.id, 'a');
+  assertEquals(pickSurvivor([...rows].reverse())?.id, 'a'); // order independent
+});
+
+Deno.test('padLine: exactly 32 columns, truncates left, keeps a space', () => {
+  const l = padLine('2 x Tabla chica', '$560.00');
+  assertEquals(l.length, 32);
+  assertEquals(l.endsWith('$560.00'), true);
+  const long = padLine('Tabla de quesos y carnes frias de la casa', '$1,120.00');
+  assertEquals(long.length, 32);
+  assertEquals(long.slice(-10), ' $1,120.00');
+  assertEquals(padLine('a', 'b', 10), 'a        b');
+});
+
+Deno.test('BAR_UTC_OFFSET_MIN and localDayRange: local day is 06:00Z to next 06:00Z', () => {
+  assertEquals(BAR_UTC_OFFSET_MIN, -360);
+  assertEquals(localDayRange('2026-09-28'), {
+    fromISO: '2026-09-28T06:00:00.000Z',
+    toISO: '2026-09-29T06:00:00.000Z',
+  });
+  assertThrows(() => localDayRange('2026-02-30'));
+  assertThrows(() => localDayRange('hoy'));
+});
+
+Deno.test('localHour / localDateString: shifts by UTC-6', () => {
+  assertEquals(localHour('2026-09-28T06:00:00Z'), 0);
+  assertEquals(localHour('2026-09-28T05:59:59Z'), 23);
+  assertEquals(localHour('2026-09-28T20:30:00Z'), 14);
+  assertEquals(localDateString('2026-09-29T03:00:00Z'), '2026-09-28');
+  assertEquals(localDateString('2026-09-29T06:00:00Z'), '2026-09-29');
+});
+
+Deno.test('splitEqual: leftover centavos go to the first parts', () => {
+  assertEquals(splitEqual(10000, 3), [3334, 3333, 3333]);
+  assertEquals(splitEqual(10, 4), [3, 3, 2, 2]);
+  assertEquals(splitEqual(0, 2), [0, 0]);
+  assertEquals(splitEqual(1000, 1), [1000]);
+  assertEquals(splitEqual(12345, 5).reduce((a, b) => a + b, 0), 12345);
+  assertThrows(() => splitEqual(100, 0));
+  assertThrows(() => splitEqual(100.5, 2));
+});
+
+Deno.test('DEFAULT_PAYMENT_METHODS: efectivo is_cash, all active', () => {
+  assertEquals(DEFAULT_PAYMENT_METHODS.map((m) => m.key), ['efectivo', 'tarjeta', 'transferencia']);
+  assertEquals(DEFAULT_PAYMENT_METHODS.filter((m) => m.is_cash).map((m) => m.key), ['efectivo']);
+  assertEquals(DEFAULT_PAYMENT_METHODS.every((m) => m.active), true);
+});
+
+Deno.test('PERMISSION_DEFAULTS: entrega 2 keys and defaults', () => {
+  const admin = ['Cobro:descuento', 'Cobro:anular_pago', 'Turno:ver_corte', 'Inventario:editar', 'Reportes:ver', 'Ajustes:editar'];
+  const both = ['Cobro:cobrar', 'Turno:operar', 'Inventario:ver', 'Inventario:merma', 'Impresion:operar'];
+  for (const k of admin) assertEquals(PERMISSION_DEFAULTS[k], { bar_admin: true, staff: false }, k);
+  for (const k of both) assertEquals(PERMISSION_DEFAULTS[k], { bar_admin: true, staff: true }, k);
 });

@@ -17,6 +17,9 @@
     "split_label": { "type": "string", "description": "Etiqueta del pago cuando la cuenta se divide en varios" },
     "idempotency_key": { "type": "string", "description": "Llave generada en el cliente; el servidor no crea dos pagos con la misma" },
     "created_by": { "type": "string", "description": "Email de quien registró el cobro" },
+    "method_label": { "type": "string", "description": "Nombre de la forma de pago congelado al cobrar (p.ej. 'Efectivo')" },
+    "voided_by": { "type": "string", "description": "Email de quien anuló este pago" },
+    "void_reason": { "type": "string", "description": "Motivo de la anulación ('duplicado' cuando el servidor neutraliza un pago repetido)" },
     "voided_at": { "type": "string", "format": "date-time", "description": "Cuándo se anuló este pago, si aplica" }
   },
   "required": ["tenant_id", "order_id", "amount", "idempotency_key"],

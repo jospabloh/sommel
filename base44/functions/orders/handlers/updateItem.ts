@@ -5,7 +5,7 @@
 // sending.
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCost, type Ctx, type Route } from '../_guard.ts';
 import { LogicError, resolveModifiers, validateQty, isOrderOpen, canEditItem } from './_logic.ts';
-import { recomputeOrderTotals } from './_shared.ts';
+import { recomputeOrderTotals, assertTotalCoversPayments } from './_shared.ts';
 
 export const updateItem: Route = async (ctx: Ctx, body: any) => {
   const item = await loadOwned(ctx, 'OrderItem', body?.item_id);
@@ -44,6 +44,12 @@ export const updateItem: Route = async (ctx: Ctx, body: any) => {
 
   if (body?.notes !== undefined) {
     patch.notes = typeof body.notes === 'string' ? body.notes : '';
+  }
+
+  // Lowering a qty can drop the total under what was already paid (same
+  // dead end as cancelItem/removeItem), so guard it before writing.
+  if (typeof patch.qty === 'number' && patch.qty < (item.qty ?? 0)) {
+    await assertTotalCoversPayments(ctx, order, undefined, { id: item.id, qty: patch.qty });
   }
 
   const updated = await ctx.svc.entities.OrderItem.update(item.id, patch);

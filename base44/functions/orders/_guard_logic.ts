@@ -27,6 +27,17 @@ export const PERMISSION_DEFAULTS: Record<string, { bar_admin: boolean; staff: bo
   "Comandas:mover_mesas": { bar_admin: true, staff: true },
   "Comandas:cancelar_orden": { bar_admin: true, staff: false },
   "Estaciones:operar": { bar_admin: true, staff: true },
+  "Cobro:cobrar": { bar_admin: true, staff: true },
+  "Cobro:descuento": { bar_admin: true, staff: false },
+  "Cobro:anular_pago": { bar_admin: true, staff: false },
+  "Turno:operar": { bar_admin: true, staff: true },
+  "Turno:ver_corte": { bar_admin: true, staff: false },
+  "Inventario:ver": { bar_admin: true, staff: true },
+  "Inventario:merma": { bar_admin: true, staff: true },
+  "Inventario:editar": { bar_admin: true, staff: false },
+  "Impresion:operar": { bar_admin: true, staff: true },
+  "Reportes:ver": { bar_admin: true, staff: false },
+  "Ajustes:editar": { bar_admin: true, staff: false },
 };
 // AUTOGEN:PERMISSION_DEFAULTS:END
 
@@ -161,4 +172,163 @@ export function redactItemCost<T extends Record<string, unknown>>(row: T, canSee
 export function redactItemCosts<T extends Record<string, unknown>>(rows: T[], canSeeCosts: boolean): T[] {
   if (canSeeCosts) return rows;
   return rows.map((row) => redactItemCost(row, canSeeCosts));
+}
+
+// ---- Entrega 2 shared pure logic (entrega-2-contratos.md §1, §4) ----
+//
+// Lives in the template so `orders` and `payments` (and shifts/reports/
+// printing) compute exactly the same numbers from one copy.
+
+/** Aguascalientes (Zona Centro) is UTC-6 all year: Mexico dropped DST in 2022. */
+export const BAR_UTC_OFFSET_MIN = -360;
+
+export interface PaymentMethodDef {
+  key: string;
+  label: string;
+  is_cash: boolean;
+  active: boolean;
+}
+
+/** Used whenever a WineBar has no `payment_methods` yet (contract §0). */
+export const DEFAULT_PAYMENT_METHODS: PaymentMethodDef[] = [
+  { key: 'efectivo', label: 'Efectivo', is_cash: true, active: true },
+  { key: 'tarjeta', label: 'Tarjeta', is_cash: false, active: true },
+  { key: 'transferencia', label: 'Transferencia', is_cash: false, active: true },
+];
+
+export interface TotalsItemLike {
+  status?: string | null;
+  unit_price?: number | null;
+  qty?: number | null;
+}
+
+export interface TotalsOptions {
+  discount_kind?: 'descuento' | 'cortesia' | null;
+  discount_pct?: number | null;
+  discount?: number | null;
+  tip_pct?: number | null;
+  tip?: number | null;
+}
+
+export interface OrderTotals {
+  subtotal: number;
+  discount: number;
+  tip: number;
+  total: number;
+}
+
+function isPct(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0;
+}
+
+/**
+ * subtotal = Σ round(unit_price*qty) over non-cancelled lines.
+ * discount: cortesia -> whole subtotal; discount_pct -> round(subtotal*pct/100)
+ * (capped at subtotal); otherwise min(discount, subtotal).
+ * tip: tip_pct -> round((subtotal - discount)*pct/100); otherwise tip ?? 0.
+ * total = subtotal - discount + tip.
+ */
+export function computeOrderTotals(items: TotalsItemLike[], opts: TotalsOptions = {}): OrderTotals {
+  const subtotal = (items ?? []).reduce((sum, item) => {
+    if (item.status === 'cancelado') return sum;
+    const qty = typeof item.qty === 'number' && item.qty > 0 ? item.qty : 0;
+    const price = typeof item.unit_price === 'number' ? item.unit_price : 0;
+    return sum + Math.round(price * qty);
+  }, 0);
+
+  let discount: number;
+  if (opts.discount_kind === 'cortesia') {
+    discount = subtotal;
+  } else if (isPct(opts.discount_pct)) {
+    discount = Math.min(subtotal, Math.round((subtotal * opts.discount_pct) / 100));
+  } else {
+    const raw = typeof opts.discount === 'number' && Number.isFinite(opts.discount) ? opts.discount : 0;
+    discount = Math.min(Math.max(0, Math.round(raw)), subtotal);
+  }
+
+  let tip: number;
+  if (isPct(opts.tip_pct)) {
+    tip = Math.round(((subtotal - discount) * opts.tip_pct) / 100);
+  } else {
+    const raw = typeof opts.tip === 'number' && Number.isFinite(opts.tip) ? opts.tip : 0;
+    tip = Math.max(0, Math.round(raw));
+  }
+
+  return { subtotal, discount, tip, total: subtotal - discount + tip };
+}
+
+/** Σ amount of payments that are not voided. */
+export function activePaymentsTotal(payments: Array<{ amount?: number | null; voided_at?: string | null }>): number {
+  return (payments ?? []).reduce((sum, p) => (p.voided_at ? sum : sum + (typeof p.amount === 'number' ? p.amount : 0)), 0);
+}
+
+/**
+ * Idempotency survivor: the row with the oldest `created_date` (id breaks
+ * ties). Every concurrent caller picks the same winner. Null for no rows.
+ */
+export function pickSurvivor<T extends { id?: string | null; created_date?: string | null }>(rows: T[]): T | null {
+  if (!rows || rows.length === 0) return null;
+  return [...rows].sort((a, b) => {
+    const da = a.created_date ? Date.parse(a.created_date) : Infinity;
+    const db = b.created_date ? Date.parse(b.created_date) : Infinity;
+    if (da !== db) return da < db ? -1 : 1;
+    const ia = String(a.id ?? '');
+    const ib = String(b.id ?? '');
+    return ia < ib ? -1 : ia > ib ? 1 : 0;
+  })[0];
+}
+
+/**
+ * "concept ... amount" line of exactly `width` columns (default 32, 58 mm
+ * paper). Truncates `left` when it does not fit; always keeps one space.
+ */
+export function padLine(left: string, right: string, width = 32): string {
+  const l = String(left ?? '');
+  const r = String(right ?? '');
+  if (r.length >= width) return r.slice(0, width);
+  const room = width - r.length - 1;
+  const cut = l.length > room ? l.slice(0, room) : l;
+  return cut + ' '.repeat(width - cut.length - r.length) + r;
+}
+
+/**
+ * UTC bounds of a local calendar day: `fromISO` is local 00:00 inclusive,
+ * `toISO` is the NEXT local midnight, exclusive ([from, to)).
+ */
+export function localDayRange(dateStr: string): { fromISO: string; toISO: string } {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr ?? ''));
+  if (!m) throw new HttpError(400, 'invalid_date', 'Fecha inválida');
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const startUtc = Date.UTC(y, mo - 1, d);
+  const check = new Date(startUtc);
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== d) {
+    throw new HttpError(400, 'invalid_date', 'Fecha inválida');
+  }
+  const from = startUtc - BAR_UTC_OFFSET_MIN * 60_000;
+  return { fromISO: new Date(from).toISOString(), toISO: new Date(from + 86_400_000).toISOString() };
+}
+
+/** Local calendar date 'YYYY-MM-DD' of an instant. */
+export function localDateString(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) throw new HttpError(400, 'invalid_date', 'Fecha inválida');
+  return new Date(t + BAR_UTC_OFFSET_MIN * 60_000).toISOString().slice(0, 10);
+}
+
+/** Local hour 0-23 of an instant. */
+export function localHour(iso: string): number {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) throw new HttpError(400, 'invalid_date', 'Fecha inválida');
+  return new Date(t + BAR_UTC_OFFSET_MIN * 60_000).getUTCHours();
+}
+
+/** Splits integer centavos into `parts` shares; leftover centavos go to the first shares. */
+export function splitEqual(amount: number, parts: number): number[] {
+  if (!Number.isInteger(amount) || amount < 0) throw new HttpError(400, 'invalid_amount', 'Monto inválido');
+  if (!Number.isInteger(parts) || parts < 1) throw new HttpError(400, 'invalid_parts', 'Número de partes inválido');
+  const base = Math.floor(amount / parts);
+  const rest = amount - base * parts;
+  return Array.from({ length: parts }, (_, i) => base + (i < rest ? 1 : 0));
 }

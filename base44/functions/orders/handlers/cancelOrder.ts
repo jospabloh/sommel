@@ -23,8 +23,9 @@ export const cancelOrder: Route = async (ctx: Ctx, body: any) => {
     httpError(409, 'order_closed', 'Esta comanda ya no está abierta');
   }
 
+  // Voided payments (Entrega 2) no longer count: only live ones block.
   const payments = await ctx.svc.entities.Payment.filter({ order_id: order.id });
-  if (payments.length > 0) {
+  if (payments.some((p: any) => !p.voided_at)) {
     httpError(409, 'has_payments', 'No se puede cancelar una comanda con pagos registrados');
   }
 

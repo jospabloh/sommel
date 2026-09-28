@@ -1,0 +1,177 @@
+// State and actions of the print station: queue loading (realtime plus a 10 s
+// polling fallback, since websockets can drop), claiming, printing and the
+// follow-up calls. Kept out of the page so Impresion.jsx stays layout only.
+//
+// Nothing here ever reprints by itself: only `pendiente` jobs are claimed
+// automatically, and only while auto print is on. Reprints are explicit.
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { base44 } from '@/api/base44Client';
+import { callFn } from '@/lib/api';
+import { toast } from '@/components/ui/use-toast';
+import { eventRow, getDeviceId, readAutoPref, writeAutoPref } from './printingHelpers';
+
+const POLL_MS = 10 * 1000;
+const EVENT_DEBOUNCE_MS = 300;
+
+function nextFrame() {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+export default function usePrintStation(tenantId) {
+  const [deviceId] = useState(getDeviceId);
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [lastSync, setLastSync] = useState(null);
+  const [auto, setAutoState] = useState(readAutoPref);
+  const [busy, setBusy] = useState(false);
+  const [paperJob, setPaperJob] = useState(null);
+  const busyRef = useRef(false);
+
+  const load = useCallback(async () => {
+    try {
+      const { jobs: rows } = await callFn('printing', 'queue', { include_done: true });
+      setJobs(Array.isArray(rows) ? rows : []);
+      setLoadError(null);
+      setLastSync(new Date());
+    } catch (err) {
+      setLoadError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, POLL_MS);
+    return () => clearInterval(t);
+  }, [load]);
+
+  // Realtime: subscribe() is not filtered by the server, so only events of
+  // this bar trigger a (debounced) reload.
+  useEffect(() => {
+    if (!tenantId) return undefined;
+    let timer = null;
+    const unsub = base44.entities.PrintJob.subscribe((evt) => {
+      const row = eventRow(evt);
+      if (row?.tenant_id && row.tenant_id !== tenantId) return;
+      clearTimeout(timer);
+      timer = setTimeout(load, EVENT_DEBOUNCE_MS);
+    });
+    return () => {
+      clearTimeout(timer);
+      if (typeof unsub === 'function') unsub();
+    };
+  }, [tenantId, load]);
+
+  const setAuto = useCallback((on) => {
+    setAutoState(on);
+    writeAutoPref(on);
+  }, []);
+
+  const fail = useCallback(
+    async (job, message) => {
+      try {
+        await callFn('printing', 'markFailed', { job_id: job.id, device_id: deviceId, error: message });
+      } catch (err) {
+        toast({ title: 'No se pudo marcar el trabajo', description: err.message, variant: 'destructive' });
+      }
+    },
+    [deviceId],
+  );
+
+  // Paints the claimed job into the print area, prints, then confirms.
+  const paintAndPrint = useCallback(
+    async (job) => {
+      flushSync(() => setPaperJob(job));
+      await nextFrame();
+      try {
+        window.print();
+      } catch (err) {
+        setPaperJob(null);
+        await fail(job, err?.message || 'No se pudo abrir la impresión');
+        toast({ title: 'No se pudo imprimir', description: 'El trabajo quedó como fallido. Puedes reintentarlo.', variant: 'destructive' });
+        return;
+      }
+      setPaperJob(null);
+      try {
+        await callFn('printing', 'markPrinted', { job_id: job.id, device_id: deviceId });
+      } catch (err) {
+        toast({ title: 'Se imprimió, pero no se pudo confirmar', description: err.message, variant: 'destructive' });
+      }
+    },
+    [deviceId, fail],
+  );
+
+  // Claim the oldest waiting job and print it.
+  const printNext = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const { job } = await callFn('printing', 'claimNext', { device_id: deviceId });
+      if (job) await paintAndPrint(job);
+    } catch (err) {
+      toast({ title: 'No se pudo tomar el trabajo', description: err.message, variant: 'destructive' });
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+      load();
+    }
+  }, [deviceId, paintAndPrint, load]);
+
+  // Auto print: whenever the queue shows a waiting job and nothing is in flight.
+  const hasPending = jobs.some((j) => j.status === 'pendiente');
+  useEffect(() => {
+    if (auto && hasPending && !busyRef.current) printNext();
+  }, [auto, hasPending, jobs, printNext]);
+
+  const act = useCallback(
+    async (fn, okTitle) => {
+      if (busyRef.current) return;
+      busyRef.current = true;
+      setBusy(true);
+      try {
+        await fn();
+        if (okTitle) toast({ title: okTitle });
+      } catch (err) {
+        toast({ title: 'No se pudo completar', description: err.message, variant: 'destructive' });
+      } finally {
+        busyRef.current = false;
+        setBusy(false);
+        load();
+      }
+    },
+    [load],
+  );
+
+  const retry = useCallback((job) => act(() => callFn('printing', 'retry', { job_id: job.id }), 'Vuelve a la cola'), [act]);
+  const reprint = useCallback((job) => act(() => callFn('printing', 'reprint', { job_id: job.id }), 'Copia en la cola'), [act]);
+  const confirmPrinted = useCallback(
+    (job) => act(() => callFn('printing', 'markPrinted', { job_id: job.id, device_id: deviceId })),
+    [act, deviceId],
+  );
+  const markFailed = useCallback(
+    (job) => act(() => callFn('printing', 'markFailed', { job_id: job.id, device_id: deviceId, error: 'Marcado a mano: no salió' })),
+    [act, deviceId],
+  );
+
+  return {
+    deviceId,
+    jobs,
+    loading,
+    loadError,
+    lastSync,
+    auto,
+    setAuto,
+    busy,
+    paperJob,
+    printNext,
+    retry,
+    reprint,
+    confirmPrinted,
+    markFailed,
+    reload: load,
+  };
+}

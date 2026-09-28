@@ -12,7 +12,13 @@
     "unit": { "type": "string", "description": "Unidad de medida (pieza, botella, g)" },
     "stock": { "type": "number", "default": 0, "description": "Existencia actual, recalculada de InventoryMovement" },
     "low_threshold": { "type": "number", "default": 0, "description": "Alerta cuando el stock cae por debajo de este valor" },
-    "unit_cost": { "type": "integer", "description": "Costo por unidad en centavos MXN" }
+    "unit_cost": {
+      "type": ["integer", "null"],
+      "description": "Costo por unidad en centavos MXN. Bloqueado a la plataforma como OrderItem.unit_cost: la función inventory lo entrega solo con Menú:ver_costos (D7)",
+      "rls": {
+        "read": { "user_condition": { "role": "admin" } }
+      }
+    }
   },
   "required": ["tenant_id", "name", "unit"],
   "rls": {

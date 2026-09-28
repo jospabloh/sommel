@@ -9,7 +9,6 @@ import {
   LogicError,
   resolveItemPricing,
   resolveModifiers,
-  computeOrderTotals,
   validateQty,
   validateReason,
   isOrderOpen,
@@ -18,6 +17,7 @@ import {
   canCancelItem,
   mergeTableIds,
 } from '../functions/orders/handlers/_logic.ts';
+import { computeOrderTotals } from '../../scripts/templates/_guard_logic.ts';
 
 function assertEquals(actual: unknown, expected: unknown, msg?: string) {
   const a = JSON.stringify(actual);
@@ -208,16 +208,16 @@ Deno.test('computeOrderTotals: sums unit_price*qty over non-cancelled lines only
   ];
   const { subtotal, total } = computeOrderTotals(items);
   assertEquals(subtotal, 3700);
-  assertEquals(total, subtotal); // no discount/tip yet in Entrega 1
+  assertEquals(total, subtotal); // no discount/tip options given
 });
 
 Deno.test('computeOrderTotals: all cancelled yields 0', () => {
   const items = [{ status: 'cancelado', unit_price: 1000, qty: 5 }];
-  assertEquals(computeOrderTotals(items), { subtotal: 0, total: 0 });
+  assertEquals(computeOrderTotals(items), { subtotal: 0, discount: 0, tip: 0, total: 0 });
 });
 
 Deno.test('computeOrderTotals: empty order yields 0', () => {
-  assertEquals(computeOrderTotals([]), { subtotal: 0, total: 0 });
+  assertEquals(computeOrderTotals([]), { subtotal: 0, discount: 0, tip: 0, total: 0 });
 });
 
 // ---- state transitions ----

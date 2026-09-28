@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate, Outlet } from 'react-
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { PermissionProvider } from '@/lib/PermissionContext';
+import { usePermission } from '@/lib/usePermission';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -15,6 +16,11 @@ import Orden from '@/pages/Orden';
 import Estacion from '@/pages/Estacion';
 import SuperAdmin from '@/pages/SuperAdmin';
 import Staff from '@/pages/Staff';
+import Turno from '@/pages/Turno';
+import Inventario from '@/pages/Inventario';
+import Reportes from '@/pages/Reportes';
+import Ajustes from '@/pages/Ajustes';
+import Impresion from '@/pages/Impresion';
 import Onboarding from '@/pages/Onboarding';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -45,6 +51,22 @@ const OnboardingRoute = () => {
     return <Navigate to="/mesas" replace />;
   }
   return <Onboarding />;
+};
+
+// Entrega 2 (contrato §6): a screen only its permission holders can open.
+// Waits for the PermissionProfile to load so a staff member whose admin
+// granted the key is not bounced before the override arrives.
+const RequirePermission = ({ perm }) => {
+  const { can, loading } = usePermission();
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="w-8 h-8 border-4 border-border border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!can(perm)) return <Navigate to="/mesas" replace />;
+  return <Outlet />;
 };
 
 const AuthenticatedApp = () => {
@@ -98,7 +120,24 @@ const AuthenticatedApp = () => {
                orderId === 'nueva' as the "new order" case; this single route
                is what actually delivers that value. */}
             <Route path="/orden/:orderId" element={<Orden />} />
+            {/* /estacion/impresion is the print station (Entrega 2), not a
+               kitchen/bar station: declared before the dynamic segment. */}
+            <Route element={<RequirePermission perm="Impresion:operar" />}>
+              <Route path="/estacion/impresion" element={<Impresion />} />
+            </Route>
             <Route path="/estacion/:station" element={<Estacion />} />
+            <Route element={<RequirePermission perm="Turno:operar" />}>
+              <Route path="/turno" element={<Turno />} />
+            </Route>
+            <Route element={<RequirePermission perm="Inventario:ver" />}>
+              <Route path="/inventario" element={<Inventario />} />
+            </Route>
+            <Route element={<RequirePermission perm="Reportes:ver" />}>
+              <Route path="/reportes" element={<Reportes />} />
+            </Route>
+            <Route element={<RequirePermission perm="Ajustes:editar" />}>
+              <Route path="/ajustes" element={<Ajustes />} />
+            </Route>
             <Route path="/staff" element={<Staff />} />
             <Route path="/super-admin" element={<SuperAdmin />} />
           </Route>

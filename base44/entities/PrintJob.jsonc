@@ -15,9 +15,19 @@
     },
     "lines": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Líneas de texto ya formateadas para la plantilla de 58mm"
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" },
+          "align": { "type": "string", "enum": ["left", "center", "right"] },
+          "bold": { "type": "boolean" },
+          "size": { "type": "string", "enum": ["normal", "big"] }
+        }
+      },
+      "description": "Líneas ya formateadas por el servidor para papel de 58mm (32 columnas): [{ text, align?, bold?, size? }] (Entrega 2, §1)"
     },
+    "title": { "type": "string", "description": "Título corto del trabajo para la cola, p.ej. 'Ticket Mesa 4'" },
+    "error": { "type": "string", "description": "Último error de impresión reportado por la estación" },
     "source_id": { "type": "string", "description": "ID de la Order/Shift que originó este trabajo" },
     "dedupe_key": { "type": "string", "description": "Llave determinista para no crear dos veces el mismo trabajo" },
     "status": {
