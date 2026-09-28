@@ -6,7 +6,7 @@
 // order with 409 'order_closed' (contract §4) — fixed 2026-09-28: this
 // handler used to skip that check entirely, so a line on a closed/cobrada
 // order could still be cancelled and its totals recomputed.
-import { loadOwned, requirePermission, requireWritable, httpError, HttpError, type Ctx, type Route } from '../_guard.ts';
+import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCost, type Ctx, type Route } from '../_guard.ts';
 import { LogicError, validateReason, isOrderOpen, canCancelItem } from './_logic.ts';
 import { recomputeOrderTotals } from './_shared.ts';
 
@@ -42,5 +42,6 @@ export const cancelItem: Route = async (ctx: Ctx, body: any) => {
 
   await recomputeOrderTotals(ctx, item.order_id);
 
-  return { item: updated };
+  const canSeeCosts = await hasPermission(ctx, 'Menú:ver_costos');
+  return { item: redactItemCost(updated, canSeeCosts) };
 };

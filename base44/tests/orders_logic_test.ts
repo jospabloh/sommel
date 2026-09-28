@@ -132,14 +132,20 @@ Deno.test('resolveItemPricing: a variant key on a product with no variants is re
   assertThrowsCode(() => resolveItemPricing(product, { variant: 'chico' }), 'variant_not_found');
 });
 
-Deno.test('resolveItemPricing: variant cost null (aún no capturado) falls back to 0, not an error', () => {
+Deno.test('resolveItemPricing: variant cost null (aún no capturado) stays null — NOT coerced to 0, fixed 2026-09-28', () => {
   const product = {
     name: 'Vino de temporada',
     active: true,
     variants: [{ key: 'copa', label: 'Copa', price: 6000, cost: null }],
   } as any;
   const result = resolveItemPricing(product, { variant: 'copa' });
-  assertEquals(result.unit_cost, 0);
+  assertEquals(result.unit_cost, null);
+});
+
+Deno.test('resolveItemPricing: product with no variants and no cost captured stays null too (not just the variant path)', () => {
+  const product = { name: 'Agua mineral', price: 2500, active: true } as any;
+  const result = resolveItemPricing(product, {});
+  assertEquals(result.unit_cost, null);
 });
 
 Deno.test('resolveItemPricing: inactive product is rejected', () => {

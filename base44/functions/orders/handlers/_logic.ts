@@ -46,7 +46,7 @@ export interface ResolvedModifier {
 export interface ResolvedItemPricing {
   name: string;
   unit_price: number;
-  unit_cost: number;
+  unit_cost: number | null;
   station: string;
   variant: string | null;
   variant_label: string | null;
@@ -97,11 +97,16 @@ export function resolveModifiers(
  * silently ignored (it would otherwise suggest the client thinks this
  * product has sizes it doesn't).
  *
- * `unit_cost` falls back to 0 when the stored cost is null/undefined
+ * `unit_cost` stays `null` when the stored cost is null/undefined
  * (Product.cost and variant.cost may be null — "aún no capturado", per
- * Product.jsonc) rather than rejecting the sale: a bar_admin can always
- * capture the real cost later via `catalog.upsertProduct`, and blocking an
- * order over a missing cost would stop staff from selling at all.
+ * Product.jsonc) rather than being coerced to 0 — fixed 2026-09-28: an
+ * un-captured cost is a DIFFERENT fact than "this costs nothing", and
+ * silently writing 0 would inflate every profit report built on top of
+ * OrderItem.unit_cost (exactly the class of bug StockFlow's CLAUDE.md
+ * documents repeatedly for a coerced financial field). Not rejecting the
+ * sale over it: a bar_admin can always capture the real cost later via
+ * `catalog.upsertProduct`, and blocking an order over a missing cost would
+ * stop staff from selling at all.
  */
 export function resolveItemPricing(
   product: ProductLike,
@@ -115,7 +120,7 @@ export function resolveItemPricing(
   const requestedVariant = opts.variant ?? null;
 
   let unit_price: number;
-  let unit_cost: number;
+  let unit_cost: number | null;
   let variant: string | null = null;
   let variant_label: string | null = null;
 
@@ -128,7 +133,7 @@ export function resolveItemPricing(
       throw new LogicError('variant_not_found', 'La variante elegida no existe para este producto');
     }
     unit_price = match.price;
-    unit_cost = match.cost ?? 0;
+    unit_cost = match.cost ?? null;
     variant = match.key;
     // Freeze the human label too (not just the key), so cocina/barra never
     // has to display a raw slug like 'chico_2_4_personas' — fixed 2026-09-28.
@@ -138,7 +143,7 @@ export function resolveItemPricing(
       throw new LogicError('variant_not_found', 'Este producto no tiene variantes');
     }
     unit_price = product.price ?? 0;
-    unit_cost = product.cost ?? 0;
+    unit_cost = product.cost ?? null;
   }
 
   if (typeof unit_price !== 'number' || !Number.isFinite(unit_price) || unit_price < 0) {

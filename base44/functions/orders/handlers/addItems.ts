@@ -1,5 +1,5 @@
 // orders.addItems — entrega-1-contratos.md §4 "orders".
-import { loadOwned, requirePermission, requireWritable, httpError, HttpError, type Ctx, type Route } from '../_guard.ts';
+import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCosts, type Ctx, type Route } from '../_guard.ts';
 import { LogicError, resolveItemPricing, validateQty, isOrderOpen } from './_logic.ts';
 import { recomputeOrderTotals } from './_shared.ts';
 
@@ -8,6 +8,9 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
 
   await requirePermission(ctx, 'Comandas:tomar');
   requireWritable(ctx);
+  // D7: created rows include unit_cost (frozen above) — redact before the
+  // response leaves the server unless the caller has Menú:ver_costos.
+  const canSeeCosts = await hasPermission(ctx, 'Menú:ver_costos');
 
   if (!isOrderOpen(order.status)) {
     httpError(409, 'order_closed', 'Esta comanda ya no está abierta');
@@ -56,7 +59,9 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
       variant_label: line.variant_label,
       name: line.name,
       unit_price: line.unit_price,
-      unit_cost: line.unit_cost,
+      // Omitted (not null) when the cost is not captured yet: absent reads
+      // back as "sin capturar" and needs no nullable schema on the live app.
+      ...(line.unit_cost == null ? {} : { unit_cost: line.unit_cost }),
       qty: line.qty,
       modifiers: line.modifiers,
       notes: line.notes,
@@ -70,5 +75,5 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
 
   await recomputeOrderTotals(ctx, order.id);
 
-  return { items: createdItems };
+  return { items: redactItemCosts(createdItems, canSeeCosts) };
 };

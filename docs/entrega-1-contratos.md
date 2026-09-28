@@ -29,10 +29,31 @@ entre agentes; si algo no cuadra, se corrige aquí primero.
   consecuencia.
 - Ninguna página escribe entidades directo (`base44.entities.X.create/update/delete`
   prohibido en `src/`). Lecturas y `subscribe()` directas sí, salvo `Product`
-  para quien no tiene `Menú:ver_costos` (usar `catalog.listProducts`).
+  para quien no tiene `Menú:ver_costos` (usar `catalog.listProducts`), y salvo
+  `WineBar` para cualquier código que no sea de plataforma (usar
+  `stations.getConfig`, §4).
 - Llamada desde el cliente:
   `base44.functions.invoke('<endpoint>', { action: '<accion>', ...payload })`.
   Respuesta `{ ok: true, ... }` o error HTTP con `{ error: '<mensaje en español>', code: '<snake_case>' }`.
+  Sin sesión válida, `requireContext` responde **401 `unauthenticated`**
+  (`'Inicia sesión para continuar'`) — fijado 2026-09-28: `base44.auth.me()`
+  no devuelve `null` cuando no hay sesión, **lanza** (mensaje interno del SDK,
+  "Authentication required to view users"), así que `requireContext` ahora
+  envuelve la llamada y mapea cualquier falla ahí a 401 en vez de dejarla
+  escapar al catch genérico de `handle()`, que la devolvía como 500
+  `internal_error` con el mensaje en inglés del SDK.
+- **D7 — redacción de costo en las respuestas de `orders`/`stations`:**
+  `OrderItem.unit_cost` está bloqueado por RLS a la plataforma, pero eso solo
+  protege una lectura directa de la entidad — la respuesta JSON de una
+  función no pasa por RLS. Todo handler de `orders`/`stations` que devuelve
+  fila(s) de `OrderItem` (`addItems`, `updateItem`, `cancelItem`, `send`,
+  `markReady`, `markDelivered`, `undoReady`) llama una vez
+  `hasPermission(ctx, 'Menú:ver_costos')` y pasa el resultado por
+  `redactItemCost`/`redactItemCosts` (`scripts/templates/_guard_logic.ts`,
+  re-exportadas desde `_guard.ts`) antes de responder — mismo patrón que
+  `catalog.listProducts` ya usaba para `Product.cost`/`variants[].cost`.
+  `cancelOrder`/`mergeOrders`/`moveTable`/`open`/`upsertTable`/`deleteTable`/
+  `removeItem` no devuelven filas de `OrderItem`, así que no necesitan esto.
 - Comentarios/identificadores en inglés; textos al usuario en español.
 
 ## 2. Guardia común del servidor (`_guard.ts`)
@@ -121,6 +142,16 @@ abierta). Todas las acciones rechazan una orden que no esté `abierta` con 409
 | `markReady` | `{ item_ids: string[] }` | `{ items }` — `enviado` → `listo`, `ready_at` = ahora; idempotente | `Estaciones:operar` |
 | `markDelivered` | `{ item_ids }` | `{ items }` — `listo` → `entregado` | `Estaciones:operar` |
 | `undoReady` | `{ item_id }` | `{ item }` — `listo` → `enviado` si fue hace < 5 min (toque equivocado) | `Estaciones:operar` |
+| `getConfig` | `{}` | `{ bar: { name, prep_goal_kitchen_min, prep_goal_bar_min } }`, leído de `ctx.bar` | `Estaciones:operar` — sin billing gate (lectura) |
+
+`getConfig` existe porque el cliente **no puede** leer `WineBar` directo —
+verificado en vivo 2026-09-28: `WineBar.get`/`filter`/`list` no devuelven nada
+a un usuario normal, porque la regla RLS del lado de la entidad
+(`{"id":"{{user.data.tenant_id}}"}`) nunca hace match contra una fila plana
+(§1: el prefijo `data.` solo existe dentro de una regla RLS). No se relajó
+esa RLS; en vez de eso, `Estacion.jsx` lee `prep_goal_kitchen_min`/
+`prep_goal_bar_min` a través de esta acción, que sirve `ctx.bar` (ya cargado
+con `asServiceRole` en `requireContext`).
 
 ## 5. Pantallas y dueño de cada archivo
 

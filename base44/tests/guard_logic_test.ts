@@ -13,6 +13,8 @@ import {
   lineTotalCents,
   pesosToCents,
   centsToPesos,
+  redactItemCost,
+  redactItemCosts,
   HttpError,
   PERMISSION_DEFAULTS,
 } from '../../scripts/templates/_guard_logic.ts';
@@ -198,4 +200,53 @@ Deno.test('HttpError: optional extra carries structured fields (e.g. order_id on
 Deno.test('HttpError: extra is undefined when omitted', () => {
   const err = new HttpError(404, 'not_found', 'No encontrado');
   assertEquals(err.extra, undefined);
+});
+
+// ---- D7 cost redaction (redactItemCost/redactItemCosts) ----
+
+Deno.test('redactItemCost: strips unit_cost when the caller cannot see costs', () => {
+  const row = { id: 'i1', name: 'Malbec', unit_price: 1200, unit_cost: 600 };
+  const result = redactItemCost(row, false);
+  assertEquals(Object.prototype.hasOwnProperty.call(result, 'unit_cost'), false);
+  assertEquals(result, { id: 'i1', name: 'Malbec', unit_price: 1200 });
+});
+
+Deno.test('redactItemCost: leaves the row untouched (same fields) when the caller can see costs', () => {
+  const row = { id: 'i1', name: 'Malbec', unit_price: 1200, unit_cost: 600 };
+  const result = redactItemCost(row, true);
+  assertEquals(result, row);
+});
+
+Deno.test('redactItemCost: a row with no unit_cost field at all is unaffected either way', () => {
+  const row = { id: 'i1', name: 'Malbec', unit_price: 1200 };
+  assertEquals(redactItemCost(row, false), row);
+  assertEquals(redactItemCost(row, true), row);
+});
+
+Deno.test('redactItemCost: null/undefined row passes through instead of throwing', () => {
+  assertEquals(redactItemCost(null as any, false), null);
+  assertEquals(redactItemCost(undefined as any, false), undefined);
+});
+
+Deno.test('redactItemCosts: strips unit_cost from every row in an array when denied', () => {
+  const rows = [
+    { id: 'i1', unit_price: 1000, unit_cost: 400 },
+    { id: 'i2', unit_price: 2000, unit_cost: 900 },
+  ];
+  const result = redactItemCosts(rows, false);
+  assertEquals(result, [
+    { id: 'i1', unit_price: 1000 },
+    { id: 'i2', unit_price: 2000 },
+  ]);
+});
+
+Deno.test('redactItemCosts: returns the SAME array reference when the caller can see costs (no copy needed)', () => {
+  const rows = [{ id: 'i1', unit_price: 1000, unit_cost: 400 }];
+  const result = redactItemCosts(rows, true);
+  if (result !== rows) throw new Error('expected the exact same array reference back');
+});
+
+Deno.test('redactItemCosts: an empty array stays empty either way', () => {
+  assertEquals(redactItemCosts([], false), []);
+  assertEquals(redactItemCosts([], true), []);
 });

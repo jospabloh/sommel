@@ -66,8 +66,15 @@ export default function Estacion() {
     }
     setLoading(true);
     try {
-      const [barRow, orderRows, tableRows, itemRows] = await Promise.all([
-        base44.entities.WineBar.get(tenantId),
+      const [{ bar: barConfig }, orderRows, tableRows, itemRows] = await Promise.all([
+        // Fixed 2026-09-28: `WineBar.get` never worked for a normal user —
+        // verified live, the entity-side RLS rule `{"id":
+        // "{{user.data.tenant_id}}"}` never matches a flat row, so this
+        // always resolved to nothing. Not loosened; routed through the
+        // `stations.getConfig` server action instead, which reads `ctx.bar`
+        // (loaded via asServiceRole) and hands back only what this screen
+        // needs (contract §4).
+        callFn('stations', 'getConfig'),
         base44.entities.Order.filter({ tenant_id: tenantId, status: 'abierta' }),
         base44.entities.BarTable.filter({ tenant_id: tenantId }),
         // Fixed 2026-09-28: this used to fetch EVERY OrderItem this station
@@ -80,7 +87,7 @@ export default function Estacion() {
         // fetch itself instead of only from the render.
         base44.entities.OrderItem.filter({ tenant_id: tenantId, station, status: { $in: ['enviado', 'listo', 'cancelado'] } }),
       ]);
-      setBar(flattenRow(barRow));
+      setBar(barConfig || null);
       setOrders((orderRows || []).map(flattenRow).filter(Boolean));
       setTables((tableRows || []).map(flattenRow).filter(Boolean));
       setItems((itemRows || []).map(flattenRow).filter(Boolean));

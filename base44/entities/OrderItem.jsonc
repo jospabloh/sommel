@@ -16,8 +16,8 @@
     "name": { "type": "string", "description": "Nombre del producto, congelado al agregarlo" },
     "unit_price": { "type": "integer", "description": "Precio unitario en centavos MXN, congelado al agregar el renglón" },
     "unit_cost": {
-      "type": "integer",
-      "description": "Costo unitario en centavos MXN, congelado al agregar el renglón. D7: nunca debe llegar al navegador de quien no tiene Menú:ver_costos — hoy ningún código de src/ lo lee (grep, 2026-09-28), así que se bloquea a la plataforma en vez de dejarlo como convención sin aplicar.",
+      "type": ["integer", "null"],
+      "description": "Costo unitario en centavos MXN, congelado al agregar el renglón. Puede ser null cuando el Product/variant de origen todavía no tiene costo capturado (mismo patrón que Product.variants[].cost) — fijado en null, nunca en 0, para no inflar reportes de utilidad (fix 2026-09-28). D7: nunca debe llegar al navegador de quien no tiene Menú:ver_costos — cada handler de orders/stations que devuelve un OrderItem lo redacta server-side (redactItemCost/redactItemCosts) antes de responder, y este campo además se bloquea a la plataforma como segunda capa.",
       "rls": {
         "read": { "user_condition": { "role": "admin" } }
       }
