@@ -1,0 +1,31 @@
+// stations.getConfig — entrega-1-contratos.md §4 "stations". Read-only: the
+// Estaciones screen needs `WineBar.prep_goal_kitchen_min`/`prep_goal_bar_min`
+// (and the bar's name, for the header) to compute its heat bar, but the
+// client CANNOT read `WineBar` directly — verified live 2026-09-28:
+// `WineBar.get`/`filter`/`list` all return nothing for a normal user,
+// because the entity-side rule `{"id":"{{user.data.tenant_id}}"}` never
+// matches a flat row's `id` against a template that (per this app's own
+// convention, contract §1) never resolves under `data.`. That RLS rule is
+// NOT loosened here — this endpoint reads `ctx.bar` (already loaded by
+// `requireContext` via `asServiceRole`) and hands back only the three
+// fields the screen needs, nothing else off the row.
+//
+// No `requireWritable` on purpose: this is a read, and a suspended/
+// view_only bar's staff still need to see their own prep goals.
+import { requirePermission, httpError, type Ctx, type Route } from '../_guard.ts';
+
+export const getConfig: Route = async (ctx: Ctx) => {
+  await requirePermission(ctx, 'Estaciones:operar');
+
+  if (!ctx.bar) {
+    httpError(404, 'not_found', 'No se encontró el bar');
+  }
+
+  return {
+    bar: {
+      name: ctx.bar.name ?? '',
+      prep_goal_kitchen_min: ctx.bar.prep_goal_kitchen_min ?? null,
+      prep_goal_bar_min: ctx.bar.prep_goal_bar_min ?? null,
+    },
+  };
+};

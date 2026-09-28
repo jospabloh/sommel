@@ -135,3 +135,30 @@ export function pesosToCents(pesos: number): number {
 export function centsToPesos(cents: number): number {
   return cents / 100;
 }
+
+// ---- Cost redaction (D7, entrega-1-contratos.md §4/§6b) ----
+//
+// `OrderItem.unit_cost` is frozen server-side at addItems time and RLS
+// already blocks direct reads of it to non-platform callers
+// (OrderItem.jsonc: `properties.unit_cost.rls.read`), but every `orders`/
+// `stations` handler that RETURNS an OrderItem row does so through the
+// function's own JSON response, which RLS never touches — a handler that
+// forgets to redact hands `unit_cost` to every caller regardless of
+// `Menú:ver_costos`, exactly like `catalog.listProducts` already guards
+// against for `Product.cost`/`variants[].cost`. These two pure helpers are
+// the one place that redaction logic lives, so every handler that returns
+// OrderItem row(s) calls `hasPermission(ctx, 'Menú:ver_costos')` once and
+// pipes its result (row or row[]) through here before responding.
+
+/** Removes `unit_cost` from a single OrderItem-shaped row unless `canSeeCosts`. */
+export function redactItemCost<T extends Record<string, unknown>>(row: T, canSeeCosts: boolean): T {
+  if (canSeeCosts || row == null) return row;
+  const { unit_cost: _unit_cost, ...rest } = row;
+  return rest as T;
+}
+
+/** Array variant of {@link redactItemCost}. */
+export function redactItemCosts<T extends Record<string, unknown>>(rows: T[], canSeeCosts: boolean): T[] {
+  if (canSeeCosts) return rows;
+  return rows.map((row) => redactItemCost(row, canSeeCosts));
+}

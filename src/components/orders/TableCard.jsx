@@ -15,7 +15,14 @@ export default function TableCard({ table, order, onTap, onEdit, canEdit, style 
       className={cn(
         'relative rounded-2xl border-2 p-3 flex flex-col justify-between min-h-[92px] text-left transition-colors active:scale-[0.98]',
         occupied
-          ? 'border-accent bg-accent/15 text-accent-foreground'
+          // Fixed 2026-09-28: `text-accent-foreground` is tuned for text on
+          // a SOLID `bg-accent` (the badge below uses that pairing and is
+          // fine) — here the background is a 15%-opacity tint over the
+          // page, which in light mode is a pale pink, so the near-white
+          // accent-foreground was unreadable. `text-foreground` is
+          // calibrated against `--background`/`--card` in both themes and
+          // reads clearly against a light tint just as well as a dark one.
+          ? 'border-accent bg-accent/15 text-foreground'
           : 'border-border bg-card hover:border-primary/50'
       )}
     >

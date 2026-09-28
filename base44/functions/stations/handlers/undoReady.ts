@@ -3,7 +3,7 @@
 // within 5 minutes of `ready_at` (UNDO_WINDOW_MS in ./_logic.ts). Clears
 // `ready_at` on the way back so a stale timestamp can't make a later
 // re-mark-ready look instantly overdue.
-import { loadOwned, requirePermission, requireWritable, httpError, type Ctx, type Route, HttpError } from '../_guard.ts';
+import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, redactItemCost, type Ctx, type Route, HttpError } from '../_guard.ts';
 import { LogicError, validateItemId, canUndoReady, isWithinUndoWindow } from './_logic.ts';
 
 export const undoReady: Route = async (ctx: Ctx, body: any) => {
@@ -30,5 +30,6 @@ export const undoReady: Route = async (ctx: Ctx, body: any) => {
 
   const updated = await ctx.svc.entities.OrderItem.update(item.id, { status: 'enviado', ready_at: null });
 
-  return { item: updated };
+  const canSeeCosts = await hasPermission(ctx, 'Menú:ver_costos');
+  return { item: redactItemCost(updated, canSeeCosts) };
 };

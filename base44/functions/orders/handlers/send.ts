@@ -1,7 +1,7 @@
 // orders.send — entrega-1-contratos.md §4 "orders". Idempotent: every
 // 'nuevo' line becomes 'enviado' with sent_at = now; calling it again with
 // nothing left in 'nuevo' just returns an empty list, not an error.
-import { loadOwned, requirePermission, requireWritable, httpError, type Ctx, type Route } from '../_guard.ts';
+import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, redactItemCosts, type Ctx, type Route } from '../_guard.ts';
 import { isOrderOpen, canSendItem } from './_logic.ts';
 
 export const send: Route = async (ctx: Ctx, body: any) => {
@@ -24,5 +24,6 @@ export const send: Route = async (ctx: Ctx, body: any) => {
     sent.push(updated);
   }
 
-  return { sent };
+  const canSeeCosts = await hasPermission(ctx, 'Menú:ver_costos');
+  return { sent: redactItemCosts(sent, canSeeCosts) };
 };

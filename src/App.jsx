@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, Outlet } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { PermissionProvider } from '@/lib/PermissionContext';
@@ -15,11 +15,37 @@ import Orden from '@/pages/Orden';
 import Estacion from '@/pages/Estacion';
 import SuperAdmin from '@/pages/SuperAdmin';
 import Staff from '@/pages/Staff';
+import Onboarding from '@/pages/Onboarding';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 // Add page imports here
+
+// Fixed 2026-09-28 (D "onboarding not routed"): a logged-in user who isn't
+// the platform admin and has no `tenant_id` yet has nowhere real to land —
+// every protected screen assumes a bar. Gates the Layout-wrapped routes:
+// redirects to /onboarding instead of rendering a broken/empty screen.
+// `user.role`/`user.tenant_id` are flat (contract §1's "Forma de los
+// registros").
+const RequireTenant = () => {
+  const { user } = useAuth();
+  if (user && user.role !== 'admin' && !user.tenant_id) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  return <Outlet />;
+};
+
+// The inverse: once the user has a bar (or is the platform admin, who never
+// needs one), /onboarding itself redirects to /mesas instead of showing the
+// "create your bar" form again.
+const OnboardingRoute = () => {
+  const { user } = useAuth();
+  if (user && (user.role === 'admin' || user.tenant_id)) {
+    return <Navigate to="/mesas" replace />;
+  }
+  return <Onboarding />;
+};
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -55,24 +81,27 @@ const AuthenticatedApp = () => {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Navigate to="/mesas" replace />} />
-          <Route path="/menu" element={<Menu />} />
-          <Route path="/mesas" element={<Mesas />} />
-          {/* Fixed 2026-09-28: a separate static "/orden/nueva" route used
-             to sit alongside this one. React Router ranks a static segment
-             above a dynamic one regardless of declaration order, so
-             "/orden/nueva" matched THAT route instead, useParams().orderId
-             came back undefined (no :orderId here), Orden.jsx's `isNew`
-             check (`orderId === 'nueva'`) was always false, and the "para
-             llevar" screen never rendered — just an infinite spinner. Orden.jsx
-             and useOrderRealtime.js were already written to treat
-             orderId === 'nueva' as the "new order" case; this single route
-             is what actually delivers that value. */}
-          <Route path="/orden/:orderId" element={<Orden />} />
-          <Route path="/estacion/:station" element={<Estacion />} />
-          <Route path="/staff" element={<Staff />} />
-          <Route path="/super-admin" element={<SuperAdmin />} />
+        <Route path="/onboarding" element={<OnboardingRoute />} />
+        <Route element={<RequireTenant />}>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Navigate to="/mesas" replace />} />
+            <Route path="/menu" element={<Menu />} />
+            <Route path="/mesas" element={<Mesas />} />
+            {/* Fixed 2026-09-28: a separate static "/orden/nueva" route used
+               to sit alongside this one. React Router ranks a static segment
+               above a dynamic one regardless of declaration order, so
+               "/orden/nueva" matched THAT route instead, useParams().orderId
+               came back undefined (no :orderId here), Orden.jsx's `isNew`
+               check (`orderId === 'nueva'`) was always false, and the "para
+               llevar" screen never rendered — just an infinite spinner. Orden.jsx
+               and useOrderRealtime.js were already written to treat
+               orderId === 'nueva' as the "new order" case; this single route
+               is what actually delivers that value. */}
+            <Route path="/orden/:orderId" element={<Orden />} />
+            <Route path="/estacion/:station" element={<Estacion />} />
+            <Route path="/staff" element={<Staff />} />
+            <Route path="/super-admin" element={<SuperAdmin />} />
+          </Route>
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />

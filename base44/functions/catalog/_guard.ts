@@ -23,6 +23,8 @@ import {
   lineTotalCents,
   pesosToCents,
   centsToPesos,
+  redactItemCost,
+  redactItemCosts,
   type AppRole,
 } from './_guard_logic.ts';
 
@@ -34,6 +36,8 @@ export {
   lineTotalCents,
   pesosToCents,
   centsToPesos,
+  redactItemCost,
+  redactItemCosts,
 };
 
 export interface Ctx {
@@ -63,12 +67,28 @@ export async function requireContext(
   opts: { allowNoTenant?: boolean } = {}
 ): Promise<Ctx> {
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-  if (!user) throw new HttpError(401, 'unauthorized', 'No autenticado');
+  // Fixed 2026-09-28 (D "unauthenticated calls return 500"): an
+  // unauthenticated call doesn't make `base44.auth.me()` resolve to `null`
+  // — the SDK THROWS ("Authentication required to view users"), which used
+  // to escape uncaught, past the `if (!user)` check below that can never
+  // run, straight to `handle()`'s generic catch-all and out as 500
+  // `internal_error`. That's wrong on two counts: an auth failure is a 401,
+  // not a server error, and the message shown to the caller was an SDK
+  // internal string, never `entrega-1-contratos.md`'s Spanish-message
+  // convention. Wrapping the call and mapping ANY failure here to 401 fixes
+  // both; the `if (!user)` fallback stays for an SDK version that returns
+  // `null`/`undefined` instead of throwing.
+  let user: any;
+  try {
+    user = await base44.auth.me();
+  } catch {
+    throw new HttpError(401, 'unauthenticated', 'Inicia sesión para continuar');
+  }
+  if (!user) throw new HttpError(401, 'unauthenticated', 'Inicia sesión para continuar');
   const svc = base44.asServiceRole;
 
   const [self] = await svc.entities.User.filter({ id: user.id });
-  if (!self) throw new HttpError(401, 'unauthorized', 'Usuario no encontrado');
+  if (!self) throw new HttpError(401, 'unauthenticated', 'Usuario no encontrado');
 
   const tenantId: string | null = self.tenant_id ?? null;
   const appRole: AppRole | null = self.app_role ?? null;

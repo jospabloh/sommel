@@ -3,7 +3,7 @@
 // 'nuevo' (not sent). Price/cost/variant stay frozen from addItems (D6) —
 // updateItem never re-prices, it only lets the wait staff fix a typo before
 // sending.
-import { loadOwned, requirePermission, requireWritable, httpError, HttpError, type Ctx, type Route } from '../_guard.ts';
+import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCost, type Ctx, type Route } from '../_guard.ts';
 import { LogicError, resolveModifiers, validateQty, isOrderOpen, canEditItem } from './_logic.ts';
 import { recomputeOrderTotals } from './_shared.ts';
 
@@ -52,5 +52,6 @@ export const updateItem: Route = async (ctx: Ctx, body: any) => {
     await recomputeOrderTotals(ctx, order.id);
   }
 
-  return { item: updated };
+  const canSeeCosts = await hasPermission(ctx, 'Menú:ver_costos');
+  return { item: redactItemCost(updated, canSeeCosts) };
 };

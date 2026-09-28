@@ -8,7 +8,7 @@
 // with no re-write and its original `ready_at` kept; an item in a status
 // that can never reach `listo` from here (`nuevo`, `entregado`, `cancelado`)
 // is skipped rather than failing the whole batch.
-import { loadOwned, requirePermission, requireWritable, type Ctx, type Route, HttpError } from '../_guard.ts';
+import { loadOwned, requirePermission, requireWritable, hasPermission, redactItemCosts, type Ctx, type Route, HttpError } from '../_guard.ts';
 import { LogicError, validateItemIds, canMarkReady, isAlreadyReady } from './_logic.ts';
 
 export const markReady: Route = async (ctx: Ctx, body: any) => {
@@ -41,5 +41,6 @@ export const markReady: Route = async (ctx: Ctx, body: any) => {
     result.push(updated);
   }
 
-  return { items: result };
+  const canSeeCosts = await hasPermission(ctx, 'Menú:ver_costos');
+  return { items: redactItemCosts(result, canSeeCosts) };
 };

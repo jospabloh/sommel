@@ -26,6 +26,12 @@ export default function SuperAdmin() {
   };
   useEffect(() => { load(); }, []);
 
+  // TODO: this direct `WineBar.update` write technically violates contract
+  // §1's "ninguna página escribe entidades directo" — accepted for now as a
+  // platform-only exception (§6b: this page is `user.role === 'admin'`-gated
+  // and `billing_status` is already RLS-locked to that same role, so there's
+  // no bypass), but a future pass should route it through a Safe function
+  // like every other write, for consistency rather than a leak.
   const setStatus = async (barId, status) => {
     await base44.entities.WineBar.update(barId, { billing_status: status });
     setBars(prev => prev.map(b => b.id === barId ? { ...b, billing_status: status } : b));
