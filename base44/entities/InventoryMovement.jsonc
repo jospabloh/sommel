@@ -1,0 +1,35 @@
+{
+  // Movimiento de inventario (§2 del plan). El stock de InventoryItem se
+  // recalcula a partir de estos renglones; nunca se edita a mano. `idempotency_key`
+  // sigue la misma lección que StockFlow's syncCashSaleToPettyCash: un reintento
+  // por red no debe duplicar el movimiento.
+  "name": "InventoryMovement",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este movimiento" },
+    "item_id": { "type": "string", "description": "InventoryItem afectado" },
+    "type": {
+      "type": "string",
+      "enum": ["entrada", "venta", "merma", "conteo", "devolucion"],
+      "description": "Tipo de movimiento"
+    },
+    "qty": { "type": "number", "description": "Cantidad del movimiento (signo según el tipo)" },
+    "unit_cost": { "type": "integer", "description": "Costo por unidad al momento del movimiento, en centavos MXN" },
+    "reason": { "type": "string", "description": "Motivo (merma, conteo, devolución...)" },
+    "order_item_id": { "type": "string", "description": "OrderItem que originó este movimiento, si aplica" },
+    "idempotency_key": { "type": "string", "description": "Llave para no duplicar el mismo movimiento en un reintento" },
+    "created_by": { "type": "string", "description": "Email de quien registró el movimiento" }
+  },
+  "required": ["tenant_id", "item_id", "type"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

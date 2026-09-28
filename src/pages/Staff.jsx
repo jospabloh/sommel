@@ -3,11 +3,11 @@ import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, Loader2, UserPlus, Mail } from 'lucide-react';
+import { Users, UserPlus, Mail } from 'lucide-react';
 
 export default function Staff() {
   const { user } = useAuth();
-  const tenantId = user?.data?.tenant_id;
+  const tenantId = user?.tenant_id;
   const [staff, setStaff] = useState(null);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);

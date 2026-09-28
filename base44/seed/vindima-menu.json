@@ -1,0 +1,1182 @@
+{
+  "source": "Carta impresa de Vindima, digitalizada en scratchpad/xlsx/build.py (2026-09-28). Precios en pesos convertidos a centavos MXN. cost:null en todo el archivo — Alby/Alby's team manda los costos reales después (ver plan-tecnico.md §7).",
+  "categories": [
+    {
+      "name": "Vino por botella",
+      "sort": 10,
+      "station_default": "bar"
+    },
+    {
+      "name": "Vino por copa",
+      "sort": 20,
+      "station_default": "bar"
+    },
+    {
+      "name": "Tablas",
+      "sort": 30,
+      "station_default": "kitchen"
+    },
+    {
+      "name": "Mini charcutería para eventos",
+      "sort": 40,
+      "station_default": "kitchen"
+    },
+    {
+      "name": "Hogazas",
+      "sort": 50,
+      "station_default": "kitchen"
+    },
+    {
+      "name": "Bowls de untables",
+      "sort": 60,
+      "station_default": "kitchen"
+    },
+    {
+      "name": "Tapas",
+      "sort": 70,
+      "station_default": "kitchen"
+    },
+    {
+      "name": "Café",
+      "sort": 80,
+      "station_default": "bar"
+    },
+    {
+      "name": "Tisanas preparadas",
+      "sort": 90,
+      "station_default": "bar"
+    },
+    {
+      "name": "Tisanas a granel",
+      "sort": 100,
+      "station_default": "none"
+    }
+  ],
+  "products": [
+    {
+      "name": "Sauvignon Blanco orgánico (Paradoja Blanc)",
+      "category": "Vino por botella",
+      "station": "bar",
+      "price": 50000,
+      "cost": null,
+      "presentation": "Botella",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Malbec Crianza orgánico (Piensos)",
+      "category": "Vino por botella",
+      "station": "bar",
+      "price": 50000,
+      "cost": null,
+      "presentation": "Botella",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Tempranillo orgánico (Postos)",
+      "category": "Vino por botella",
+      "station": "bar",
+      "price": 50000,
+      "cost": null,
+      "presentation": "Botella",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Malbec Gran Reserva (Paradoja)",
+      "category": "Vino por botella",
+      "station": "bar",
+      "price": 70000,
+      "cost": null,
+      "presentation": "Botella",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Casera Vindima (Tempranillo Postos + gaseosa estilo española)",
+      "category": "Vino por botella",
+      "station": "bar",
+      "price": 65000,
+      "cost": null,
+      "presentation": "Botella + gaseosa",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Piensos y Paradoja Blanc",
+      "category": "Vino por copa",
+      "station": "bar",
+      "price": 12000,
+      "cost": null,
+      "presentation": "Copa",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Clericot Vindima",
+      "category": "Vino por copa",
+      "station": "bar",
+      "price": 17000,
+      "cost": null,
+      "presentation": "Copa",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Blanco de Verano",
+      "category": "Vino por copa",
+      "station": "bar",
+      "price": 17000,
+      "cost": null,
+      "presentation": "Copa",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Wine Brew",
+      "category": "Vino por copa",
+      "station": "bar",
+      "price": 17000,
+      "cost": null,
+      "presentation": "Copa",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Blanco de Verano con Matcha",
+      "category": "Vino por copa",
+      "station": "bar",
+      "price": 18500,
+      "cost": null,
+      "presentation": "Copa",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Mini conos",
+      "category": "Mini charcutería para eventos",
+      "station": "kitchen",
+      "price": 7000,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Cajita de charcutería",
+      "category": "Mini charcutería para eventos",
+      "station": "kitchen",
+      "price": 18000,
+      "cost": null,
+      "presentation": "Individual",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Hogaza Brie",
+      "category": "Hogazas",
+      "station": "kitchen",
+      "price": 59000,
+      "cost": null,
+      "presentation": "4-6 personas",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Hogaza Brie Vindima",
+      "category": "Hogazas",
+      "station": "kitchen",
+      "price": 75000,
+      "cost": null,
+      "presentation": "8 rebanadas",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Butter Candle Hogaza",
+      "category": "Hogazas",
+      "station": "kitchen",
+      "price": 18000,
+      "cost": null,
+      "presentation": "4-6 personas",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso Philadelphia, miel, almendras y romero",
+      "category": "Bowls de untables",
+      "station": "kitchen",
+      "price": 25000,
+      "cost": null,
+      "presentation": "Bowl",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso Philadelphia con salsa macha Vindima",
+      "category": "Bowls de untables",
+      "station": "kitchen",
+      "price": 25000,
+      "cost": null,
+      "presentation": "Bowl",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso de cabra, nuez pecana, miel y romero",
+      "category": "Bowls de untables",
+      "station": "kitchen",
+      "price": 27000,
+      "cost": null,
+      "presentation": "Bowl",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso de cabra, arándanos, canela y miel",
+      "category": "Bowls de untables",
+      "station": "kitchen",
+      "price": 27000,
+      "cost": null,
+      "presentation": "Bowl",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso de cabra, romero, limón eureka y pimentón",
+      "category": "Bowls de untables",
+      "station": "kitchen",
+      "price": 29000,
+      "cost": null,
+      "presentation": "Bowl",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Tortilla española con sobrasada",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 9500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Tortilla española con mermelada de cebolla al vino tinto",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 9500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Tortilla española con tomate deshidratado y aceitunas",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 9500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Brie con mermelada de cereza/chabacano",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Brie con jamón serrano, reducción balsámica y nueces",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Sobrasada con tomate deshidratado",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Sobrasada con brie y miel",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Provolone al vino tinto con chorizo español",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Ibérico curado 3 leches con mermelada de cebolla al vino tinto",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso crema, salsa macha y tomate deshidratado",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 5500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso de cabra con arándanos, canela y miel",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 5500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso de cabra con arándanos, canela, miel y salami madurado italiano",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 5500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso de cabra con romero, nuez y miel",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 5500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso de cabra con chorizo pamplona y aceitunas",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 5500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Gouda chileno con tapenade de aceitunas y tomate",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 5500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Gouda chileno con salami y pera",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 5500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Parmesano con higos y miel",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 5500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Provolone al vino tinto con ate de membrillo",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 5500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso azul con pera y miel",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 5500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Queso de cabra con pesto",
+      "category": "Tapas",
+      "station": "kitchen",
+      "price": 5500,
+      "cost": null,
+      "presentation": "Pieza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Espresso",
+      "category": "Café",
+      "station": "bar",
+      "price": 4500,
+      "cost": null,
+      "presentation": "Taza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Americano",
+      "category": "Café",
+      "station": "bar",
+      "price": 5000,
+      "cost": null,
+      "presentation": "Taza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Cortado",
+      "category": "Café",
+      "station": "bar",
+      "price": 5800,
+      "cost": null,
+      "presentation": "Taza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Cappuccino",
+      "category": "Café",
+      "station": "bar",
+      "price": 7200,
+      "cost": null,
+      "presentation": "Taza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Flat White",
+      "category": "Café",
+      "station": "bar",
+      "price": 7500,
+      "cost": null,
+      "presentation": "Taza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Latte",
+      "category": "Café",
+      "station": "bar",
+      "price": 7500,
+      "cost": null,
+      "presentation": "Taza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Latte Vindima",
+      "category": "Café",
+      "station": "bar",
+      "price": 8200,
+      "cost": null,
+      "presentation": "Taza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Dirty Chai Vindima",
+      "category": "Café",
+      "station": "bar",
+      "price": 9200,
+      "cost": null,
+      "presentation": "Taza",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Chemex",
+      "category": "Café",
+      "station": "bar",
+      "price": 12000,
+      "cost": null,
+      "presentation": "2 tazas",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Prensa francesa",
+      "category": "Café",
+      "station": "bar",
+      "price": 12000,
+      "cost": null,
+      "presentation": "2 tazas",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Cold Brew Clásico",
+      "category": "Café",
+      "station": "bar",
+      "price": 6800,
+      "cost": null,
+      "presentation": "Vaso",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Cold Brew Vindima",
+      "category": "Café",
+      "station": "bar",
+      "price": 8800,
+      "cost": null,
+      "presentation": "Vaso",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Terracota",
+      "category": "Tisanas preparadas",
+      "station": "bar",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Taza (agua 400 ml o leche 300 ml)",
+      "variants": [],
+      "modifiers": [
+        {
+          "key": "agua",
+          "label": "En agua (400 ml)"
+        },
+        {
+          "key": "leche",
+          "label": "En leche (300 ml)"
+        }
+      ],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Floración",
+      "category": "Tisanas preparadas",
+      "station": "bar",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Taza (agua 400 ml o leche 300 ml)",
+      "variants": [],
+      "modifiers": [
+        {
+          "key": "agua",
+          "label": "En agua (400 ml)"
+        },
+        {
+          "key": "leche",
+          "label": "En leche (300 ml)"
+        }
+      ],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Solera",
+      "category": "Tisanas preparadas",
+      "station": "bar",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Taza (agua 400 ml o leche 300 ml)",
+      "variants": [],
+      "modifiers": [
+        {
+          "key": "agua",
+          "label": "En agua (400 ml)"
+        },
+        {
+          "key": "leche",
+          "label": "En leche (300 ml)"
+        }
+      ],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Bruma",
+      "category": "Tisanas preparadas",
+      "station": "bar",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Taza (agua 400 ml o leche 300 ml)",
+      "variants": [],
+      "modifiers": [
+        {
+          "key": "agua",
+          "label": "En agua (400 ml)"
+        },
+        {
+          "key": "leche",
+          "label": "En leche (300 ml)"
+        }
+      ],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Ponche Blanco",
+      "category": "Tisanas preparadas",
+      "station": "bar",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Taza (agua 400 ml o leche 300 ml)",
+      "variants": [],
+      "modifiers": [
+        {
+          "key": "agua",
+          "label": "En agua (400 ml)"
+        },
+        {
+          "key": "leche",
+          "label": "En leche (300 ml)"
+        }
+      ],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Golden Milk",
+      "category": "Tisanas preparadas",
+      "station": "bar",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Taza (agua 400 ml o leche 300 ml)",
+      "variants": [],
+      "modifiers": [
+        {
+          "key": "agua",
+          "label": "En agua (400 ml)"
+        },
+        {
+          "key": "leche",
+          "label": "En leche (300 ml)"
+        }
+      ],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Delicia Turca",
+      "category": "Tisanas preparadas",
+      "station": "bar",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Taza (agua 400 ml o leche 300 ml)",
+      "variants": [],
+      "modifiers": [
+        {
+          "key": "agua",
+          "label": "En agua (400 ml)"
+        },
+        {
+          "key": "leche",
+          "label": "En leche (300 ml)"
+        }
+      ],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Black Cherry",
+      "category": "Tisanas preparadas",
+      "station": "bar",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Taza (agua 400 ml o leche 300 ml)",
+      "variants": [],
+      "modifiers": [
+        {
+          "key": "agua",
+          "label": "En agua (400 ml)"
+        },
+        {
+          "key": "leche",
+          "label": "En leche (300 ml)"
+        }
+      ],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Chai Vindima",
+      "category": "Tisanas preparadas",
+      "station": "bar",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Taza (agua 400 ml o leche 300 ml)",
+      "variants": [],
+      "modifiers": [
+        {
+          "key": "agua",
+          "label": "En agua (400 ml)"
+        },
+        {
+          "key": "leche",
+          "label": "En leche (300 ml)"
+        }
+      ],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Verdejo",
+      "category": "Tisanas preparadas",
+      "station": "bar",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Taza (agua 400 ml o leche 300 ml)",
+      "variants": [],
+      "modifiers": [
+        {
+          "key": "agua",
+          "label": "En agua (400 ml)"
+        },
+        {
+          "key": "leche",
+          "label": "En leche (300 ml)"
+        }
+      ],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Chai au Chocolat",
+      "category": "Tisanas preparadas",
+      "station": "bar",
+      "price": 9000,
+      "cost": null,
+      "presentation": "Taza (agua 400 ml o leche 300 ml)",
+      "variants": [],
+      "modifiers": [
+        {
+          "key": "agua",
+          "label": "En agua (400 ml)"
+        },
+        {
+          "key": "leche",
+          "label": "En leche (300 ml)"
+        }
+      ],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Chai Vindima",
+      "category": "Tisanas a granel",
+      "station": "none",
+      "price": 24500,
+      "cost": null,
+      "presentation": "100 g",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Black Cherry",
+      "category": "Tisanas a granel",
+      "station": "none",
+      "price": 24500,
+      "cost": null,
+      "presentation": "100 g",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Floración",
+      "category": "Tisanas a granel",
+      "station": "none",
+      "price": 24500,
+      "cost": null,
+      "presentation": "100 g",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Golden Milk",
+      "category": "Tisanas a granel",
+      "station": "none",
+      "price": 24500,
+      "cost": null,
+      "presentation": "100 g",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Solera",
+      "category": "Tisanas a granel",
+      "station": "none",
+      "price": 19500,
+      "cost": null,
+      "presentation": "100 g",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Delicia Turca",
+      "category": "Tisanas a granel",
+      "station": "none",
+      "price": 19500,
+      "cost": null,
+      "presentation": "100 g",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Chai au Chocolat",
+      "category": "Tisanas a granel",
+      "station": "none",
+      "price": 19500,
+      "cost": null,
+      "presentation": "100 g",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Verdejo",
+      "category": "Tisanas a granel",
+      "station": "none",
+      "price": 19500,
+      "cost": null,
+      "presentation": "100 g",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Ponche Blanco",
+      "category": "Tisanas a granel",
+      "station": "none",
+      "price": 10000,
+      "cost": null,
+      "presentation": "100 g",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Frutos del Bosque",
+      "category": "Tisanas a granel",
+      "station": "none",
+      "price": 10000,
+      "cost": null,
+      "presentation": "100 g",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Terracota",
+      "category": "Tisanas a granel",
+      "station": "none",
+      "price": 10000,
+      "cost": null,
+      "presentation": "100 g",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "4 Estaciones",
+      "category": "Tablas",
+      "station": "kitchen",
+      "price": null,
+      "cost": null,
+      "variants": [
+        {
+          "key": "chico",
+          "label": "Chico (2-4 personas)",
+          "price": 65000,
+          "cost": null
+        },
+        {
+          "key": "mediano",
+          "label": "Mediano (6-8 personas)",
+          "price": 127000,
+          "cost": null
+        },
+        {
+          "key": "grande",
+          "label": "Grande (10-12 personas)",
+          "price": 199000,
+          "cost": null
+        }
+      ],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Tabla Envero",
+      "category": "Tablas",
+      "station": "kitchen",
+      "price": null,
+      "cost": null,
+      "variants": [
+        {
+          "key": "chico",
+          "label": "Chico (2-4 personas)",
+          "price": 67000,
+          "cost": null
+        },
+        {
+          "key": "mediano",
+          "label": "Mediano (6-8 personas)",
+          "price": 134000,
+          "cost": null
+        },
+        {
+          "key": "grande",
+          "label": "Grande (10-12 personas)",
+          "price": 208000,
+          "cost": null
+        }
+      ],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Tabla Vindima",
+      "category": "Tablas",
+      "station": "kitchen",
+      "price": null,
+      "cost": null,
+      "variants": [
+        {
+          "key": "chico",
+          "label": "Chico (2-4 personas)",
+          "price": 79500,
+          "cost": null
+        },
+        {
+          "key": "mediano",
+          "label": "Mediano (6-8 personas)",
+          "price": 153500,
+          "cost": null
+        },
+        {
+          "key": "grande",
+          "label": "Grande (10-12 personas)",
+          "price": 238000,
+          "cost": null
+        }
+      ],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Dormancia",
+      "category": "Tablas",
+      "station": "kitchen",
+      "price": null,
+      "cost": null,
+      "variants": [
+        {
+          "key": "chico",
+          "label": "Bowl chico (1 persona)",
+          "price": 31000,
+          "cost": null
+        },
+        {
+          "key": "grande",
+          "label": "Bowl grande (3 personas)",
+          "price": 62000,
+          "cost": null
+        }
+      ],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Cosecha 2025",
+      "category": "Tablas",
+      "station": "kitchen",
+      "price": 58500,
+      "cost": null,
+      "presentation": "3 personas",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    },
+    {
+      "name": "Cosecha 2026",
+      "category": "Tablas",
+      "station": "kitchen",
+      "price": 60000,
+      "cost": null,
+      "presentation": "3 personas",
+      "variants": [],
+      "modifiers": [],
+      "active": true,
+      "seasonal": false
+    }
+  ]
+}

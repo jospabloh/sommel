@@ -1,0 +1,29 @@
+{
+  // Insumo de inventario simple (D13: propio de Sommel, sin integrar con
+  // StockFlow). Separado de Product a propósito (§2 del plan): "copa" y
+  // "botella" del mismo vino podrán descontar del mismo InventoryItem más
+  // adelante sin migrar. El stock se recalcula a partir de InventoryMovement;
+  // esta entidad no se edita a mano fuera de la función `inventory`.
+  "name": "InventoryItem",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este insumo" },
+    "name": { "type": "string", "description": "Nombre del insumo (p.ej. Malbec Reserva, Tisana de Frutos del Bosque)" },
+    "unit": { "type": "string", "description": "Unidad de medida (pieza, botella, g)" },
+    "stock": { "type": "number", "default": 0, "description": "Existencia actual, recalculada de InventoryMovement" },
+    "low_threshold": { "type": "number", "default": 0, "description": "Alerta cuando el stock cae por debajo de este valor" },
+    "unit_cost": { "type": "integer", "description": "Costo por unidad en centavos MXN" }
+  },
+  "required": ["tenant_id", "name", "unit"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

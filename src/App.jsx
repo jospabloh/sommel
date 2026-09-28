@@ -4,14 +4,15 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { PermissionProvider } from '@/lib/PermissionContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Layout from '@/components/Layout';
-import Dashboard from '@/pages/Dashboard';
-import POS from '@/pages/POS';
-import Products from '@/pages/Products';
-import Tables from '@/pages/Tables';
+import Menu from '@/pages/Menu';
+import Mesas from '@/pages/Mesas';
+import Orden from '@/pages/Orden';
+import Estacion from '@/pages/Estacion';
 import SuperAdmin from '@/pages/SuperAdmin';
 import Staff from '@/pages/Staff';
 import Login from '@/pages/Login';
@@ -43,7 +44,10 @@ const AuthenticatedApp = () => {
     }
   }
 
-  // Render the main app
+  // Render the main app. Entrega 1 (docs/entrega-1-contratos.md §5): las
+  // rutas del prototipo (/pos, /products, /tables) se eliminan con sus
+  // páginas — '/' redirige a /mesas, que es donde arranca el flujo real
+  // (mapa de mesas → comanda → envío a cocina/barra).
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
@@ -52,10 +56,21 @@ const AuthenticatedApp = () => {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/pos" element={<POS />} />
-          <Route path="/products" element={<Products />} />
-          <Route path="/tables" element={<Tables />} />
+          <Route path="/" element={<Navigate to="/mesas" replace />} />
+          <Route path="/menu" element={<Menu />} />
+          <Route path="/mesas" element={<Mesas />} />
+          {/* Fixed 2026-09-28: a separate static "/orden/nueva" route used
+             to sit alongside this one. React Router ranks a static segment
+             above a dynamic one regardless of declaration order, so
+             "/orden/nueva" matched THAT route instead, useParams().orderId
+             came back undefined (no :orderId here), Orden.jsx's `isNew`
+             check (`orderId === 'nueva'`) was always false, and the "para
+             llevar" screen never rendered — just an infinite spinner. Orden.jsx
+             and useOrderRealtime.js were already written to treat
+             orderId === 'nueva' as the "new order" case; this single route
+             is what actually delivers that value. */}
+          <Route path="/orden/:orderId" element={<Orden />} />
+          <Route path="/estacion/:station" element={<Estacion />} />
           <Route path="/staff" element={<Staff />} />
           <Route path="/super-admin" element={<SuperAdmin />} />
         </Route>
@@ -71,11 +86,13 @@ function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <ScrollToTop />
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
+        <PermissionProvider>
+          <Router>
+            <ScrollToTop />
+            <AuthenticatedApp />
+          </Router>
+          <Toaster />
+        </PermissionProvider>
       </QueryClientProvider>
     </AuthProvider>
   )

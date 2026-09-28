@@ -1,0 +1,63 @@
+{
+  // Renglón de una comanda (D5): entidad aparte, uno por platillo, agregado
+  // por el servidor — así dos meseros agregando a la misma mesa no se pisan
+  // (un arreglo Order.items[] se sobrescribiría completo). Precio y costo se
+  // congelan aquí al agregar el renglón (D6): la utilidad de un día viejo no
+  // cambia si mañana sube el costo del producto. sent_at/ready_at son la hora
+  // de entrada y salida por platillo que la propuesta promete a cocina/barra.
+  "name": "OrderItem",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este renglón" },
+    "order_id": { "type": "string", "description": "Order al que pertenece" },
+    "product_id": { "type": "string", "description": "Product del que se originó" },
+    "variant": { "type": "string", "description": "Key de la variante elegida (tamaño), si aplica" },
+    "variant_label": { "type": "string", "description": "Etiqueta visible de la variante elegida, congelada al agregar el renglón (p.ej. 'Chico (2-4 personas)'), para que cocina/barra nunca vean el key crudo" },
+    "name": { "type": "string", "description": "Nombre del producto, congelado al agregarlo" },
+    "unit_price": { "type": "integer", "description": "Precio unitario en centavos MXN, congelado al agregar el renglón" },
+    "unit_cost": {
+      "type": "integer",
+      "description": "Costo unitario en centavos MXN, congelado al agregar el renglón. D7: nunca debe llegar al navegador de quien no tiene Menú:ver_costos — hoy ningún código de src/ lo lee (grep, 2026-09-28), así que se bloquea a la plataforma en vez de dejarlo como convención sin aplicar.",
+      "rls": {
+        "read": { "user_condition": { "role": "admin" } }
+      }
+    },
+    "qty": { "type": "number", "default": 1, "description": "Cantidad" },
+    "modifiers": {
+      "type": "array",
+      "description": "Modificadores elegidos para este renglón, congelados desde Product.modifiers (contrato §4: solo key/label, sin costo)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "label": { "type": "string" }
+        }
+      }
+    },
+    "notes": { "type": "string", "description": "Nota libre para cocina/barra" },
+    "station": { "type": "string", "enum": ["kitchen", "bar", "none"], "description": "A qué estación se envía" },
+    "status": {
+      "type": "string",
+      "enum": ["nuevo", "enviado", "listo", "entregado", "cancelado"],
+      "default": "nuevo"
+    },
+    "sent_at": { "type": "string", "format": "date-time", "description": "Cuándo se envió a la estación" },
+    "ready_at": { "type": "string", "format": "date-time", "description": "Cuándo la estación lo marcó listo" },
+    "cancel_reason": { "type": "string", "description": "Motivo de cancelación" },
+    "cancelled_by": { "type": "string", "description": "Email de quien canceló el renglón (contrato §3: 'queda registrado quién y por qué')" },
+    "prepared": { "type": "boolean", "default": false, "description": "Si ya se preparó, para saber si cancelar genera merma (§5)" },
+    "created_by": { "type": "string", "description": "Email de quien agregó el renglón" }
+  },
+  "required": ["tenant_id", "order_id", "product_id"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

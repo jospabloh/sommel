@@ -1,0 +1,33 @@
+{
+  // Turno de caja (§2/§5 del plan). Cierre a ciegas: quien cierra cuenta el
+  // efectivo primero (counted_cash) y el servidor calcula expected_cash y
+  // difference después, para que el conteo no se ajuste a lo que "debería dar".
+  "name": "Shift",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este turno" },
+    "opened_at": { "type": "string", "format": "date-time" },
+    "opened_by": { "type": "string", "description": "Email de quien abrió el turno" },
+    "opening_float": { "type": "integer", "default": 0, "description": "Fondo de caja inicial, en centavos MXN" },
+    "closed_at": { "type": "string", "format": "date-time" },
+    "closed_by": { "type": "string", "description": "Email de quien cerró el turno" },
+    "counted_cash": { "type": "integer", "description": "Efectivo contado al cierre, en centavos MXN" },
+    "expected_cash": { "type": "integer", "description": "Efectivo esperado según lo cobrado, en centavos MXN. Solo lo calcula el servidor, después de recibir lo contado" },
+    "difference": { "type": "integer", "description": "counted_cash - expected_cash, en centavos MXN. Solo lo calcula el servidor" },
+    "close_comment": { "type": "string", "description": "Comentario libre al cerrar el turno" },
+    "email_status": { "type": "string", "enum": ["pendiente", "enviado", "fallido"], "default": "pendiente", "description": "Estado del correo del corte (D11)" },
+    "email_sent_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["tenant_id"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

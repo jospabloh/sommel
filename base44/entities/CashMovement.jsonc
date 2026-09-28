@@ -1,0 +1,24 @@
+{
+  // Salida de efectivo de caja durante un turno (§2 del plan).
+  "name": "CashMovement",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este movimiento" },
+    "shift_id": { "type": "string", "description": "Turno en el que se registró" },
+    "amount": { "type": "integer", "description": "Monto retirado, en centavos MXN" },
+    "reason": { "type": "string", "description": "Motivo del retiro" },
+    "created_by": { "type": "string", "description": "Email de quien registró el retiro" }
+  },
+  "required": ["tenant_id", "shift_id", "amount"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

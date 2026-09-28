@@ -1,117 +1,37 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
-
-export default async function(req: Request): Promise<Response> {
-  try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    const tenantId = user.data?.tenant_id;
-    if (!tenantId) return Response.json({ error: 'No tenant assigned to this user' }, { status: 403 });
-
-    const body = await req.json();
-    const { items, table_id, table_name, type } = body;
-    if (!Array.isArray(items) || items.length === 0) {
-      return Response.json({ error: 'La cuenta no tiene productos' }, { status: 400 });
-    }
-
-    // Every line must name a product of this bar with a positive whole quantity.
-    // Price and total are recomputed from Product.price, never taken from the client.
-    for (const item of items) {
-      if (!item?.product_id) {
-        return Response.json({ error: 'Producto inválido en la cuenta' }, { status: 400 });
-      }
-      if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-        return Response.json({ error: `Cantidad inválida para ${item.name || 'un producto'}` }, { status: 400 });
-      }
-    }
-
-    const productIds = [...new Set(items.map((i: any) => i.product_id))];
-    const products = await base44.entities.Product.filter({ id: { $in: productIds } });
-    const productMap: Record<string, any> = {};
-    products.forEach((p: any) => {
-      if (p.data?.tenant_id === tenantId) productMap[p.id] = p;
-    });
-
-    // Aggregate per product so a split line can't bypass the stock check.
-    const qtyByProduct: Record<string, number> = {};
-    for (const item of items) {
-      const product = productMap[item.product_id];
-      if (!product) {
-        return Response.json({ error: 'Producto no encontrado en este bar' }, { status: 400 });
-      }
-      qtyByProduct[item.product_id] = (qtyByProduct[item.product_id] || 0) + item.quantity;
-    }
-    for (const [id, qty] of Object.entries(qtyByProduct)) {
-      const available = productMap[id].data.stock;
-      if (typeof available === 'number' && available < qty) {
-        return Response.json({ error: `Stock insuficiente para ${productMap[id].data.name}` }, { status: 400 });
-      }
-    }
-
-    const orderItems = items.map((i: any) => {
-      const p = productMap[i.product_id];
-      const unit_price = Number(p.data.price) || 0;
-      return { product_id: i.product_id, name: p.data.name, unit_price, quantity: i.quantity, subtotal: unit_price * i.quantity };
-    });
-    const total = orderItems.reduce((sum: number, i: any) => sum + i.subtotal, 0);
-
-    // Reserve stock BEFORE recording the sale, from a fresh read taken right
-    // before the write, then re-read: if the stored value is not exactly what
-    // this sale wrote, another sale wrote in between, so this one gives the
-    // units back and is rejected instead of recorded. Base44 has no atomic
-    // decrement, so this narrows the race rather than closing it — two sales
-    // writing the same value within the same instant still go undetected.
-    const tracked = Object.keys(qtyByProduct).filter((id) => typeof productMap[id].data.stock === 'number');
-    const readStock = async () => {
-      const fresh = tracked.length ? await base44.entities.Product.filter({ id: { $in: tracked } }) : [];
-      const stock: Record<string, number> = {};
-      fresh.forEach((p: any) => { stock[p.id] = p.data?.stock; });
-      return stock;
-    };
-    const release = async () => {
-      const now = await readStock();
-      await base44.entities.Product.bulkUpdate(tracked.map((id) => ({ id, stock: now[id] + qtyByProduct[id] })));
-    };
-
-    if (tracked.length) {
-      const before = await readStock();
-      for (const id of tracked) {
-        if (typeof before[id] !== 'number' || before[id] < qtyByProduct[id]) {
-          return Response.json({ error: `Stock insuficiente para ${productMap[id].data.name}` }, { status: 400 });
-        }
-      }
-      await base44.entities.Product.bulkUpdate(tracked.map((id) => ({ id, stock: before[id] - qtyByProduct[id] })));
-      const after = await readStock();
-      if (tracked.some((id) => after[id] !== before[id] - qtyByProduct[id])) {
-        await release();
-        return Response.json({ error: 'Otra venta tomó ese stock al mismo tiempo. Intenta de nuevo.' }, { status: 409 });
-      }
-    }
-
-    let order;
-    try {
-      order = await base44.entities.Order.create({
-        tenant_id: tenantId,
-        table_id: table_id || null,
-        table_name: table_name || null,
-        type: type || 'bar',
-        status: 'paid',
-        total,
-        items: orderItems,
-        paid_at: new Date().toISOString()
-      });
-    } catch (e) {
-      if (tracked.length) await release();
-      throw e;
-    }
-
-    // Free the table if it was a table order
-    if (table_id) {
-      try { await base44.entities.BarTable.update(table_id, { status: 'available' }); } catch (e) {}
-    }
-
-    return Response.json({ order, total });
-  } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
+// processSale — RETIRED 2026-09-28 (finding, entrega-1-contratos.md review).
+//
+// This was the original prototype's one-shot "charge the whole order now"
+// endpoint (plan-tecnico.md §0: "processSale crea la orden ya pagada").
+// Entrega 1 replaces that flow with `orders` (open/addItems/send/...); a
+// `payments` endpoint that actually closes/charges an order is Entrega 2
+// (plan-tecnico.md §6). Until payments exists, `orders`+`payments` don't yet
+// "cover" what this endpoint did (plan §3's stated precondition for deleting
+// it outright — `npm run functions:audit` first), so the file stays and the
+// slot in `maxFunctions` stays reserved, but every call is rejected instead
+// of running.
+//
+// Why this couldn't just wait for Entrega 2: audited 2026-09-28 and it was a
+// live, deployable security gap, not dormant dead code —
+//   - no permission check (any authenticated user with a tenant_id could
+//     call it) and no `requireWritable`/billing_status gate (a suspended or
+//     view_only bar could still "sell" through it);
+//   - `tenant_id` came from `user.data.tenant_id` (module 22: never trust
+//     auth.me()'s own .data, always re-read `User` with asServiceRole —
+//     every other handler in this repo does; this one never did);
+//   - it wrote `Order.status: 'paid'` and `Order.items: [...]`, a shape that
+//     predates this app's redesign (D5: OrderItem is its own entity now;
+//     Order.status is `abierta | cobrada | cancelada`, no `'paid'`) — so a
+//     successful call would have written a row nothing else in this app
+//     could read correctly.
+// `grep -rn processSale src/` confirms nothing in the client calls this —
+// it was already orphaned, so rejecting every call breaks no UI.
+export default async function (_req: Request): Promise<Response> {
+  return Response.json(
+    {
+      error:
+        'Este endpoint fue retirado. Usa orders.open + orders.addItems + orders.send; el cobro llega con payments en la Entrega 2.',
+      code: 'retired',
+    },
+    { status: 410 }
+  );
 }

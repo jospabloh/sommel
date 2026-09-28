@@ -1,119 +1,42 @@
 {
-  "properties": {
-    "tenant_id": {
-      "type": "string",
-      "description": "WineBar this order belongs to"
-    },
-    "table_id": {
-      "type": "string",
-      "description": "Table id for table orders, null for bar sales"
-    },
-    "table_name": {
-      "type": "string"
-    },
-    "type": {
-      "type": "string",
-      "enum": [
-        "bar",
-        "table"
-      ],
-      "default": "bar"
-    },
-    "status": {
-      "type": "string",
-      "enum": [
-        "open",
-        "paid",
-        "cancelled"
-      ],
-      "default": "open"
-    },
-    "total": {
-      "type": "number",
-      "default": 0
-    },
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "product_id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "unit_price": {
-            "type": "number"
-          },
-          "quantity": {
-            "type": "number"
-          },
-          "subtotal": {
-            "type": "number"
-          }
-        }
-      }
-    },
-    "paid_at": {
-      "type": "string",
-      "format": "date-time"
-    }
-  },
-  "required": [
-    "tenant_id",
-    "type"
-  ],
+  // Comanda (§2/§5 del plan). Los renglones viven en OrderItem (D5), no aquí:
+  // dos meseros agregando a la misma mesa no se pisan. Todos los importes
+  // (subtotal, discount, tip, total) los calcula solo el servidor (§5) — el
+  // cliente nunca los manda.
   "name": "Order",
   "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de esta comanda" },
+    "type": { "type": "string", "enum": ["mesa", "llevar"], "default": "mesa" },
+    "table_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "BarTable(s) asociadas, para el caso de mesas unidas"
+    },
+    "customer_name": { "type": "string", "description": "Nombre del cliente, para pedidos para llevar" },
+    "status": { "type": "string", "enum": ["abierta", "cobrada", "cancelada"], "default": "abierta" },
+    "opened_by": { "type": "string", "description": "Email de quien abrió la comanda" },
+    "opened_at": { "type": "string", "format": "date-time" },
+    "closed_at": { "type": "string", "format": "date-time" },
+    "cancel_reason": { "type": "string", "description": "Motivo de cancelación de la comanda entera (orders.cancelOrder), separado del cancel_reason por renglón de OrderItem" },
+    "subtotal": { "type": "integer", "default": 0, "description": "Suma de los renglones, en centavos MXN. Solo lo escribe el servidor" },
+    "discount": { "type": "integer", "default": 0, "description": "Descuento aplicado, en centavos MXN. Solo lo escribe el servidor" },
+    "discount_reason": { "type": "string", "description": "Motivo del descuento o cortesía" },
+    "discount_kind": { "type": "string", "enum": ["descuento", "cortesia"], "description": "Una cortesía es un descuento del 100% con motivo (§5)" },
+    "tip": { "type": "integer", "default": 0, "description": "Propina, en centavos MXN. Solo lo escribe el servidor" },
+    "total": { "type": "integer", "default": 0, "description": "Total a cobrar, en centavos MXN. Solo lo escribe el servidor" },
+    "shift_id": { "type": "string", "description": "Turno (Shift) en el que se abrió esta comanda" }
+  },
+  "required": ["tenant_id", "type"],
   "rls": {
     "read": {
       "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
       ]
     },
-    "create": {
-      "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "update": {
-      "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "delete": {
-      "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    }
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
   }
 }

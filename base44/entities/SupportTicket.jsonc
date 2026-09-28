@@ -1,0 +1,33 @@
+{
+  // Módulo 8 — soporte. El bar escribe el ticket aquí primero; Mission
+  // Control lo recoge después vía ticket-pull. A diferencia del resto de las
+  // entidades de este repo, `create` sí es tenant $or (no admin-only): el
+  // navegador del bar es quien crea el ticket, no una Safe function.
+  "name": "SupportTicket",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar que abrió el ticket" },
+    "kind": { "type": "string", "enum": ["soporte", "mejora", "baja"], "description": "Tipo de ticket" },
+    "subject": { "type": "string", "description": "Asunto del ticket" },
+    "body": { "type": "string", "description": "Descripción del problema, mejora o solicitud de baja" },
+    "status": { "type": "string", "enum": ["abierto", "en_proceso", "cerrado"], "default": "abierto" },
+    "created_by_email": { "type": "string", "description": "Email de quien abrió el ticket" }
+  },
+  "required": ["tenant_id", "kind", "subject"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

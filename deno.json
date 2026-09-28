@@ -1,0 +1,17 @@
+{
+  "lint": {
+    "include": ["base44/functions/", "base44/tests/", "scripts/templates/"],
+    "rules": {
+      "exclude": [
+        "no-import-prefix",
+        "no-unused-vars",
+        "no-explicit-any",
+        "no-inner-declarations",
+        "prefer-const",
+        "no-empty",
+        "require-await",
+        "camelcase"
+      ]
+    }
+  }
+}

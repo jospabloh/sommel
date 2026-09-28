@@ -1,0 +1,49 @@
+// Thin wrapper over base44.functions.invoke (contract §1/§5):
+// `base44.functions.invoke('<endpoint>', { action, ...payload })` and the
+// server answers `{ ok: true, ... }` or an HTTP error with
+// `{ error: '<mensaje en español>', code: '<snake_case>' }`.
+//
+// `callFn` is the ONE place in `src/` that talks to
+// `base44.functions.invoke` for these endpoints, so every page gets the same
+// error shape (`ApiError`) instead of each page re-parsing
+// `err.response?.data?.error` by hand.
+import { base44 } from '@/api/base44Client';
+
+export class ApiError extends Error {
+  /**
+   * @param {number} status
+   * @param {string} code
+   * @param {string} message
+   * @param {object} [data] - Full error body, so structured fields the
+   *   server's `HttpError.extra` adds (e.g. `{ order_id }` on 409
+   *   table_busy — contract §4, fixed 2026-09-28) reach the caller instead
+   *   of only the message text.
+   */
+  constructor(status, code, message, data) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.data = data ?? {};
+  }
+}
+
+/**
+ * @param {string} endpoint - Nombre de la función (p.ej. 'catalog', 'orders', 'stations').
+ * @param {string} action - Acción del router del contrato §4.
+ * @param {object} [payload] - Resto del cuerpo, junto a `action`.
+ * @returns {Promise<object>} El cuerpo `{ ok: true, ... }` de la respuesta.
+ * @throws {ApiError}
+ */
+export async function callFn(endpoint, action, payload = {}) {
+  try {
+    const res = await base44.functions.invoke(endpoint, { action, ...payload });
+    return res?.data ?? {};
+  } catch (err) {
+    const status = err?.response?.status ?? 0;
+    const data = err?.response?.data;
+    const code = data?.code || 'unknown_error';
+    const message = data?.error || err?.message || 'Error de red';
+    throw new ApiError(status, code, message, data);
+  }
+}
