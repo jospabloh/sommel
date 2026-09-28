@@ -8,15 +8,63 @@
       "type": "string",
       "description": "Physical address"
     },
-    "subscription_status": {
+    "rfc": {
+      "type": "string",
+      "description": "RFC del bar, para el ticket y facturación"
+    },
+    "ticket_header": {
+      "type": "string",
+      "description": "Encabezado impreso en el ticket (58mm)"
+    },
+    "ticket_footer": {
+      "type": "string",
+      "description": "Pie impreso en el ticket (58mm)"
+    },
+    "billing_status": {
       "type": "string",
       "enum": [
         "trial",
         "active",
-        "suspended",
-        "cancelled"
+        "view_only",
+        "suspended"
       ],
       "default": "trial",
+      "description": "Módulo 19: solo lo escribe la plataforma (Mission Control / createWineBar como service role). Bloqueado a role:admin porque, sin este candado, cualquier miembro del bar podría reactivar su propio bar suspendido o convertirse en 'active' con una llamada cruda a Base44 — el $or de la entidad ({id: tenant_id} en update) por sí solo no distingue campos.",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "trial_end_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Módulo 19: solo lo escribe la plataforma. Sin este candado, un bar en trial podría estirarse su propia fecha de fin de prueba indefinidamente.",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "current_period_end": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Módulo 19: solo lo escribe la plataforma. Sin este candado, un bar activo podría extenderse su propio periodo pagado sin pagar.",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "plan": {
+      "type": "string",
+      "description": "Módulo 19: solo lo escribe la plataforma. Sin este candado, un bar podría subirse de plan (y de límites) sin que la plataforma lo autorice.",
       "rls": {
         "write": {
           "user_condition": {
@@ -35,6 +83,25 @@
           }
         }
       }
+    },
+    "corte_emails": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Correos a los que se manda el corte de turno (D11)"
+    },
+    "prep_goal_kitchen_min": {
+      "type": "number",
+      "default": 15,
+      "description": "Minutos meta para preparar un platillo de cocina"
+    },
+    "prep_goal_bar_min": {
+      "type": "number",
+      "default": 8,
+      "description": "Minutos meta para preparar una bebida de barra"
+    },
+    "service_hours": {
+      "type": "object",
+      "description": "Ventana de horario de servicio del bar (para saber cuándo NO desplegar, §8 del plan)"
     }
   },
   "required": [

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
-import { Building2, Wine, Users, Loader2, Crown } from 'lucide-react';
+import { Building2, Wine, Crown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/format';
 
@@ -17,7 +17,7 @@ export default function SuperAdmin() {
     for (const b of allBars) {
       const [prods, ords] = await Promise.all([
         base44.entities.Product.filter({ tenant_id: b.id }, '-updated_date', 1),
-        base44.entities.Order.filter({ tenant_id: b.id, status: 'paid' }, '-paid_at', 200)
+        base44.entities.Order.filter({ tenant_id: b.id, status: 'cobrada' }, '-closed_at', 200)
       ]);
       const revenue = ords.reduce((s, o) => s + (o.data.total || 0), 0);
       c[b.id] = { products: prods.length, orders: ords.length, revenue };
@@ -27,8 +27,8 @@ export default function SuperAdmin() {
   useEffect(() => { load(); }, []);
 
   const setStatus = async (barId, status) => {
-    await base44.entities.WineBar.update(barId, { subscription_status: status });
-    setBars(prev => prev.map(b => b.id === barId ? { ...b, data: { ...b.data, subscription_status: status } } : b));
+    await base44.entities.WineBar.update(barId, { billing_status: status });
+    setBars(prev => prev.map(b => b.id === barId ? { ...b, data: { ...b.data, billing_status: status } } : b));
   };
 
   if (user?.role !== 'admin') {
@@ -53,7 +53,7 @@ export default function SuperAdmin() {
         <div className="space-y-4">
           {bars.map(b => {
             const c = counts[b.id] || {};
-            const status = b.data.subscription_status || 'trial';
+            const status = b.data.billing_status || 'trial';
             return (
               <div key={b.id} className="bg-card border border-border rounded-2xl p-5">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
@@ -75,8 +75,8 @@ export default function SuperAdmin() {
                       <SelectContent>
                         <SelectItem value="trial">Prueba</SelectItem>
                         <SelectItem value="active">Activa</SelectItem>
+                        <SelectItem value="view_only">Solo lectura</SelectItem>
                         <SelectItem value="suspended">Suspendida</SelectItem>
-                        <SelectItem value="cancelled">Cancelada</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

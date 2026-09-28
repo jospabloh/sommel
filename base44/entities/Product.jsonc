@@ -1,94 +1,67 @@
 {
-  "properties": {
-    "tenant_id": {
-      "type": "string",
-      "description": "WineBar this product belongs to"
-    },
-    "name": {
-      "type": "string"
-    },
-    "type": {
-      "type": "string",
-      "enum": [
-        "bottle",
-        "glass"
-      ],
-      "default": "glass"
-    },
-    "category": {
-      "type": "string",
-      "description": "e.g. Tinto, Blanco, Espumoso, Aperitivo"
-    },
-    "price": {
-      "type": "number",
-      "description": "Selling price per unit"
-    },
-    "stock": {
-      "type": "number",
-      "default": 0,
-      "description": "Units available"
-    },
-    "low_stock_threshold": {
-      "type": "number",
-      "default": 5,
-      "description": "Alert when stock falls below this"
-    }
-  },
-  "required": [
-    "tenant_id",
-    "name",
-    "price"
-  ],
+  // Menú del bar. Reemplaza el prototipo genérico (D6/D7 del plan técnico):
+  // precio y costo en centavos, variantes (tamaños) con su propio precio y
+  // costo, modificadores SIN costo (no afectan la utilidad reportada). El
+  // costo nunca debe llegar al navegador de quien no tiene `Menú:ver_costos`
+  // — eso lo hace la función `catalog` (listProducts redacta el costo), no
+  // esta entidad: RLS aquí no distingue campos, solo tenant.
   "name": "Product",
   "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este producto" },
+    "name": { "type": "string", "description": "Nombre del platillo o bebida" },
+    "category_id": { "type": "string", "description": "ID de la Category a la que pertenece" },
+    "station": {
+      "type": "string",
+      "enum": ["kitchen", "bar", "none"],
+      "default": "none",
+      "description": "A qué estación se envía al comandar (D9)"
+    },
+    "price": { "type": "integer", "description": "Precio de venta en centavos MXN" },
+    "cost": { "type": "integer", "description": "Costo en centavos MXN. Nunca se manda al cliente sin Menú:ver_costos" },
+    "variants": {
+      "type": "array",
+      "description": "Tamaños del mismo producto (p.ej. copa chica/mediana/grande), cada uno con su propio precio y costo",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "price": { "type": "integer", "description": "Precio de esta variante en centavos MXN" },
+          "cost": { "type": "integer", "description": "Costo de esta variante en centavos MXN" }
+        }
+      }
+    },
+    "modifiers": {
+      "type": "array",
+      "description": "Extras/modificadores del producto. Sin costo a propósito: no afectan la utilidad reportada",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "price": { "type": "integer", "description": "Precio del modificador en centavos MXN" }
+        }
+      }
+    },
+    "active": { "type": "boolean", "default": true, "description": "Visible en el menú de venta" },
+    "seasonal": { "type": "boolean", "default": false, "description": "Producto de temporada" },
+    "track_inventory": { "type": "boolean", "default": false, "description": "Si descuenta de un InventoryItem al venderse" },
+    "stock_unit": {
+      "type": "string",
+      "enum": ["pieza", "botella", "g"],
+      "description": "Unidad en la que se mide su inventario, si track_inventory es true"
+    },
+    "inventory_item_id": { "type": "string", "description": "InventoryItem del que descuenta, si track_inventory es true" }
+  },
+  "required": ["tenant_id", "name"],
   "rls": {
     "read": {
       "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
       ]
     },
-    "create": {
-      "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "update": {
-      "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "delete": {
-      "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    }
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
   }
 }

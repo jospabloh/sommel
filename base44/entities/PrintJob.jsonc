@@ -1,0 +1,46 @@
+{
+  // Cola de impresión (D9, §4 del plan). `dedupe_key` es determinista
+  // (p.ej. "send:<order>:<lote>"): antes de crear un trabajo el servidor
+  // busca esa llave y no crea otro si ya existe. `reprint_of` marca que un
+  // trabajo es una reimpresión explícita de otro — nada se reimprime solo al
+  // reconectar.
+  "name": "PrintJob",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este trabajo" },
+    "kind": {
+      "type": "string",
+      "enum": ["cocina", "barra", "cambio", "ticket", "corte"],
+      "description": "Qué se va a imprimir"
+    },
+    "lines": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Líneas de texto ya formateadas para la plantilla de 58mm"
+    },
+    "source_id": { "type": "string", "description": "ID de la Order/Shift que originó este trabajo" },
+    "dedupe_key": { "type": "string", "description": "Llave determinista para no crear dos veces el mismo trabajo" },
+    "status": {
+      "type": "string",
+      "enum": ["pendiente", "reclamado", "impreso", "fallido"],
+      "default": "pendiente"
+    },
+    "claimed_by": { "type": "string", "description": "Dispositivo/estación que reclamó este trabajo" },
+    "claimed_at": { "type": "string", "format": "date-time" },
+    "printed_at": { "type": "string", "format": "date-time" },
+    "attempts": { "type": "number", "default": 0 },
+    "reprint_of": { "type": "string", "description": "PrintJob del que este es una reimpresión explícita" }
+  },
+  "required": ["tenant_id", "kind", "dedupe_key"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

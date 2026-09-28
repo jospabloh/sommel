@@ -4,22 +4,13 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
 // (Module 24 of jospabloh/acacia-app-standard), so onboarding can no longer set
 // them from the browser with updateMe — which also let anyone point themselves
 // at another bar's tenant_id and read its data.
-const DEFAULT_PRODUCTS = [
-  { name: 'Copa de Malbec', type: 'glass', category: 'Tinto', price: 90, stock: 40, low_stock_threshold: 8 },
-  { name: 'Copa de Cabernet', type: 'glass', category: 'Tinto', price: 95, stock: 30, low_stock_threshold: 8 },
-  { name: 'Copa de Chardonnay', type: 'glass', category: 'Blanco', price: 85, stock: 35, low_stock_threshold: 8 },
-  { name: 'Copa de Sauvignon Blanc', type: 'glass', category: 'Blanco', price: 80, stock: 32, low_stock_threshold: 8 },
-  { name: 'Copa de Cava Brut', type: 'glass', category: 'Espumoso', price: 100, stock: 25, low_stock_threshold: 6 },
-  { name: 'Botella Malbec Reserva', type: 'bottle', category: 'Tinto', price: 480, stock: 12, low_stock_threshold: 3 },
-  { name: 'Botella Prosecco', type: 'bottle', category: 'Espumoso', price: 420, stock: 10, low_stock_threshold: 3 },
-  { name: 'Aperitivo Aperol', type: 'glass', category: 'Aperitivo', price: 110, stock: 20, low_stock_threshold: 5 }
-];
-const DEFAULT_TABLES = [
-  { name: 'Barra 1', status: 'available', seats: 4 },
-  { name: 'Barra 2', status: 'available', seats: 4 },
-  { name: 'Mesa 1', status: 'available', seats: 4 },
-  { name: 'Mesa 2', status: 'available', seats: 6 }
-];
+//
+// No default menu/table seeding here on purpose (plan-tecnico.md §0/§4):
+// Vindima's menu is loaded from her own Excel, not a generic wine-bar
+// placeholder catalog — a prior version of this function seeded
+// DEFAULT_PRODUCTS/DEFAULT_TABLES against the old Product/BarTable field
+// shapes, which no longer exist post Fase 0.
+const TRIAL_DAYS = 30;
 
 export default async function(req: Request): Promise<Response> {
   try {
@@ -40,19 +31,13 @@ export default async function(req: Request): Promise<Response> {
     const address = (body.address || '').toString().trim();
     if (!name) return Response.json({ error: 'El nombre del bar es obligatorio' }, { status: 400 });
 
+    const trialEndAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const bar = await svc.entities.WineBar.create({
-      name, address, subscription_status: 'trial', owner_id: user.id
+      name, address, billing_status: 'trial', trial_end_at: trialEndAt, owner_id: user.id
     });
     await svc.entities.User.update(user.id, {
       data: { ...selfData, tenant_id: bar.id, app_role: 'bar_admin' }
     });
-    // Seeding is a convenience: a failure here leaves a usable, empty bar.
-    try {
-      await svc.entities.Product.bulkCreate(DEFAULT_PRODUCTS.map((p) => ({ ...p, tenant_id: bar.id })));
-      await svc.entities.BarTable.bulkCreate(DEFAULT_TABLES.map((t) => ({ ...t, tenant_id: bar.id })));
-    } catch (e) {
-      console.error('createWineBar: seeding failed', (e as Error).message);
-    }
     return Response.json({ ok: true, bar_id: bar.id });
   } catch (error) {
     return Response.json({ error: (error as Error).message }, { status: 500 });

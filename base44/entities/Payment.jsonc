@@ -1,0 +1,34 @@
+{
+  // Cobro de una comanda (D8): cada cobro lleva idempotency_key generada en el
+  // cliente, y el servidor no crea dos pagos con la misma llave — doble toque
+  // o reintento por red no cobran dos veces (lección de StockFlow's
+  // syncCashSaleToPettyCash). `method` es configurable por bar (vales
+  // incluidos), no un enum fijo.
+  "name": "Payment",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este pago" },
+    "order_id": { "type": "string", "description": "Order que se está cobrando" },
+    "shift_id": { "type": "string", "description": "Turno en el que se registró el pago" },
+    "method": { "type": "string", "description": "Forma de pago (efectivo, tarjeta, vale...), configurable por bar" },
+    "amount": { "type": "integer", "description": "Monto del pago, en centavos MXN" },
+    "received": { "type": "integer", "description": "Efectivo recibido, en centavos MXN (solo efectivo)" },
+    "change": { "type": "integer", "description": "Cambio entregado, en centavos MXN (solo efectivo). Solo lo calcula el servidor" },
+    "split_label": { "type": "string", "description": "Etiqueta del pago cuando la cuenta se divide en varios" },
+    "idempotency_key": { "type": "string", "description": "Llave generada en el cliente; el servidor no crea dos pagos con la misma" },
+    "created_by": { "type": "string", "description": "Email de quien registró el cobro" },
+    "voided_at": { "type": "string", "format": "date-time", "description": "Cuándo se anuló este pago, si aplica" }
+  },
+  "required": ["tenant_id", "order_id", "amount", "idempotency_key"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

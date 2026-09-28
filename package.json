@@ -6,11 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint . --quiet",
+    "lint": "eslint . --quiet && npm run validate:functions",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
-    "validate:tenant-roles": "node scripts/check-tenant-roles.mjs"
+    "validate:rls": "node scripts/validate-entity-rls.mjs",
+    "validate:functions": "node scripts/validate-functions.mjs",
+    "validate:tenant-roles": "node scripts/check-tenant-roles.mjs",
+    "deploy": "node scripts/base44-deploy.mjs",
+    "deploy:site": "node scripts/base44-deploy.mjs --site",
+    "deploy:entities": "node scripts/base44-deploy.mjs --entities",
+    "functions:audit": "node scripts/base44-audit.mjs"
   },
   "dependencies": {
     "@base44/sdk": "^0.8.51",
@@ -44,8 +50,6 @@
     "@radix-ui/react-toggle": "^1.1.2",
     "@radix-ui/react-toggle-group": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.8",
-    "@stripe/react-stripe-js": "^3.0.0",
-    "@stripe/stripe-js": "^5.2.0",
     "@tanstack/react-query": "^5.84.1",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",

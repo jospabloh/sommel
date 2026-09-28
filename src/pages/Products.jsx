@@ -6,11 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, AlertTriangle, Wine, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, Pencil, Trash2, Wine, Loader2 } from 'lucide-react';
 
-const empty = { name: '', type: 'glass', category: '', price: '', stock: '', low_stock_threshold: '5' };
+// NOTE (plan-tecnico.md §2, Fase 0): Product dropped `type`/`stock`/
+// `low_stock_threshold` (stock now lives on InventoryItem, D13) and renamed
+// `category` to `category_id`. This is the minimum rename to keep the page
+// compiling against the new schema — the real menu/catalog UI (categories
+// picker, cost field, variants, track_inventory) is Entrega 1 work, not
+// Fase 0.
+const empty = { name: '', category_id: '', price: '' };
 
 export default function Products() {
   const { user } = useAuth();
@@ -22,7 +26,7 @@ export default function Products() {
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
-    const prods = await base44.entities.Product.filter({ tenant_id: tenantId }, 'category', 200);
+    const prods = await base44.entities.Product.filter({ tenant_id: tenantId }, 'category_id', 200);
     setProducts(prods);
   };
   useEffect(() => { if (tenantId) load(); }, [tenantId]);
@@ -30,7 +34,7 @@ export default function Products() {
   const openNew = () => { setEditing(null); setForm(empty); setOpen(true); };
   const openEdit = (p) => {
     setEditing(p);
-    setForm({ name: p.data.name, type: p.data.type, category: p.data.category || '', price: String(p.data.price ?? ''), stock: String(p.data.stock ?? ''), low_stock_threshold: String(p.data.low_stock_threshold ?? '5') });
+    setForm({ name: p.data.name, category_id: p.data.category_id || '', price: String(p.data.price ?? '') });
     setOpen(true);
   };
 
@@ -40,11 +44,8 @@ export default function Products() {
     const payload = {
       tenant_id: tenantId,
       name: form.name.trim(),
-      type: form.type,
-      category: form.category.trim() || 'General',
-      price: Number(form.price) || 0,
-      stock: Number(form.stock) || 0,
-      low_stock_threshold: Number(form.low_stock_threshold) || 0
+      category_id: form.category_id.trim() || null,
+      price: Number(form.price) || 0
     };
     try {
       if (editing) await base44.entities.Product.update(editing.id, payload);
@@ -79,36 +80,26 @@ export default function Products() {
         <div className="text-center py-20 text-muted-foreground">Aún no hay productos. Agrega tu primer vino.</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {products.map(p => {
-            const stock = p.data.stock;
-            const low = typeof stock === 'number' && stock <= (p.data.low_stock_threshold ?? 5);
-            const out = typeof stock === 'number' && stock <= 0;
-            return (
-              <div key={p.id} className="bg-card border border-border rounded-2xl p-5">
-                <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><Wine className="w-5 h-5 text-primary" /></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{p.data.name}</div>
-                    <div className="text-xs text-muted-foreground">{p.data.category} · {p.data.type === 'bottle' ? 'Botella' : 'Copa'}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-primary">{formatCurrency(p.data.price)}</div>
-                  </div>
+          {products.map(p => (
+            <div key={p.id} className="bg-card border border-border rounded-2xl p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><Wine className="w-5 h-5 text-primary" /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{p.data.name}</div>
+                  <div className="text-xs text-muted-foreground">{p.data.category_id || 'Sin categoría'}</div>
                 </div>
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className={cn('font-medium', out ? 'text-destructive' : low ? 'text-accent' : 'text-muted-foreground')}>
-                      {out && <AlertTriangle className="w-4 h-4 inline mr-1" />}{stock} en stock
-                    </span>
-                  </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => openEdit(p)} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center"><Pencil className="w-4 h-4" /></button>
-                    <button onClick={() => remove(p)} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center text-destructive"><Trash2 className="w-4 h-4" /></button>
-                  </div>
+                <div className="text-right">
+                  <div className="font-semibold text-primary">{formatCurrency(p.data.price)}</div>
                 </div>
               </div>
-            );
-          })}
+              <div className="flex items-center justify-end mt-4 pt-4 border-t border-border">
+                <div className="flex gap-1">
+                  <button onClick={() => openEdit(p)} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => remove(p)} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center text-destructive"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -122,32 +113,12 @@ export default function Products() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="glass">Copa</SelectItem>
-                    <SelectItem value="bottle">Botella</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
                 <Label>Categoría</Label>
-                <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Tinto, Blanco..." />
+                <Input value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} placeholder="Tinto, Blanco..." />
               </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Precio</Label>
                 <Input type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Stock</Label>
-                <Input type="number" min="0" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Alerta mín.</Label>
-                <Input type="number" min="0" value={form.low_stock_threshold} onChange={(e) => setForm({ ...form, low_stock_threshold: e.target.value })} />
               </div>
             </div>
             <DialogFooter>

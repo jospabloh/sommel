@@ -1,0 +1,55 @@
+{
+  // Renglón de una comanda (D5): entidad aparte, uno por platillo, agregado
+  // por el servidor — así dos meseros agregando a la misma mesa no se pisan
+  // (un arreglo Order.items[] se sobrescribiría completo). Precio y costo se
+  // congelan aquí al agregar el renglón (D6): la utilidad de un día viejo no
+  // cambia si mañana sube el costo del producto. sent_at/ready_at son la hora
+  // de entrada y salida por platillo que la propuesta promete a cocina/barra.
+  "name": "OrderItem",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este renglón" },
+    "order_id": { "type": "string", "description": "Order al que pertenece" },
+    "product_id": { "type": "string", "description": "Product del que se originó" },
+    "variant": { "type": "string", "description": "Nombre de la variante elegida (tamaño), si aplica" },
+    "name": { "type": "string", "description": "Nombre del producto, congelado al agregarlo" },
+    "unit_price": { "type": "integer", "description": "Precio unitario en centavos MXN, congelado al agregar el renglón" },
+    "unit_cost": { "type": "integer", "description": "Costo unitario en centavos MXN, congelado al agregar el renglón" },
+    "qty": { "type": "number", "default": 1, "description": "Cantidad" },
+    "modifiers": {
+      "type": "array",
+      "description": "Modificadores elegidos para este renglón",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "price": { "type": "integer", "description": "Precio del modificador en centavos MXN" }
+        }
+      }
+    },
+    "notes": { "type": "string", "description": "Nota libre para cocina/barra" },
+    "station": { "type": "string", "enum": ["kitchen", "bar", "none"], "description": "A qué estación se envía" },
+    "status": {
+      "type": "string",
+      "enum": ["nuevo", "enviado", "listo", "entregado", "cancelado"],
+      "default": "nuevo"
+    },
+    "sent_at": { "type": "string", "format": "date-time", "description": "Cuándo se envió a la estación" },
+    "ready_at": { "type": "string", "format": "date-time", "description": "Cuándo la estación lo marcó listo" },
+    "cancel_reason": { "type": "string", "description": "Motivo de cancelación" },
+    "prepared": { "type": "boolean", "default": false, "description": "Si ya se preparó, para saber si cancelar genera merma (§5)" },
+    "created_by": { "type": "string", "description": "Email de quien agregó el renglón" }
+  },
+  "required": ["tenant_id", "order_id", "product_id"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

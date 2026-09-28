@@ -21,7 +21,7 @@ export default function POS() {
 
   const load = async () => {
     const [prods, tbls] = await Promise.all([
-      base44.entities.Product.filter({ tenant_id: tenantId }, 'category', 200),
+      base44.entities.Product.filter({ tenant_id: tenantId }, 'category_id', 200),
       base44.entities.BarTable.filter({ tenant_id: tenantId }, 'name', 100)
     ]);
     setProducts(prods); setTables(tbls); setLoading(false);
@@ -29,13 +29,13 @@ export default function POS() {
   useEffect(() => { if (tenantId) load(); }, [tenantId]);
 
   const categories = useMemo(() => {
-    const set = new Set(products.map(p => p.data.category).filter(Boolean));
+    const set = new Set(products.map(p => p.data.category_id).filter(Boolean));
     return ['Todos', ...Array.from(set)];
   }, [products]);
 
   const filtered = useMemo(() => {
     if (category === 'Todos') return products;
-    return products.filter(p => p.data.category === category);
+    return products.filter(p => p.data.category_id === category);
   }, [products, category]);
 
   const addToCart = (product) => {
@@ -91,7 +91,7 @@ export default function POS() {
         await load();
       } else {
         // refresh stock
-        const prods = await base44.entities.Product.filter({ tenant_id: tenantId }, 'category', 200);
+        const prods = await base44.entities.Product.filter({ tenant_id: tenantId }, 'category_id', 200);
         setProducts(prods);
       }
     } catch (err) {
@@ -153,26 +153,19 @@ export default function POS() {
               <div className="flex-1 overflow-auto px-6 pb-6">
                 {loading ? <div className="flex justify-center py-10"><div className="w-7 h-7 border-4 border-border border-t-primary rounded-full animate-spin" /></div> : (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {filtered.map(p => {
-                      const out = typeof p.data.stock === 'number' && p.data.stock <= 0;
-                      return (
-                        <button key={p.id} disabled={out} onClick={() => addToCart(p)} className={cn('rounded-2xl border border-border bg-card p-4 text-left transition-all hover:border-primary disabled:opacity-40 disabled:hover:border-border', !out && 'active:scale-95')}>
-                          <div className="flex items-start justify-between gap-2 mb-3">
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                              <Wine className="w-5 h-5 text-primary" />
-                            </div>
-                            <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{p.data.type === 'bottle' ? 'Botella' : 'Copa'}</span>
+                    {filtered.map(p => (
+                      <button key={p.id} onClick={() => addToCart(p)} className="rounded-2xl border border-border bg-card p-4 text-left transition-all hover:border-primary active:scale-95">
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <Wine className="w-5 h-5 text-primary" />
                           </div>
-                          <div className="font-medium text-sm leading-tight mb-1 line-clamp-2">{p.data.name}</div>
-                          <div className="flex items-center justify-between mt-2">
-                            <span className="text-primary font-semibold">{formatCurrency(p.data.price)}</span>
-                            {typeof p.data.stock === 'number' && (
-                              <span className={cn('text-xs', out ? 'text-destructive' : p.data.stock <= (p.data.low_stock_threshold ?? 5) ? 'text-accent' : 'text-muted-foreground')}>{p.data.stock} u.</span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
+                        </div>
+                        <div className="font-medium text-sm leading-tight mb-1 line-clamp-2">{p.data.name}</div>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-primary font-semibold">{formatCurrency(p.data.price)}</span>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>

@@ -1,0 +1,29 @@
+{
+  // Categoría del menú (Tinto, Blanco, Entradas, Postres...). Escritura solo vía
+  // la función `catalog` (D4: el cliente nunca escribe entidades directo).
+  "name": "Category",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de esta categoría" },
+    "name": { "type": "string", "description": "Nombre de la categoría" },
+    "sort": { "type": "number", "default": 0, "description": "Orden de aparición en el menú" },
+    "station_default": {
+      "type": "string",
+      "enum": ["kitchen", "bar", "none"],
+      "default": "none",
+      "description": "Estación por defecto para los productos nuevos de esta categoría"
+    }
+  },
+  "required": ["tenant_id", "name"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

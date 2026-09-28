@@ -1,80 +1,31 @@
 {
-  "properties": {
-    "tenant_id": {
-      "type": "string",
-      "description": "WineBar this table belongs to"
-    },
-    "name": {
-      "type": "string",
-      "description": "Table label, e.g. Mesa 1, Barra 3"
-    },
-    "status": {
-      "type": "string",
-      "enum": [
-        "available",
-        "occupied"
-      ],
-      "default": "available"
-    },
-    "seats": {
-      "type": "number",
-      "default": 4
-    }
-  },
-  "required": [
-    "tenant_id",
-    "name"
-  ],
+  // Mapa de mesas (§2 del plan). x/y son coordenadas relativas para dibujar el
+  // mapa en pantalla; zone agrupa mesas (p.ej. "Terraza", "Barra").
   "name": "BarTable",
   "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de esta mesa" },
+    "name": { "type": "string", "description": "Etiqueta de la mesa, p.ej. Mesa 1, Barra 3" },
+    "seats": { "type": "number", "default": 4, "description": "Número de lugares" },
+    "zone": { "type": "string", "description": "Zona del local a la que pertenece la mesa" },
+    "x": { "type": "number", "description": "Posición horizontal relativa en el mapa de mesas" },
+    "y": { "type": "number", "description": "Posición vertical relativa en el mapa de mesas" },
+    "status": {
+      "type": "string",
+      "enum": ["available", "occupied"],
+      "default": "available"
+    }
+  },
+  "required": ["tenant_id", "name"],
   "rls": {
     "read": {
       "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
       ]
     },
-    "create": {
-      "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "update": {
-      "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "delete": {
-      "$or": [
-        {
-          "data.tenant_id": "{{user.data.tenant_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    }
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
   }
 }
