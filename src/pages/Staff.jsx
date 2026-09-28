@@ -38,8 +38,15 @@ export default function Staff() {
       // Módulo 19/22: si la persona no tenía cuenta, no hay staff nuevo que
       // mostrar todavía — solo una invitación pendiente que se unirá cuando
       // cree su cuenta con ese mismo correo.
-      if (res?.data?.invited_existing === false) {
+      if (res?.data?.email_sent === false) {
+        toast({
+          title: 'Acceso guardado, pero el correo no salió',
+          description: 'Pídele que entre a sommel.acaciaco.com.mx y cree su cuenta con ese mismo correo.',
+        });
+      } else if (res?.data?.invited_existing === false) {
         toast({ title: 'Invitación enviada. Se unirá al bar cuando cree su cuenta con ese correo.' });
+      } else {
+        toast({ title: 'Listo. Le mandamos un correo para que entre.' });
       }
       await load();
     } catch (err) {

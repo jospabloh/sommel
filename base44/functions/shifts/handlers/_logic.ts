@@ -5,8 +5,14 @@
 // Anything that needs `padLine` (the 32-column helper that lives in the
 // guard) receives it as a parameter instead of importing it.
 //
+// The one exception is `../_email.ts`, the shared email layout: it is itself
+// import-free (a generated copy of scripts/templates/_email.ts), so `deno
+// test` still loads this file offline.
+//
 // `LogicError` is a local, import-free error type. Handlers in this directory
 // catch it and re-throw as `HttpError(400, err.code, err.message)`.
+
+import { EMAIL_COLORS, EMAIL_SANS, EMAIL_SERIF, emailShell, escapeHtml } from '../_email.ts';
 
 export class LogicError extends Error {
   code: string;
@@ -321,34 +327,9 @@ export interface CorteMeta {
   closed_by?: string | null;
 }
 
-/** Escapes text for HTML: reasons, comments and names are typed by people. */
-export function escapeHtml(text: unknown): string {
-  return String(text ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-// Email palette. Inline styles only: Gmail and Outlook drop <style> blocks
-// and external CSS, so every rule lives on the element that needs it.
-const C = {
-  page: '#F3EFEE',
-  card: '#FFFFFF',
-  ink: '#2B2320',
-  muted: '#7C706A',
-  hair: '#E8E1DE',
-  wine: '#6E1F33',
-  ok: '#2F6B4F',
-  okBg: '#EAF3EE',
-  short: '#A3342B',
-  shortBg: '#FBECEA',
-  over: '#8A5A12',
-  overBg: '#FBF3E4',
-};
-const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
-const SERIF = "Georgia,'Times New Roman',serif";
+const C = EMAIL_COLORS;
+const SANS = EMAIL_SANS;
+const SERIF = EMAIL_SERIF;
 
 /** Headline for the cash check: what Alby needs to know first. */
 export function cashVerdict(difference: number): { title: string; color: string; bg: string } {
@@ -428,16 +409,7 @@ export function buildCorteEmail(
     .filter(Boolean)
     .join('<br>');
 
-  const body = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${e(subject)}</title></head>
-<body style="margin:0;padding:0;background:${C.page};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.page};"><tr><td align="center" style="padding:24px 12px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:${C.card};border-radius:14px;border-collapse:separate;">
-<tr><td style="padding:24px 24px 0;">
-  <div style="font:700 11px/1 ${SANS};letter-spacing:1.2px;text-transform:uppercase;color:${C.muted};">Corte de caja</div>
-  <div style="font:700 26px/1.2 ${SERIF};color:${C.wine};padding-top:6px;">${e(meta.bar_name)}</div>
-  <div style="font:400 14px/1.4 ${SANS};color:${C.muted};padding-top:4px;">${niceDate} · Turno de ${shiftSpan}</div>
-</td></tr>
-<tr><td style="padding:18px 24px 0;">
+  const rowsHtml = `<tr><td style="padding:18px 24px 0;">
   <div style="background:${verdict.bg};border-left:4px solid ${verdict.color};border-radius:8px;padding:16px 16px 14px;">
     <div style="font:700 24px/1.2 ${SERIF};color:${verdict.color};">${verdict.title}</div>
     <div style="font:400 14px/1.5 ${SANS};color:${C.ink};padding-top:6px;font-variant-numeric:tabular-nums;">Esperado ${fmtMoney(summary.expected_cash)} · Contado ${fmtMoney(summary.counted_cash)}</div>
@@ -449,9 +421,16 @@ export function buildCorteEmail(
 </tr></table></td></tr>
 ${emailSection('Ventas por forma de pago', salesRows)}
 ${emailSection('Propinas y ajustes', adjustRows)}
-${emailSection('Efectivo', cashRows)}
-<tr><td style="padding:22px 24px 24px;"><div style="border-top:1px solid ${C.hair};padding-top:14px;font:400 12px/1.5 ${SANS};color:${C.muted};">${people ? people + '<br>' : ''}Enviado por Sommel</div></td></tr>
-</table></td></tr></table></body></html>`;
+${emailSection('Efectivo', cashRows)}`;
+  const body = emailShell({
+    title: subject,
+    preheader: `${verdict.title}. Vendido ${fmtMoney(summary.sales_total)} en ${summary.orders_paid} cuentas.`,
+    eyebrow: 'Corte de caja',
+    heading: meta.bar_name,
+    subheading: `${niceDate} · Turno de ${shiftSpan}`,
+    rowsHtml,
+    footerHtml: people || undefined,
+  });
   return { subject, body };
 }
 
