@@ -33,24 +33,26 @@ function ago(value) {
 
 function SessionRow({ session, showUser, busy, confirming, onAsk, onConfirm, onCancel }) {
   return (
-    <li className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2">
-      <Laptop className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">
-          {showUser ? `${session.user_name || session.user_email || 'Persona'} · ` : ''}
-          {session.device_name}
+    <li className="flex flex-col gap-2 rounded-lg bg-muted px-3 py-2 sm:flex-row sm:items-center sm:gap-3">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <Laptop className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-medium">
+            {showUser ? `${session.user_name || session.user_email || 'Persona'} · ` : ''}
+            {session.device_name}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {session.status === 'active' ? 'Activa' : 'En segundo plano'} · {ago(session.last_seen)}
+          </p>
           {session.is_current && (
-            <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-normal text-primary">
+            <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
               Este dispositivo
             </span>
           )}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {session.status === 'active' ? 'Activa' : 'En segundo plano'} · {ago(session.last_seen)}
-        </p>
+        </div>
       </div>
       {confirming ? (
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center justify-end gap-1">
           <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={onConfirm}>
             Cerrar
           </Button>
@@ -59,7 +61,7 @@ function SessionRow({ session, showUser, busy, confirming, onAsk, onConfirm, onC
           </Button>
         </div>
       ) : (
-        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onAsk} className="shrink-0">
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onAsk} className="shrink-0 self-end sm:self-auto">
           <LogOut className="mr-1 h-4 w-4" aria-hidden="true" />
           Cerrar sesión
         </Button>
