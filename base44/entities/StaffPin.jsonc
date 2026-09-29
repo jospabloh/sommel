@@ -1,0 +1,22 @@
+{
+  // PIN del checador. Las cuatro operaciones son solo de plataforma: ni el
+  // propio bar lee los hashes, únicamente el servidor (service role, que
+  // evalúa como role:admin) los lee y escribe.
+  "name": "StaffPin",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar al que pertenece el PIN" },
+    "user_id": { "type": "string", "description": "Usuario dueño del PIN; uno por usuario" },
+    "pin_hash": { "type": "string", "description": "PBKDF2-SHA256, 100000 iteraciones, en hex" },
+    "salt": { "type": "string", "description": "16 bytes aleatorios en hex, distinto por fila" },
+    "failed_attempts": { "type": "integer", "default": 0, "description": "Intentos fallidos consecutivos" },
+    "locked_until": { "type": ["string", "null"], "format": "date-time", "description": "Bloqueado hasta esta hora tras 5 fallos" }
+  },
+  "required": ["tenant_id", "user_id"],
+  "rls": {
+    "read": { "user_condition": { "role": "admin" } },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

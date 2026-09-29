@@ -17,6 +17,8 @@ import Estacion from '@/pages/Estacion';
 import SuperAdmin from '@/pages/SuperAdmin';
 import Staff from '@/pages/Staff';
 import Turno from '@/pages/Turno';
+import Checador from '@/pages/Checador';
+import Asistencia from '@/pages/Asistencia';
 import Inventario from '@/pages/Inventario';
 import Reportes from '@/pages/Reportes';
 import Ajustes from '@/pages/Ajustes';
@@ -128,6 +130,10 @@ const AuthenticatedApp = () => {
             <Route path="/estacion/:station" element={<Estacion />} />
             <Route element={<RequirePermission perm="Turno:operar" />}>
               <Route path="/turno" element={<Turno />} />
+            </Route>
+            <Route element={<RequirePermission perm="Asistencia:checar" />}>
+              <Route path="/checador" element={<Checador />} />
+              <Route path="/asistencia" element={<Asistencia />} />
             </Route>
             <Route element={<RequirePermission perm="Inventario:ver" />}>
               <Route path="/inventario" element={<Inventario />} />
