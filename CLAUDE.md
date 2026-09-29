@@ -56,7 +56,7 @@ actual y el destino del id, y nada comprueba que coincidan (incidente del
 
 **Presupuesto de funciones.** Base44 corta en 50; este repo se fija en
 `maxFunctions: 40` (`base44.app.json`). `npm run validate:functions` (dentro de
-`npm run lint`) cuenta un endpoint por cada `entry.ts`. Hoy: **15 de 40**.
+`npm run lint`) cuenta un endpoint por cada `entry.ts`. Hoy: **18 de 40** (ola 2: `account`, `session`, `purgeStaleSessions`).
 Un directorio en `base44/functions` sin `entry.ts` **nunca** llega a `main`:
 Base44 sincroniza todos los directorios. Por eso `account` y `session` (ola 2)
 entran a `TARGET_DIRS` junto con su `entry.ts`, no antes. Cada router agrupa acciones en `handlers/`; el mapa está en
@@ -279,7 +279,7 @@ lógica pura y la puerta de firma).
 **Comprobaciones de la ola 1:** el árbol integrado corre con el comando exacto
 de CI: 374 pasaron, 0 fallaron. `lint`, `build`,
 `validate:rls` (19/13), `validate:tenant-roles` y `check:guards` (26 archivos, sin
-deriva) pasaron por paquete, con `validate:functions` en 15 de 40.
+deriva) pasaron por paquete, con `validate:functions` en 15 de 40 (conteo de la ola 1, ya superado: ver arriba).
 
 ## Comprobaciones que hay que correr
 
@@ -323,3 +323,59 @@ archivos `_*_logic.ts` sin imports.
   `/apps/sommel`.
 - **Cuenta cruzada QA** para el módulo 14 y revisión manual del selector de tema
   en las pantallas autenticadas.
+
+## Ola 2 del estándar (2026-09-29)
+
+Código **en el repo**; nada publicado ni verificado en vivo. Se publica con el
+flujo de "Deploy (módulo 11)" y se verifica por contenido.
+
+**Decisiones de José (2026-09-29).** (1) El panel de plataforma de Sommel **sí**
+puede cambiar la licencia: `settings.platformSetLicense`, solo plataforma, con
+bitácora en `WineBar.license_audit` (quién, cuándo, antes y después, nota; 100
+entradas). (2) Al dar de baja un bar **se conservan** pedidos, pagos, turnos,
+movimientos y asistencia (CFF art. 30, 5 años): `account.deleteBar` archiva
+(`archived_at` + `suspended`) y desliga usuarios, PINs e invitaciones. (3)
+Sommel va en la lista pública de acaciaco.com.mx (`apps/sommel.html` en
+`acaciaco-site`, con insignia "En desarrollo" hasta publicarse; no enlazar
+`/apps/sommel` antes). (4) Cualquiera puede crear su bar de prueba
+(`createWineBar`, 30 días).
+
+**Construido.**
+- Módulo 3, `/permisos` (solo `bar_admin`/plataforma): matriz del rol `staff`
+  con `permissions.getProfile/upsertProfile`; guardados en cola con el mapa
+  completo. `PermissionContext` lee los overrides una vez: el staff los ve en su
+  siguiente carga.
+- Módulo 7, `account` (`exportData`, `deleteMyAccount`, `delegateBar`,
+  `deleteBar`) más `LicenseCard`, `ActiveSessions` y `DangerZone` en Ajustes.
+  `deleteMyAccount`/`deleteBar` no pasan por `requireWritable` a propósito.
+- Módulo 8, `/soporte`: `SupportTicket` se crea desde el cliente (la regla de
+  create admite la rama del inquilino) y se avisa a Mission Control con
+  `ticket-pull` sin firma. Ajustes enlaza a `/soporte` para pedir la baja.
+- Módulos 6 y 21, `/about`, manual (`manualContent.js`), `AppUpdateBanner` y
+  `npm run release` (único escritor de `appConfig.js`/`package.json`;
+  `check:version` va dentro de `lint`). Secretos opcionales:
+  `ANTHROPIC_API_KEY_SOMMEL`, `RELEASE_PR_PAT`.
+- Módulo 20, funciones `session` y `purgeStaleSessions`, hooks y diálogos en
+  `Layout`. `session` **no** usa `_guard.ts` (es por usuario; un usuario sin bar
+  se leería como sesión revocada). `AppSession` create/update pasó a solo
+  `role:admin` (no era puramente aditivo). `purgeStaleSessions` responde 503 sin
+  `CRON_SECRET`: hay que ponerlo y programarla con bearer.
+- Plataforma: `SuperAdmin.jsx` reescrito sobre `settings.platformListBars/
+  platformSetLicense` (`allowNoTenant`, comprueban `isPlatform`); importes de
+  `Order.total` en centavos.
+- `src/lib/rbac.js` es el único mapeo de roles del cliente.
+- Bloqueos: `WineBar.archived_at` y `license_audit` entran al manifiesto (25
+  entradas, `docs/locks-audit.md`).
+
+**Comprobaciones (árbol integrado):** `lint` (incluye validate:functions 18/40,
+locks, bridge, auth-me, version), `build`, `validate:rls` (19/13),
+`validate:tenant-roles`, `check:guards` (28), `deno test` 417/0, `deno lint`
+limpio.
+
+**No verificado:** ningún `entry.ts` (importan `npm:@base44/sdk`); nada contra
+Base44 ni Mission Control en vivo; sesiones, purga de 48 h, `User.delete` como
+servicio; pantallas a 390/834/1440 en claro y oscuro; que `archived_at`,
+`license_audit` y los campos de `AppSession` lleguen al esquema desplegado
+(releer con `list_entity_schemas`); `acaciaControl` aún no escribe `license_audit`
+ni `status:'revoked'`, ni oculta bares con `archived_at`, y sigue sin
+`tickets.update/thread`; el manual está sin revisión humana.

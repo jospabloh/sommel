@@ -32,7 +32,7 @@ const MIN_DESC = 200;
 export const FIELD_LOCKS = [
   { entity: "User", field: "tenant_id", op: "write", rule: false, words: ["escritura"], module: "Módulo 24" },
   { entity: "User", field: "app_role", op: "write", rule: false, words: ["escritura"], module: "Módulo 24" },
-  ...["billing_status", "trial_end_at", "current_period_end", "plan", "owner_id"].map((field) => ({
+  ...["billing_status", "trial_end_at", "current_period_end", "plan", "owner_id", "archived_at", "license_audit"].map((field) => ({
     entity: "WineBar", field, op: "write", rule: ADMIN_ONLY, words: ["escritura"],
   })),
   ...["OrderItem", "InventoryItem", "InventoryMovement"].map((entity) => ({

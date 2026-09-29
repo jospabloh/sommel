@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import MemberActions from '@/components/staff/MemberActions';
 import RemoveMemberDialog from '@/components/staff/RemoveMemberDialog';
 import { memberErrorMessage } from '@/components/staff/memberErrors';
+import { BAR_ADMIN } from '@/lib/rbac';
 
 export default function Staff() {
   const { user } = useAuth();
@@ -75,7 +76,7 @@ export default function Staff() {
     setMemberBusyId(member.id);
     try {
       await base44.functions.invoke('manageStaff', { action: 'setRole', user_id: member.id, app_role: appRole });
-      toast({ title: appRole === 'bar_admin' ? 'Ahora es administrador.' : 'Ahora es parte del equipo.' });
+      toast({ title: appRole === BAR_ADMIN ? 'Ahora es administrador.' : 'Ahora es parte del equipo.' });
       await load();
     } catch (err) {
       toast({ title: 'No se pudo cambiar el rol', description: memberErrorMessage(err, 'Intenta de nuevo.'), variant: 'destructive' });
@@ -136,7 +137,7 @@ export default function Staff() {
                     <div className="text-xs text-muted-foreground truncate">{s.email}</div>
                   </div>
                   {s.is_owner && <span className="text-xs bg-primary/15 text-primary px-2.5 py-1 rounded-full font-medium">Dueño</span>}
-                  <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize">{s.app_role === 'bar_admin' ? 'Admin' : 'Mesero'}</span>
+                  <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize">{s.app_role === BAR_ADMIN ? 'Admin' : 'Mesero'}</span>
                   {!s.is_owner && (
                     <MemberActions
                       member={s}
@@ -163,7 +164,7 @@ export default function Staff() {
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{inv.email}</div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {inv.app_role === 'bar_admin' ? 'Admin' : 'Mesero'}
+                        {inv.app_role === BAR_ADMIN ? 'Admin' : 'Mesero'}
                         {inv.expires_at ? ` · vence ${new Date(inv.expires_at).toLocaleDateString('es-MX')}` : ''}
                       </div>
                     </div>

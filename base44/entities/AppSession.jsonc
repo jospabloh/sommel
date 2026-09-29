@@ -6,10 +6,18 @@
   // logout; the client checks its own row each heartbeat and calls logout()
   // when revoked.
   //
+  // Module 20 (2026-09-29): the entity gained the standard's shape ADDITIVELY
+  // (user_id, device_id, device_name, status, last_seen). revoked_at and
+  // last_active_at stay, and a row counts as revoked when EITHER status is
+  // 'revoked' OR revoked_at is set (session/_session_logic.ts isRevoked). Rows
+  // are written only by the `session` and `purgeStaleSessions` functions (service
+  // role): create/update are admin-only so an end user cannot clear their own
+  // revoked_at/status and undo a force-logout. Reading your own rows stays.
+  //
   // RLS: service role (role:admin) has full access so the bridge can
-  // list/revoke; an end user only touches THEIR OWN rows, scoped by the
-  // built-in created_by_id (Base44 sets it on create — cannot be spoofed by a
-  // forged data.user_id). No tenant_id: sessions are per-user, not per-bar.
+  // list/revoke and the functions can write; an end user can only READ THEIR
+  // OWN rows (built-in created_by_id, not spoofable). No tenant_id: sessions
+  // are per-user, not per-bar.
   "name": "AppSession",
   "type": "object",
   "properties": {
@@ -19,15 +27,17 @@
     "started_at": { "type": "string", "format": "date-time", "description": "Inicio de sesión" },
     "last_active_at": { "type": "string", "format": "date-time", "description": "Última actividad (movida por el latido)" },
     "revoked_at": { "type": "string", "format": "date-time", "description": "Marcada por Mission Control para forzar el cierre de sesión" },
-    "revoked_by": { "type": "string", "description": "Operador que forzó el cierre (auditoría)" }
+    "revoked_by": { "type": "string", "description": "Operador que forzó el cierre (auditoría)" },
+    "user_id": { "type": "string", "description": "Id del usuario dueño de la sesión (módulo 20). Lo escribe la función session con el id releído del User, nunca del cuerpo" },
+    "device_id": { "type": "string", "description": "Identificador opaco del dispositivo, generado en el navegador. Una fila viva por (user_id, device_id)" },
+    "device_name": { "type": "string", "description": "Nombre del dispositivo para la lista de sesiones (p.ej. 'iPhone', 'Mac')" },
+    "status": { "type": "string", "enum": ["active", "passive", "revoked"], "description": "active = el dispositivo actual, passive = otro dispositivo del mismo usuario, revoked = cerrada. Una fila con revoked_at también cuenta como cerrada" },
+    "last_seen": { "type": "string", "format": "date-time", "description": "Último latido de este dispositivo. purgeStaleSessions cierra las filas sin señal por más de 48 h" }
   },
   "required": ["user_email"],
   "rls": {
     "create": {
-      "$or": [
-        { "user_condition": { "role": "admin" } },
-        { "created_by_id": "{{user.id}}" }
-      ]
+      "user_condition": { "role": "admin" }
     },
     "read": {
       "$or": [
@@ -36,10 +46,7 @@
       ]
     },
     "update": {
-      "$or": [
-        { "user_condition": { "role": "admin" } },
-        { "created_by_id": "{{user.id}}" }
-      ]
+      "user_condition": { "role": "admin" }
     },
     "delete": {
       "user_condition": { "role": "admin" }

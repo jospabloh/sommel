@@ -1,12 +1,12 @@
 {
   "name": "base44-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.15.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint . --quiet && npm run validate:functions && npm run validate:locks && npm run check:bridge && npm run check:auth-me",
+    "lint": "eslint . --quiet && npm run validate:functions && npm run validate:locks && npm run check:bridge && npm run check:auth-me && npm run check:version",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
@@ -15,6 +15,8 @@
     "validate:locks": "node scripts/validate-locks.mjs",
     "check:bridge": "node scripts/check-bridge-drift.mjs",
     "check:auth-me": "node scripts/check-auth-me-usage.mjs",
+    "check:version": "node scripts/check-version-sync.mjs",
+    "release": "node scripts/publish-release.mjs",
     "test:smoke": "playwright test",
     "validate:tenant-roles": "node scripts/check-tenant-roles.mjs",
     "generate:guards": "node scripts/generate-guards.mjs",

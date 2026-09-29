@@ -84,6 +84,30 @@
         }
       }
     },
+    "archived_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Cuándo el dueño dio de baja el bar (account.deleteBar). Módulo 19, candado de ESCRITURA (rls.write solo role admin); no afecta a las lecturas. Lo escribe solo el servidor (account.deleteBar, service role) junto con billing_status suspended; un bar archivado conserva sus pedidos, pagos, turnos y asistencia por obligación fiscal y laboral (CFF art. 30, 5 años) pero ya no tiene usuarios ligados. Si se quita el candado, cualquier bar_admin del bar, que sí puede actualizar WineBar, borra o inventa su propia marca de baja y desincroniza lo que Mission Control ve como bar archivado. Un bar que aparece dado de baja por error no se arregla quitando este candado: lo revierte la plataforma.",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    "license_audit": {
+      "type": "array",
+      "items": { "type": "object" },
+      "description": "Módulo 19: candado de ESCRITURA (rls.write solo role admin); no afecta a las lecturas. Bitácora de cambios manuales de licencia (quién, cuándo, valor anterior y nuevo, nota), máximo 100 entradas. La escribe solo settings.platformSetLicense (service role, solo plataforma). Si se quita el candado, un bar_admin del bar, que sí puede actualizar WineBar, borra o reescribe la evidencia de quién le cambió la licencia. Una bitácora que no aparece no se arregla quitando este candado.",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
     "corte_emails": {
       "type": "array",
       "items": { "type": "string" },

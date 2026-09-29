@@ -7,6 +7,7 @@ import React, { createContext, useEffect, useMemo, useState, useCallback } from 
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { resolvePermission } from '@/lib/permissionRegistry';
+import { isPlatformUser, barRoleOf } from '@/lib/rbac';
 
 export const PermissionContext = createContext({
   can: () => false,
@@ -17,8 +18,8 @@ export const PermissionContext = createContext({
 
 export function PermissionProvider({ children }) {
   const { user } = useAuth();
-  const isPlatform = user?.role === 'admin';
-  const appRole = user?.app_role ?? null;
+  const isPlatform = isPlatformUser(user);
+  const appRole = barRoleOf(user);
   const tenantId = user?.tenant_id ?? null;
   const [overrides, setOverrides] = useState(null);
   const [loading, setLoading] = useState(true);

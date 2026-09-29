@@ -7,7 +7,7 @@ export function effectiveMethods(bar: any): PaymentMethodDef[] {
 }
 
 /** The subset of WineBar the settings screen and payments need (contract §5). */
-export function settingsView(bar: any) {
+export function settingsView(bar: any, viewerId?: string | null) {
   return {
     name: bar?.name ?? '',
     address: bar?.address ?? '',
@@ -22,5 +22,11 @@ export function settingsView(bar: any) {
     // EDITABLE_FIELDS: settings.update can never write them.
     billing_status: bar?.billing_status ?? null,
     trial_end_at: bar?.trial_end_at ?? null,
+    // Module 7 (LicenseCard): plan and paid-until date, read-only for the same
+    // reason. `is_owner` lets the danger zone show owner-only actions; the
+    // server re-checks ownership on every account action regardless.
+    plan: bar?.plan ?? null,
+    current_period_end: bar?.current_period_end ?? null,
+    is_owner: !!viewerId && !!bar?.owner_id && bar.owner_id === viewerId,
   };
 }

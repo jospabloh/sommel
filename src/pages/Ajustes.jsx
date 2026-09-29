@@ -1,7 +1,8 @@
 // Ajustes del bar (Entrega 2, contrato §6): datos del ticket, formas de pago
-// y correos del corte. Todo pasa por callFn('settings', ...); esta página
+// y correos del corte. La licencia y la zona de peligro viven en Cuenta. Todo pasa por callFn('settings', ...); esta página
 // nunca lee ni escribe WineBar directo.
 import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Settings } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { usePermission } from '@/lib/usePermission';
@@ -60,6 +61,10 @@ export default function Ajustes() {
           <TicketForm bar={bar} onSaved={setBar} />
           <PaymentMethodsCard bar={bar} onSaved={setBar} />
           <CorteEmailsCard bar={bar} onSaved={setBar} />
+          <p className="text-sm text-muted-foreground">
+            Licencia, sesiones activas, exportar datos y baja están en{' '}
+            <Link to="/cuenta" className="text-primary underline underline-offset-2">Cuenta</Link>.
+          </p>
         </div>
       )}
     </div>
