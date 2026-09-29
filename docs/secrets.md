@@ -4,19 +4,23 @@
 mensaje. Los secretos viven en el panel de Base44 (o en su API de secretos) y se
 leen de vuelta después de ponerlos.
 
-Lectura del 2026-09-29 (API de secretos de la app `6ab41c2a89f592a0eca074d2`,
-solo lectura): la lista está **vacía (`{}`)**. Ningún secreto está configurado.
+Lectura del 2026-09-29, tarde (API de secretos de la app
+`6ab41c2a89f592a0eca074d2`, solo nombres; los valores vienen enmascarados):
+están `INGEST_HMAC_SECRET`, `ACACIA_APP_SLUG` y `CRON_SECRET`, además de
+otros que el código no lee (`PLATFORM_OWNER_EMAL`, con la I faltante, entre
+ellos). La primera lectura de ese día daba `{}`.
 
 | Secreto | Para qué | Quién lo lee | Estado |
 |---|---|---|---|
-| `INGEST_HMAC_SECRET` | Maestro compartido con Mission Control; de él se deriva la llave de cada app (`HMAC-SHA256(maestro, "acacia.app.v1." + slug)`) | `acaciaControl` | **NO CONFIGURADO** |
-| `ACACIA_APP_SLUG` | Debe ser `sommel`, idéntico al `apps.id` de Mission Control (minúsculas, sin sufijo) | `acaciaControl` | **NO CONFIGURADO** |
+| `INGEST_HMAC_SECRET` | Maestro compartido con Mission Control; de él se deriva la llave de cada app (`HMAC-SHA256(maestro, "acacia.app.v1." + slug)`) | `acaciaControl` | Configurado |
+| `ACACIA_APP_SLUG` | Debe ser `sommel`, idéntico al `apps.id` de Mission Control (minúsculas, sin sufijo) | `acaciaControl` | Configurado |
 | `PLATFORM_OWNER_EMAIL` | Reservado. El código actual decide "plataforma" por `role: admin` integrado, no por este correo | (ninguno hoy) | NO CONFIGURADO |
-| `CRON_SECRET` | Reservado para `purgeStaleSessions` (ola 2). Debe fallar cerrado (503) si falta | (ninguno hoy) | NO CONFIGURADO |
+| `CRON_SECRET` | Bearer de `purgeStaleSessions`; falla cerrado (503) si falta. **También va como secreto del repo en GitHub, con el mismo valor**: lo usa `.github/workflows/purge-sessions.yml`, que es quien la programa (un workflow de Base44 no puede mandar el header) | `purgeStaleSessions` | Configurado en Base44; en GitHub, pendiente |
 | `ACACIA_MC_INGEST_URL` | No aplica: el aviso de tickets usa `ticket-pull` (sin firma, sin secreto) | n/a | NO APLICA |
 
-`grep Deno.env` sobre `base44/functions` (2026-09-29) encuentra solo dos lecturas,
-las dos en `acaciaControl/entry.ts`: `INGEST_HMAC_SECRET` y `ACACIA_APP_SLUG`.
+`grep Deno.env` sobre `base44/functions` (2026-09-29) encuentra tres lecturas:
+`INGEST_HMAC_SECRET` y `ACACIA_APP_SLUG` en `acaciaControl/entry.ts`, y
+`CRON_SECRET` en `purgeStaleSessions/entry.ts`.
 
 ## Fallo cerrado
 
