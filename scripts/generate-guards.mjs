@@ -39,6 +39,7 @@ export const TARGET_DIRS = [
   'printing',
   'reports',
   'settings',
+  'attendance',
 ];
 const COPIED_FILES = ['_guard_logic.ts', '_guard.ts'];
 

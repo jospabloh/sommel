@@ -33,7 +33,9 @@ Deno.test('invite email (no account): names bar and inviter, register link with 
   assert(subject === 'Alby te invitó a Vindima en Sommel', `subject: ${subject}`);
   const text = textOf(body);
   for (const t of ['Invitación', 'Alby te invitó a unirte a Vindima en Sommel como parte del equipo',
-    'Crea tu cuenta con este correo: karla+1@bar.mx', 'Crear mi cuenta', 'La invitación vence el 12/10/2026',
+    'Crea tu cuenta con este correo: karla+1@bar.mx',
+    'Escribe el código de 6 números que te llega en un correo en inglés ("Verify your email for Sommel")',
+    'Crear mi cuenta', 'La invitación vence el 12/10/2026',
     'by ACACIA Consultoría']) {
     assert(text.includes(t), `should include "${t}"\n${text}`);
   }

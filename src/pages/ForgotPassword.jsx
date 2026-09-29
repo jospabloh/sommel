@@ -37,9 +37,14 @@ export default function ForgotPassword() {
       }
     >
       {sent ? (
-        <p className="text-sm text-foreground text-center">
-          Si existe una cuenta con ese correo, recibirás un enlace de restablecimiento en breve.
-        </p>
+        <div className="space-y-2 text-center">
+          <p className="text-sm text-foreground">
+            Si existe una cuenta con ese correo, recibirás un enlace de restablecimiento en breve.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            El correo llega en inglés, de no-reply@base44-apps.com. Revisa también en spam.
+          </p>
+        </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">

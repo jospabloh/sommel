@@ -7,6 +7,16 @@ import {
   shouldRefreshExistingInvite,
 } from './_invite_logic.ts';
 import { buildInviteEmail } from './_invite_email.ts';
+import {
+  MEMBER_DENIAL_MESSAGE,
+  MEMBER_DENIAL_STATUS,
+  checkRemoveMember,
+  checkSetRole,
+  closeOpenAttendancePatch,
+  isMemberRole,
+  isOpenAttendance,
+  isOwner,
+} from './_member_logic.ts';
 
 // Standalone function (does not use _guard.ts — contrato §5, manageStaff is
 // owned by "Base" and kept self-contained on purpose).
@@ -51,6 +61,7 @@ export default async function(req: Request): Promise<Response> {
 
     if (action === 'list') {
       const users = await svc.entities.User.filter({ tenant_id: tenantId });
+      const [listBar] = await svc.entities.WineBar.filter({ id: tenantId });
       const inviteRows = await svc.entities.StaffInvite.filter({ tenant_id: tenantId, status: 'pending' });
       const now = new Date();
       const invites = inviteRows
@@ -60,7 +71,8 @@ export default async function(req: Request): Promise<Response> {
         }));
       return Response.json({
         staff: users.map((u: any) => ({
-          id: u.id, email: u.email, full_name: u.full_name, app_role: u.app_role
+          id: u.id, email: u.email, full_name: u.full_name, app_role: u.app_role,
+          is_owner: isOwner(listBar, u.id)
         })),
         invites
       });
@@ -151,6 +163,73 @@ export default async function(req: Request): Promise<Response> {
         });
       }
       return Response.json({ ok: true, invited_existing: false, email_sent: await sendInvite(false, expiresAt) });
+    }
+
+    if (action === 'setRole' || action === 'removeMember') {
+      // Billing gate, same as invite: a suspended or view_only bar cannot
+      // change its team either.
+      const [gateBar] = await svc.entities.WineBar.filter({ id: tenantId });
+      const gateStatus = gateBar?.billing_status;
+      if (gateStatus === 'view_only' || gateStatus === 'suspended') {
+        return Response.json(
+          { error: 'El bar está en modo solo lectura o suspendido', code: 'read_only' },
+          { status: 402 }
+        );
+      }
+      const targetId = typeof body.user_id === 'string' ? body.user_id : '';
+      if (!targetId) return Response.json({ error: 'user_id requerido' }, { status: 400 });
+      if (action === 'setRole' && !isMemberRole(body.app_role)) {
+        return Response.json({ error: 'Rol no válido', code: 'invalid_role' }, { status: 400 });
+      }
+
+      // Members come from a fresh read scoped to the caller's bar, so a
+      // target from another bar simply isn't in the list (404).
+      const members = await svc.entities.User.filter({ tenant_id: tenantId });
+      const denial = action === 'setRole'
+        ? checkSetRole({ members, targetId, newRole: body.app_role, ownerId: gateBar?.owner_id })
+        : checkRemoveMember({ members, targetId, callerId: self.id, ownerId: gateBar?.owner_id });
+      if (denial) {
+        return Response.json(
+          { error: MEMBER_DENIAL_MESSAGE[denial], code: denial },
+          { status: MEMBER_DENIAL_STATUS[denial] }
+        );
+      }
+
+      if (action === 'setRole') {
+        await svc.entities.User.update(targetId, { app_role: body.app_role });
+        return Response.json({ ok: true });
+      }
+
+      // removeMember. Order matters: cut access first so nothing else can
+      // happen as this person, then clean up what hangs off it. Fail closed:
+      // Base44 may silently drop a null on a string field, so re-read and
+      // only continue once the person really has no bar (try null, then '';
+      // every check treats an empty tenant_id as "no bar").
+      const accessGone = async () => {
+        const [after] = await svc.entities.User.filter({ id: targetId });
+        return !after?.tenant_id;
+      };
+      await svc.entities.User.update(targetId, { tenant_id: null, app_role: null });
+      if (!(await accessGone())) {
+        await svc.entities.User.update(targetId, { tenant_id: '', app_role: '' });
+        if (!(await accessGone())) {
+          return Response.json(
+            { error: 'No se pudo quitar el acceso', code: 'remove_failed' },
+            { status: 500 }
+          );
+        }
+      }
+
+      const pins = await svc.entities.StaffPin.filter({ tenant_id: tenantId, user_id: targetId });
+      for (const pin of pins) await svc.entities.StaffPin.delete(pin.id);
+
+      const nowIso = new Date().toISOString();
+      // Latest 200 marks of this person are plenty to find an open one.
+      const records = await svc.entities.Attendance.filter({ tenant_id: tenantId, user_id: targetId }, '-clock_in', 200);
+      for (const rec of records.filter(isOpenAttendance)) {
+        await svc.entities.Attendance.update(rec.id, closeOpenAttendancePatch(self.email, nowIso));
+      }
+      return Response.json({ ok: true });
     }
 
     if (action === 'revokeInvite') {

@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Users, UserPlus, Mail, Clock, X } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import MemberActions from '@/components/staff/MemberActions';
+import RemoveMemberDialog from '@/components/staff/RemoveMemberDialog';
+import { memberErrorMessage } from '@/components/staff/memberErrors';
 
 export default function Staff() {
   const { user } = useAuth();
@@ -15,6 +18,8 @@ export default function Staff() {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [revokingId, setRevokingId] = useState(null);
+  const [memberBusyId, setMemberBusyId] = useState(null);
+  const [toRemove, setToRemove] = useState(null);
 
   const load = async () => {
     try {
@@ -66,6 +71,33 @@ export default function Staff() {
     setRevokingId(null);
   };
 
+  const changeRole = async (member, appRole) => {
+    setMemberBusyId(member.id);
+    try {
+      await base44.functions.invoke('manageStaff', { action: 'setRole', user_id: member.id, app_role: appRole });
+      toast({ title: appRole === 'bar_admin' ? 'Ahora es administrador.' : 'Ahora es parte del equipo.' });
+      await load();
+    } catch (err) {
+      toast({ title: 'No se pudo cambiar el rol', description: memberErrorMessage(err, 'Intenta de nuevo.'), variant: 'destructive' });
+    }
+    setMemberBusyId(null);
+  };
+
+  const confirmRemove = async () => {
+    if (!toRemove) return;
+    setMemberBusyId(toRemove.id);
+    try {
+      await base44.functions.invoke('manageStaff', { action: 'removeMember', user_id: toRemove.id });
+      toast({ title: 'Se quitó del equipo.' });
+      setToRemove(null);
+      await load();
+    } catch (err) {
+      toast({ title: 'No se pudo quitar del equipo', description: memberErrorMessage(err, 'Intenta de nuevo.'), variant: 'destructive' });
+      setToRemove(null);
+    }
+    setMemberBusyId(null);
+  };
+
   if (!tenantId) return <div className="p-10 text-muted-foreground">Sin bar asignado.</div>;
 
   return (
@@ -103,7 +135,17 @@ export default function Staff() {
                     <div className="font-medium truncate">{s.full_name || s.email}</div>
                     <div className="text-xs text-muted-foreground truncate">{s.email}</div>
                   </div>
+                  {s.is_owner && <span className="text-xs bg-primary/15 text-primary px-2.5 py-1 rounded-full font-medium">Dueño</span>}
                   <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize">{s.app_role === 'bar_admin' ? 'Admin' : 'Mesero'}</span>
+                  {!s.is_owner && (
+                    <MemberActions
+                      member={s}
+                      isSelf={s.id === user?.id}
+                      busy={memberBusyId === s.id}
+                      onSetRole={changeRole}
+                      onRemove={setToRemove}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -141,6 +183,7 @@ export default function Staff() {
           )}
         </div>
       )}
+      <RemoveMemberDialog member={toRemove} busy={!!toRemove && memberBusyId === toRemove.id} onConfirm={confirmRemove} onClose={() => setToRemove(null)} />
     </div>
   );
 }

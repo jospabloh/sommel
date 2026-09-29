@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import {
   LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut, Sun, Moon, Monitor,
-  Clock, Package, BarChart3, Printer, Settings,
+  Clock, Package, BarChart3, Printer, Settings, Fingerprint, CalendarCheck,
 } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,8 @@ const NAV_ITEMS = [
   { label: 'Cocina', to: '/estacion/kitchen', icon: ChefHat, perm: 'Estaciones:operar' },
   { label: 'Barra', to: '/estacion/bar', icon: Beer, perm: 'Estaciones:operar' },
   { label: 'Turno', to: '/turno', icon: Clock, perm: 'Turno:operar' },
+  { label: 'Checador', to: '/checador', icon: Fingerprint, perm: 'Asistencia:checar' },
+  { label: 'Asistencia', to: '/asistencia', icon: CalendarCheck, perm: 'Asistencia:checar' },
   { label: 'Inventario', to: '/inventario', icon: Package, perm: 'Inventario:ver' },
   { label: 'Reportes', to: '/reportes', icon: BarChart3, perm: 'Reportes:ver' },
   { label: 'Impresión', to: '/estacion/impresion', icon: Printer, perm: 'Impresion:operar' },

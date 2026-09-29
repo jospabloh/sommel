@@ -90,6 +90,9 @@ export default function Register() {
             {error}
           </div>
         )}
+        <p className="text-center text-xs text-muted-foreground mb-4">
+          Te llega en inglés, de no-reply@base44-apps.com, con el asunto "Verify your email for Sommel". Revisa también en spam.
+        </p>
         <div className="flex justify-center mb-6">
           <InputOTP
             maxLength={6}

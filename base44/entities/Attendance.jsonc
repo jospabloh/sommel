@@ -1,0 +1,29 @@
+{
+  // Marca de asistencia (checador con PIN). Una fila por entrada; clock_out
+  // null = la persona sigue dentro. Solo las Safe functions escriben: el
+  // servidor pone clock_in/clock_out, nunca el cliente.
+  "name": "Attendance",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de esta marca" },
+    "user_id": { "type": "string", "description": "Usuario al que pertenece la marca" },
+    "user_name": { "type": "string", "description": "Nombre congelado al momento de la marca, para listar sin leer User" },
+    "clock_in": { "type": "string", "format": "date-time", "description": "Entrada. Solo la escribe el servidor" },
+    "clock_out": { "type": ["string", "null"], "format": "date-time", "description": "Salida. null = sigue dentro" },
+    "edited_by": { "type": "string", "description": "Email de quien corrigió la marca" },
+    "edit_note": { "type": "string", "description": "Motivo de la corrección; obligatorio al corregir" },
+    "edited_at": { "type": "string", "format": "date-time" },
+    "original_clock_in": { "type": ["string", "null"], "format": "date-time", "description": "Entrada previa a la primera corrección (auditoría)" },
+    "original_clock_out": { "type": ["string", "null"], "format": "date-time", "description": "Salida previa a la primera corrección (auditoría)" }
+  },
+  "required": ["tenant_id", "user_id", "clock_in"],
+  "rls": {
+    // Solo plataforma: cada lectura pasa por attendance.records / roster (service
+    // role), que decide quién ve qué. Una lectura del inquilino dejaría a
+    // cualquier staff leer las marcas de todo el equipo desde el cliente.
+    "read": { "user_condition": { "role": "admin" } },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

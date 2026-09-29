@@ -38,6 +38,9 @@ export const PERMISSION_DEFAULTS = {
   'Impresion:operar': { bar_admin: true, staff: true },
   'Reportes:ver': { bar_admin: true, staff: false },
   'Ajustes:editar': { bar_admin: true, staff: false },
+  'Asistencia:checar': { bar_admin: true, staff: true },
+  'Asistencia:ver_equipo': { bar_admin: true, staff: false },
+  'Asistencia:corregir': { bar_admin: true, staff: false },
 };
 // AUTOGEN:PERMISSION_DEFAULTS:END
 

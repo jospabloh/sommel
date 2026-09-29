@@ -62,7 +62,7 @@ export function buildInviteEmail(input: InviteEmailInput): { subject: string; bo
     `<tr><td style="padding:16px 24px 0;"><div style="background:${C.page};border-radius:10px;padding:10px 14px;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">` +
     step(1, `Crea tu cuenta con este correo: <strong>${e(input.email)}</strong>`) +
-    step(2, 'Escribe el código que te llega por correo') +
+    step(2, 'Escribe el código de 6 números que te llega en un correo en inglés ("Verify your email for Sommel")') +
     step(3, `Entras directo a ${e(input.barName)}`) +
     `</table></div></td></tr>` +
     `<tr><td style="padding:22px 24px 0;">${emailButton('Crear mi cuenta', registerUrl)}</td></tr>` +
