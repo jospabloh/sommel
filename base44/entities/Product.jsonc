@@ -15,7 +15,7 @@
   "name": "Product",
   "type": "object",
   "properties": {
-    "tenant_id": { "type": "string", "description": "WineBar dueño de este producto" },
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este producto. Módulo 19, candado de LECTURA a nivel entidad: Product.read es solo de plataforma (role admin) porque el costo también vive en variants[].cost y RLS no puede bloquear un subcampo dentro de un arreglo; la redacción de costo de catalog.listProducts solo es real si nadie lee Product directo. La leen las funciones del servidor con asServiceRole (catalog); el navegador nunca. El candado de escritura (create, update y delete) también es solo de plataforma: se escribe únicamente por funciones Safe. Si se afloja la lectura, cualquier miembro del bar lee costos sin tener Menú:ver_costos. Un menú que no carga no se arregla aflojando este candado: el menú se lee con catalog.listProducts." },
     "name": { "type": "string", "description": "Nombre del platillo o bebida" },
     "category_id": { "type": "string", "description": "ID de la Category a la que pertenece" },
     "station": {

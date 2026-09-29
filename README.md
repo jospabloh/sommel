@@ -45,13 +45,14 @@ base44 dev --remote
 
 ## Publish Your Changes
 
-After pushing your changes to git, open the Base44 dashboard and publish the app:
+Merging is not publishing. The flow for this repo:
 
-```bash
-base44 dashboard open
-```
+1. Merge to `main`.
+2. Base44 syncs the code and the entity schemas from GitHub `main` on its own. There is nothing to run for a normal change.
+3. The change is published through the Base44 API.
+4. Verify **by content**: grep the served bundle at `https://sommel.acaciaco.com.mx` for a string only the new code has; call a function action only the new code has (`unknown action` means the old code is still served); re-read the entity schemas with `list_entity_schemas`. A CLI `unchanged` or a matching `git_commit_hash` is not proof.
 
-This repo syncs to Base44 through git, so publish from the dashboard rather than `base44 deploy` — a CLI deploy ships your local tree directly, bypassing the sync, and the deployed state silently diverges from the repo.
+`npm run deploy`, `deploy:site` and `deploy:entities` exist as an exception path (they read the app id from `base44.app.json` and refuse `--app-id`). Do not run `base44 deploy` or `npx base44 ... --app-id <id>` by hand: it ships whatever directory you are standing in to whatever app the id names. Details and the function budget (40 of Base44's 50) are in `AGENTS.md` and `CLAUDE.md`.
 
 ## Docs & Support
 

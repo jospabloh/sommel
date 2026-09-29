@@ -10,6 +10,7 @@ import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 import { toast } from "@/components/ui/use-toast";
 import { safeReturnTo } from "@/lib/authReturnTo";
+import { friendlyAuthError } from "@/lib/authErrors";
 
 export default function Register() {
   // Prefilled from the invitation email link (/register?email=...).
@@ -31,7 +32,7 @@ export default function Register() {
     e.preventDefault();
     setError("");
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("Las contraseñas no coinciden.");
       return;
     }
     setLoading(true);
@@ -39,7 +40,7 @@ export default function Register() {
       await base44.auth.register({ email, password });
       setShowOtp(true);
     } catch (err) {
-      setError(err.message || "Registration failed");
+      setError(friendlyAuthError(err, "No pudimos crear tu cuenta. Inténtalo de nuevo.", "register"));
     } finally {
       setLoading(false);
     }
@@ -55,7 +56,7 @@ export default function Register() {
       }
       window.location.href = safeReturnTo();
     } catch (err) {
-      setError(err.message || "Invalid verification code");
+      setError(friendlyAuthError(err, "No pudimos verificar el código. Inténtalo de nuevo.", "verify"));
     } finally {
       setLoading(false);
     }
@@ -66,11 +67,11 @@ export default function Register() {
     try {
       await base44.auth.resendOtp(email);
       toast({
-        title: "Code sent",
-        description: "Check your email for the new code.",
+        title: "Código enviado",
+        description: "Revisa tu correo para ver el código nuevo.",
       });
     } catch (err) {
-      setError(err.message || "Failed to resend code");
+      setError(friendlyAuthError(err, "No pudimos reenviar el código. Inténtalo de nuevo.", "verify"));
     }
   };
 
@@ -86,7 +87,7 @@ export default function Register() {
         subtitle={`Enviamos un código a ${email}`}
       >
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+          <div role="alert" className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
             {error}
           </div>
         )}
@@ -166,12 +167,12 @@ export default function Register() {
           <div className="w-full border-t border-border" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">o</span>
+          <span className="bg-background px-3 text-muted-foreground">o</span>
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+        <div role="alert" className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           {error}
         </div>
       )}
@@ -186,7 +187,7 @@ export default function Register() {
               type="email"
               autoComplete="email"
               autoFocus
-              placeholder="you@example.com"
+              placeholder="tu@correo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="pl-10 h-12"

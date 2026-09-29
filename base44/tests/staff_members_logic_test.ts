@@ -1,5 +1,6 @@
 // deno test --allow-env base44/tests/staff_members_logic_test.ts
 import {
+  barLostAllAdmins,
   checkRemoveMember,
   checkSetRole,
   closeOpenAttendancePatch,
@@ -96,4 +97,21 @@ Deno.test('isOpenAttendance', () => {
   assertEquals(isOpenAttendance({ clock_out: null }), true);
   assertEquals(isOpenAttendance({}), true);
   assertEquals(isOpenAttendance({ clock_out: '2026-09-29T20:00:00Z' }), false);
+});
+
+// Module 14 recount: after the write, re-read the team; no admin left means undo.
+Deno.test('barLostAllAdmins: demoting the only admin leaves none, so undo', () => {
+  assertEquals(barLostAllAdmins([{ id: 'o', app_role: 'staff' }, { id: 's1', app_role: 'staff' }], true), true);
+});
+Deno.test('barLostAllAdmins: another admin remains, keep the change', () => {
+  assertEquals(barLostAllAdmins(team, true), false);
+  assertEquals(barLostAllAdmins([{ id: 'a2', app_role: 'bar_admin' }], true), false);
+});
+Deno.test('barLostAllAdmins: two concurrent demotions, both see zero admins and both undo', () => {
+  const after = [{ id: 'o', app_role: 'staff' }, { id: 'a2', app_role: 'staff' }];
+  assertEquals(barLostAllAdmins(after, true), true);
+});
+Deno.test('barLostAllAdmins: a staff change is never blamed for a bar that already had no admin', () => {
+  assertEquals(barLostAllAdmins([{ id: 's1', app_role: 'staff' }], false), false);
+  assertEquals(barLostAllAdmins([], false), false);
 });

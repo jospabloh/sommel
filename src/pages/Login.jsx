@@ -8,6 +8,7 @@ import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 import { safeReturnTo } from "@/lib/authReturnTo";
+import { friendlyAuthError } from "@/lib/authErrors";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -26,7 +27,7 @@ export default function Login() {
       await base44.auth.loginViaEmailPassword(email, password);
       window.location.href = returnTo;
     } catch (err) {
-      setError(err.message || "Correo o contraseña inválidos");
+      setError(friendlyAuthError(err, "No pudimos iniciar sesión. Inténtalo de nuevo.", "login"));
     } finally {
       setLoading(false);
     }
@@ -40,7 +41,7 @@ export default function Login() {
     <AuthLayout
       icon={LogIn}
       title="Bienvenido de nuevo"
-      subtitle="Inicia sesión en tu cuenta"
+      subtitle="Inicia sesión para abrir tu bar"
       footer={
         <>
           ¿No tienes cuenta?{" "}
@@ -67,12 +68,12 @@ export default function Login() {
           <div className="w-full border-t border-border" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">o</span>
+          <span className="bg-background px-3 text-muted-foreground">o</span>
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+        <div role="alert" className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           {error}
         </div>
       )}
@@ -87,7 +88,7 @@ export default function Login() {
               type="email"
               autoComplete="email"
               autoFocus
-              placeholder="you@example.com"
+              placeholder="tu@correo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="pl-10 h-12"

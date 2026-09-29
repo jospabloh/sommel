@@ -1,12 +1,13 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, Outlet, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { PermissionProvider } from '@/lib/PermissionContext';
 import { usePermission } from '@/lib/usePermission';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import { isAuthPath, loginPath } from '@/lib/loginPath';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Layout from '@/components/Layout';
@@ -62,7 +63,7 @@ const RequirePermission = ({ perm }) => {
   const { can, loading } = usePermission();
   if (loading) {
     return (
-      <div className="flex justify-center py-16">
+      <div className="flex justify-center py-16" role="status" aria-label="Cargando">
         <div className="w-8 h-8 border-4 border-border border-t-primary rounded-full animate-spin" />
       </div>
     );
@@ -71,16 +72,43 @@ const RequirePermission = ({ perm }) => {
   return <Outlet />;
 };
 
+// Module 10: an unauthenticated visitor lands on Sommel's own /login, keeping
+// where they were going in ?returnTo=. Rendered inside the router so it can
+// read the location; never used on an auth route itself (no loop).
+const RedirectToLogin = () => {
+  const location = useLocation();
+  return <Navigate to={loginPath(location)} replace />;
+};
+
+const AuthLoading = () => (
+  <div className="fixed inset-0 flex items-center justify-center bg-background" role="status" aria-label="Cargando">
+    <div className="w-8 h-8 border-4 border-border border-t-primary rounded-full animate-spin"></div>
+  </div>
+);
+
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
+  const location = useLocation();
+
+  // The auth screens do not depend on any session state, so they render before
+  // the loading spinner and before the authError early returns below. Without
+  // that, an expired token (authError auth_required) would bounce /login
+  // itself back to /login forever, and a slow public-settings call would hide
+  // the form.
+  if (isAuthPath(location.pathname)) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+      </Routes>
+    );
+  }
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
-      </div>
-    );
+    return <AuthLoading />;
   }
 
   // Handle authentication errors
@@ -88,9 +116,7 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
-      return null;
+      return <RedirectToLogin />;
     }
   }
 
@@ -100,11 +126,7 @@ const AuthenticatedApp = () => {
   // (mapa de mesas → comanda → envío a cocina/barra).
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+      <Route element={<ProtectedRoute unauthenticatedElement={<RedirectToLogin />} />}>
         <Route path="/onboarding" element={<OnboardingRoute />} />
         <Route element={<RequireTenant />}>
           <Route element={<Layout />}>

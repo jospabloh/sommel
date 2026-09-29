@@ -18,5 +18,9 @@ export function settingsView(bar: any) {
     corte_emails: Array.isArray(bar?.corte_emails) ? bar.corte_emails : [],
     prep_goal_kitchen_min: bar?.prep_goal_kitchen_min ?? null,
     prep_goal_bar_min: bar?.prep_goal_bar_min ?? null,
+    // Read-only license fields for the billing banner (Layout.jsx). Not in
+    // EDITABLE_FIELDS: settings.update can never write them.
+    billing_status: bar?.billing_status ?? null,
+    trial_end_at: bar?.trial_end_at ?? null,
   };
 }

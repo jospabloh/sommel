@@ -7,7 +7,7 @@
   "name": "Payment",
   "type": "object",
   "properties": {
-    "tenant_id": { "type": "string", "description": "WineBar dueño de este pago" },
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este pago. Módulo 19, candado de ESCRITURA a nivel entidad: create, update y delete son solo de plataforma (role admin). Los escribe únicamente el servidor (funciones Safe con asServiceRole, que evalúa como admin); el cliente y el propio bar nunca escriben esta entidad directo. Los pagos se crean por la función payments con idempotency_key. Si se afloja la escritura, se puede anular, duplicar o alterar un cobro sin dejar rastro en el corte. Un síntoma de lectura o de pantalla vacía no se arregla tocando este candado, porque una regla de escritura no afecta lo que devuelve una lectura." },
     "order_id": { "type": "string", "description": "Order que se está cobrando" },
     "shift_id": { "type": "string", "description": "Turno en el que se registró el pago" },
     "method": { "type": "string", "description": "Forma de pago (efectivo, tarjeta, vale...), configurable por bar" },

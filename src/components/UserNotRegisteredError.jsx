@@ -1,30 +1,38 @@
-import React from 'react';
+import React from "react";
+import { ShieldAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import AuthLayout, { SUPPORT_EMAIL } from "@/components/AuthLayout";
+import { useAuth } from "@/lib/AuthContext";
 
+// Shown when the signed-in account has no access to Sommel (Base44's
+// `user_not_registered`). Same AuthLayout shell as the login screens, theme
+// tokens only, in Spanish, with a way out: switch account or write to support.
 const UserNotRegisteredError = () => {
+  const { logout } = useAuth();
+
+  const switchAccount = () => {
+    logout(false);
+    window.location.assign("/login");
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-white to-slate-50">
-      <div className="max-w-md w-full p-8 bg-white rounded-lg shadow-lg border border-slate-100">
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 mb-6 rounded-full bg-orange-100">
-            <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-4">Access Restricted</h1>
-          <p className="text-slate-600 mb-8">
-            You are not registered to use this application. Please contact the app administrator to request access.
-          </p>
-          <div className="p-4 bg-slate-50 rounded-md text-sm text-slate-600">
-            <p>If you believe this is an error, you can:</p>
-            <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>Verify you are logged in with the correct account</li>
-              <li>Contact the app administrator for access</li>
-              <li>Try logging out and back in again</li>
-            </ul>
-          </div>
-        </div>
+    <AuthLayout
+      icon={ShieldAlert}
+      title="Esta cuenta no tiene acceso"
+      subtitle="Tu correo no está registrado en Sommel."
+    >
+      <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">
+        <p className="font-medium text-foreground">Qué puedes hacer</p>
+        <ul className="mt-2 list-disc list-inside space-y-1">
+          <li>Confirma que iniciaste sesión con el correo correcto.</li>
+          <li>Pide a la persona que administra tu bar que te invite.</li>
+          <li>Si crees que es un error, escríbenos a {SUPPORT_EMAIL}.</li>
+        </ul>
       </div>
-    </div>
+      <Button className="mt-6 h-12 w-full font-medium" onClick={switchAccount}>
+        Usar otra cuenta
+      </Button>
+    </AuthLayout>
   );
 };
 

@@ -40,6 +40,10 @@ export const TARGET_DIRS = [
   'reports',
   'settings',
   'attendance',
+  'permissions',
+  // account and session (Ola 2, modules 7 and 20) are added here together with
+  // their entry.ts: a function directory with no entry.ts must never reach
+  // main, because Base44 syncs every directory under base44/functions.
 ];
 const COPIED_FILES = ['_guard_logic.ts', '_guard.ts'];
 

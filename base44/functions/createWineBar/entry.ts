@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
+import { buildNewBar } from './_trial_logic.ts';
 
 // The only way a user gets a tenant: User.tenant_id/app_role are rls.write:false
 // (Module 24 of jospabloh/acacia-app-standard), so onboarding can no longer set
@@ -10,13 +11,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
 // placeholder catalog — a prior version of this function seeded
 // DEFAULT_PRODUCTS/DEFAULT_TABLES against the old Product/BarTable field
 // shapes, which no longer exist post Fase 0.
-const TRIAL_DAYS = 30;
+// The 30-day trial rule lives in _trial_logic.ts (computeTrialEnd, tested).
 
 export default async function(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    // auth.me() throws (not null) without a session; answer 401, not 500
+    // (STANDARD module 22 / entrega-1-contratos §1).
+    const user = await base44.auth.me().catch(() => null);
+    if (!user) return Response.json({ error: 'Inicia sesión para continuar', code: 'unauthenticated' }, { status: 401 });
     const svc = base44.asServiceRole;
 
     // Re-read the stored profile: auth.me()'s own copy can be stale — the
@@ -27,15 +30,12 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ error: 'Ya perteneces a un bar', code: 'already_in_a_bar' }, { status: 409 });
     }
 
-    const body = await req.json();
+    const body = (await req.json().catch(() => null)) ?? {};
     const name = (body.name || '').toString().trim();
     const address = (body.address || '').toString().trim();
     if (!name) return Response.json({ error: 'El nombre del bar es obligatorio' }, { status: 400 });
 
-    const trialEndAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const bar = await svc.entities.WineBar.create({
-      name, address, billing_status: 'trial', trial_end_at: trialEndAt, owner_id: user.id
-    });
+    const bar = await svc.entities.WineBar.create(buildNewBar({ name, address, ownerId: user.id }));
     await svc.entities.User.update(user.id, {
       tenant_id: bar.id, app_role: 'bar_admin'
     });

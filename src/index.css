@@ -19,8 +19,9 @@
  *
  * The class itself is applied by the pre-mount script in index.html (so the
  * first frame already renders the right color — no flash) and kept in sync
- * live by src/lib/useTheme.js, which Layout.jsx's toggle button calls. Both
- * share the same localStorage key/values; each comments at the other.
+ * live by src/lib/ThemeContext.jsx, driven by the corner ThemeSwitcher mounted
+ * in main.jsx. Both share the same localStorage key/values; each comments at
+ * the other.
  */
 @layer base {
   :root {
@@ -109,4 +110,23 @@
   body {
     @apply bg-background text-foreground font-body;
   }
+}
+
+/*
+ * Theme switcher placement (module 12). The corner control is pinned above
+ * everything on every screen, so it is placed per app and lifted over the
+ * app's own bottom chrome. Orden.jsx has a fixed bottom bar (total + Cobrar +
+ * send buttons) at ALL widths: while that bar is on screen Orden sets
+ * data-bottom-bar on <html> and the control rides above it instead of
+ * sitting on the buttons. Everywhere else it stays in the plain corner.
+ */
+:root {
+  --theme-switcher-bottom: 1rem;
+  --theme-switcher-right: 1rem;
+}
+
+:root[data-bottom-bar] {
+  /* Bar height (--bottom-bar-h, measured by Orden.jsx; 10rem is the fallback
+     for the tallest layout) plus a gap. */
+  --theme-switcher-bottom: calc(var(--bottom-bar-h, 10rem) + 0.75rem);
 }

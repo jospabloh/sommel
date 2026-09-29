@@ -16,7 +16,7 @@
     "qty": { "type": "number", "description": "Cantidad del movimiento (signo según el tipo)" },
     "unit_cost": {
       "type": ["integer", "null"],
-      "description": "Costo por unidad al momento del movimiento, en centavos MXN. Bloqueado a la plataforma como OrderItem.unit_cost (D7)",
+      "description": "Costo por unidad al momento del movimiento, en centavos MXN. Se entrega solo con Menú:ver_costos (D7). Módulo 19, candado de LECTURA (rls.read solo role admin); no gobierna la escritura, que ya es solo de plataforma a nivel entidad. Lo escribe solo el servidor (función inventory, asServiceRole) y lo lee solo el servidor. Si se quita el candado, cualquier miembro del bar lee el costo de cada movimiento sin Menú:ver_costos. Un costo que no aparece en pantalla no se arregla quitando este candado: se diagnostica en la función inventory.",
       "rls": {
         "read": { "user_condition": { "role": "admin" } }
       }

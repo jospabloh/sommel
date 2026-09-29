@@ -6,7 +6,7 @@
   "name": "Order",
   "type": "object",
   "properties": {
-    "tenant_id": { "type": "string", "description": "WineBar dueño de esta comanda" },
+    "tenant_id": { "type": "string", "description": "WineBar dueño de esta comanda. Módulo 19, candado de ESCRITURA a nivel entidad: create, update y delete son solo de plataforma (role admin). Los escribe únicamente el servidor (funciones Safe con asServiceRole, que evalúa como admin); el cliente y el propio bar nunca escriben esta entidad directo. Los importes (subtotal, discount, tip, total) los calcula solo el servidor. Si se afloja la escritura, un mesero puede reescribir totales, estatus o descuentos de una comanda desde una llamada cruda. Un síntoma de lectura o de pantalla vacía no se arregla tocando este candado, porque una regla de escritura no afecta lo que devuelve una lectura." },
     "type": { "type": "string", "enum": ["mesa", "llevar"], "default": "mesa" },
     "table_ids": {
       "type": "array",

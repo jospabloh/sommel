@@ -12,6 +12,7 @@ import {
   MEMBER_DENIAL_STATUS,
   checkRemoveMember,
   checkSetRole,
+  barLostAllAdmins,
   closeOpenAttendancePatch,
   isMemberRole,
   isOpenAttendance,
@@ -196,7 +197,19 @@ export default async function(req: Request): Promise<Response> {
       }
 
       if (action === 'setRole') {
+        const previousRole = members.find((m: any) => m.id === targetId)?.app_role;
         await svc.entities.User.update(targetId, { app_role: body.app_role });
+        // Recount (module 14): the pre-check above read the team before this
+        // write, so a concurrent demotion can leave the bar with no admin.
+        // Undo ours if that happened.
+        const after = await svc.entities.User.filter({ tenant_id: tenantId });
+        if (barLostAllAdmins(after, previousRole === 'bar_admin')) {
+          await svc.entities.User.update(targetId, { app_role: previousRole });
+          return Response.json(
+            { error: MEMBER_DENIAL_MESSAGE.last_admin, code: 'last_admin' },
+            { status: MEMBER_DENIAL_STATUS.last_admin }
+          );
+        }
         return Response.json({ ok: true });
       }
 
@@ -220,6 +233,20 @@ export default async function(req: Request): Promise<Response> {
         }
       }
 
+      // Recount (module 14), right after cutting access and before touching
+      // anything else, so undoing it is a single write: if that removal left
+      // the bar with no admin (a concurrent removal or demotion got in
+      // between the pre-check and now), give this person their access back.
+      const teamAfter = await svc.entities.User.filter({ tenant_id: tenantId });
+      const removed = members.find((m: any) => m.id === targetId);
+      if (barLostAllAdmins(teamAfter, removed?.app_role === 'bar_admin')) {
+        await svc.entities.User.update(targetId, { tenant_id: tenantId, app_role: removed?.app_role ?? 'staff' });
+        return Response.json(
+          { error: MEMBER_DENIAL_MESSAGE.last_admin, code: 'last_admin' },
+          { status: MEMBER_DENIAL_STATUS.last_admin }
+        );
+      }
+
       const pins = await svc.entities.StaffPin.filter({ tenant_id: tenantId, user_id: targetId });
       for (const pin of pins) await svc.entities.StaffPin.delete(pin.id);
 
@@ -233,6 +260,17 @@ export default async function(req: Request): Promise<Response> {
     }
 
     if (action === 'revokeInvite') {
+      // Billing gate (module 14), same as invite/setRole/removeMember: a
+      // suspended or view_only bar cannot change its team, and revoking a
+      // pending invite is a team change.
+      const [revokeBar] = await svc.entities.WineBar.filter({ id: tenantId });
+      const revokeStatus = revokeBar?.billing_status;
+      if (revokeStatus === 'view_only' || revokeStatus === 'suspended') {
+        return Response.json(
+          { error: 'El bar está en modo solo lectura o suspendido', code: 'read_only' },
+          { status: 402 }
+        );
+      }
       const inviteId = body.invite_id;
       if (!inviteId) return Response.json({ error: 'invite_id requerido' }, { status: 400 });
       // Not found or another tenant's row both answer 404 — telling them

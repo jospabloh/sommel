@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { formatMXN } from '@/lib/money';
+import FixedBottomBar from '@/components/orders/FixedBottomBar';
 import { useOrderRealtime } from '@/components/orders/useOrderRealtime';
 import { flattenRow } from '@/components/orders/helpers';
 import ProductPicker from '@/components/orders/ProductPicker';
@@ -444,7 +445,7 @@ export default function Orden() {
       </div>
 
       {!closed && (
-        <div className="fixed bottom-0 left-20 right-0 lg:left-60 bg-background border-t border-border p-4 space-y-2.5">
+        <FixedBottomBar>
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Total</span>
             <div className="flex items-center gap-3">
@@ -472,7 +473,7 @@ export default function Orden() {
               </Button>
             )}
           </div>
-        </div>
+        </FixedBottomBar>
       )}
 
       <Sheet open={addOpen} onOpenChange={setAddOpen}>

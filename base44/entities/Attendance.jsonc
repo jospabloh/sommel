@@ -5,7 +5,7 @@
   "name": "Attendance",
   "type": "object",
   "properties": {
-    "tenant_id": { "type": "string", "description": "WineBar dueño de esta marca" },
+    "tenant_id": { "type": "string", "description": "WineBar dueño de esta marca. Módulo 19, candado de LECTURA a nivel entidad: Attendance.read es solo de plataforma (role admin). Cada lectura pasa por attendance.records y roster (service role), que deciden quién ve qué. El servidor escribe clock_in y clock_out; El candado de escritura (create, update y delete) también es solo de plataforma. Si se afloja la lectura, cualquier staff lee desde el cliente las marcas de todo el equipo. Una lista de asistencia vacía no se arregla aflojando este candado: se diagnostica en attendance.records." },
     "user_id": { "type": "string", "description": "Usuario al que pertenece la marca" },
     "user_name": { "type": "string", "description": "Nombre congelado al momento de la marca, para listar sin leer User" },
     "clock_in": { "type": "string", "format": "date-time", "description": "Entrada. Solo la escribe el servidor" },

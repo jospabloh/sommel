@@ -19,7 +19,7 @@
   "properties": {
     "tenant_id": {
       "type": "string",
-      "description": "WineBar que invitó. Solo lo escribe el servidor (manageStaff, asServiceRole) — nunca tomado del cuerpo de la petición al leer/reclamar, siempre de la fila almacenada."
+      "description": "WineBar que invitó. Solo lo escribe el servidor (manageStaff, asServiceRole); nunca se toma del cuerpo de la petición al leer o reclamar, siempre de la fila almacenada. Módulo 19, candado de ESCRITURA a nivel entidad: create, update y delete son solo de plataforma (role admin). Los escribe únicamente el servidor (funciones Safe con asServiceRole, que evalúa como admin); el cliente y el propio bar nunca escriben esta entidad directo. Si se afloja la escritura, un staff se crea, revoca o acepta a mano su propia invitación y deshace el 409 already_in_a_bar y el reclamo por correo almacenado de claimInvite. Un síntoma de lectura o de pantalla vacía no se arregla tocando este candado, porque una regla de escritura no afecta lo que devuelve una lectura."
     },
     "email": {
       "type": "string",

@@ -1,0 +1,1423 @@
+[
+ {
+  "module": 2,
+  "title": "User & role control",
+  "status": "done",
+  "evidence": "Layer 2 role model: built-in `role` is only admin/user (platform: live User read shows only h.josepablo@gmail.com holds `admin`). Tenant scoping and tenant role live in custom `User.tenant_id` and `User.app_role` (bar_admin | staff; super_admin is in the enum but unused). Deployed schema, read via list_entity_schemas on appId 6ab41c2a89f592a0eca074d2, matches base44/entities/User.jsonc: both fields have rls.write:false. Only createWineBar and manageStaff write them (base44/functions/createWineBar/entry.ts:40, manageStaff/entry.ts:144,199,212,283), all as service role. The two layers are not merged: the app has no reference to Mission Control's `members`.\n\nPromote/demote (base44/functions/manageStaff/entry.ts, setRole around line 170-200): the caller must be bar_admin, or platform admin, per a fresh service-role read of the stored profile (line 43, module 22). Promote and demote share one path and one gate, `checkSetRole` in _member_logic.ts. It returns owner_locked, last_admin (a demote that would leave zero bar_admin returns 409), and not_found for a target outside the caller's tenant. Unit tests are in base44/tests/staff_members_logic_test.ts. `invite` only honors bar_admin if the caller is bar_admin (entry.ts:105).\n\nJoining: emailed invite is admin-initiated (`invite` action, StaffInvite row plus own email, 14-day expiry, one row per tenant+email, revokeInvite). `claimInvite` looks up by the caller's STORED email, revokes the person's other pending invites, and refuses if already in a bar. Direct assignment to an existing unassigned User is refused with 409 if the user is in another bar. There is no open self-join. The standard only requires one of code or emailed invite.\n\nModule 24 check: `node scripts/check-tenant-roles.mjs` prints \"Module 24 — no tenant role reaches every tenant\"; `validate:tenant-roles` is wired in .github/workflows. Live users: 1 platform admin, 2 tenants, roles consistent. StaffInvite RLS is admin-only for writes and tenant-scoped for reads.",
+  "gaps": [
+   {
+    "what": "No single file declares the role mapping. The standard says the app's role model is 'kept in one file' (puntos' src/lib/rbac.js). Sommel has 'bar_admin' and 'staff' literals spread over src/components/Layout.jsx, src/components/staff/MemberActions.jsx, src/pages/Staff.jsx, src/lib/permissionRegistry.js, and six copies of the server _guard.ts plus manageStaff/_member_logic.ts and _invite_logic.ts. permissionRegistry.js is the de facto declaration for permissions, but not for role names and their labels. This is cosmetic, not a security hole.",
+    "fix": "Add src/lib/rbac.js exporting ROLES ({bar_admin, staff}), the platform check, the labels ('Admin' / 'Mesero'), isBarAdmin(user) and isPlatform(user). Replace the client literals with it. Optionally have the check:guards generator verify the server copy.",
+    "files": [
+     "src/lib/rbac.js",
+     "src/components/Layout.jsx",
+     "src/components/staff/MemberActions.jsx",
+     "src/pages/Staff.jsx",
+     "src/lib/PermissionContext.jsx"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "The `super_admin` value in the User.app_role enum is dead: nothing in src/ or base44/ (excluding tests) writes or reads it. It is a leftover role name that muddies the 'small, named set of roles' and the platform tier, which is already expressed by built-in role 'admin'.",
+    "fix": "Remove 'super_admin' from the enum in User.jsonc, after confirming that no live row uses it (the live read showed none), and deploy the entity schema with the repo's deploy:entities script.",
+    "files": [
+     "base44/entities/User.jsonc"
+    ],
+    "size": "S",
+    "blocked_on": "deploy:entities needs a Base44-authenticated CLI"
+   },
+   {
+    "what": "The last-admin guard is a read-then-write with no conditional update. A concurrent demote or remove of two admins could each see 2 admins and both pass, leaving zero. The code itself acknowledges this kind of race for invite (entry.ts, 'a sub-second race remains'). It is low probability because it needs two admins acting at the same moment.",
+    "fix": "After a demote or remove, re-read the tenant's admin count. If it is 0, restore the actor's target to bar_admin and return 409 last_admin. This is best-effort, since Base44 has no transactions.",
+    "files": [
+     "base44/functions/manageStaff/entry.ts",
+     "base44/functions/manageStaff/_member_logic.ts"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   }
+  ]
+ },
+ {
+  "module": 1,
+  "title": "License lifecycle (owned centrally by Mission Control)",
+  "status": "partial",
+  "evidence": "Done: no native lifecycle cron/function exists in sommel (base44/functions has only attendance, catalog, createWineBar, inventory, manageStaff, orders, payments, printing, processSale, reports, settings, shifts, stations). WineBar.billing_status enum is exactly trial|active|view_only|suspended. The deployed schema was read live with list_entity_schemas (app 6ab41c2a89f592a0eca074d2) and matches base44/entities/WineBar.jsonc. billing_status, trial_end_at, current_period_end, plan and owner_id all carry rls.write role:admin, which is the module's verification gate. base44/functions/createWineBar/entry.ts sets billing_status 'trial' and trial_end_at = server Date.now() + 30 days as a service role. The user already having a tenant returns 409. Server writes are gated: requireWritable in each function's _guard.ts returns 402 read_only for view_only/suspended (also manageStaff/entry.ts lines 88 and 171). The client maps read_only to friendly messages (PunchEntry.jsx, memberErrors.js).\nGaps: (1) grep of /home/user/acacia-mission-control finds no 'sommel' in supabase/migrations, api/_lib or src, so I found no apps registry row or adapter config for sommel. I did not query the live MC Supabase, so a row could exist there. (2) createWineBar sends no new_tenant ping to MC. There is no acaciaControl function, no tenant-pull, and no signing helper in sommel. (3) SuperAdmin.jsx line 36 writes WineBar.billing_status directly from the browser (own TODO comment), a second in-app write path beside MC. (4) The UI does not degrade for view_only/suspended: the only client reference to billing_status is SuperAdmin.jsx, with no banner and no disabled controls. Users only see errors after a write fails. (5) The 30-day trial constant is duplicated inline in createWineBar, which is acceptable but has no test. Not verified: MC live registry and bodega, and any authenticated session.",
+  "gaps": [
+   {
+    "what": "No evidence Sommel is registered in Mission Control (no apps row or adapter mapping for entity WineBar, so the lifecycle cron cannot reach billing_status). No acaciaControl bridge function exists in the sommel repo to read or write the tenant.",
+    "fix": "Add base44/functions/acaciaControl (ping, license get/set patch on WineBar, tenants list, using the shared _acaciaSign.ts from acacia-app-standard/shared/bridge and ACACIA_APP_SLUG=sommel). Then run onboard:base44 in MC and insert the apps row. Confirm the row and a licence sync against the live MC Supabase.",
+    "files": [
+     "/home/user/sommel/base44/functions/acaciaControl/entry.ts",
+     "/home/user/sommel/base44/functions/acaciaControl/_acaciaSign.ts",
+     "/home/user/acacia-mission-control/supabase/migrations (new seed row)"
+    ],
+    "size": "L",
+    "blocked_on": "Mission Control repo write access (registry row and adapter config), plus the INGEST_HMAC_SECRET and ACACIA_APP_SLUG secrets set in Base44 and Vercel. The bridge function itself overlaps modules 5, 15 and 17."
+   },
+   {
+    "what": "createWineBar creates a tenant without the new_tenant ping to MC (module 1's self-serve half). MC's daily sync is the only net.",
+    "fix": "After WineBar.create, fire-and-forget a POST to MC /api/ingest/tenant-pull with {app:'sommel', tenantId: bar.id}, signed with the per-app key and ending in .catch(() => {}), so it never blocks onboarding. Copy StockFlow's signup call site.",
+    "files": [
+     "/home/user/sommel/base44/functions/createWineBar/entry.ts"
+    ],
+    "size": "S",
+    "blocked_on": "Depends on the bridge signing helper and secrets from the gap above."
+   },
+   {
+    "what": "SuperAdmin.jsx writes billing_status straight from the browser via WineBar.update. This is a second in-app path that changes commercial state outside MC or a Safe function. The code says it is a known exception (a platform-only admin gate) and admits it violates the contract.",
+    "fix": "Remove the status Select, or make it read-only, and let the platform owner change status in MC's admin UI through the bridge. If it stays, route it through a service-role function that checks the platform owner and audits the change.",
+    "files": [
+     "/home/user/sommel/src/pages/SuperAdmin.jsx"
+    ],
+    "size": "S",
+    "blocked_on": "User decision: keep the in-app override as a manual admin action, which the standard allows, or drop it. Not blocking if it is kept."
+   },
+   {
+    "what": "The UI does not degrade for view_only or suspended. There is no banner, and controls are not disabled. Users only find out through a 402 read_only error after trying to write. The standard says these states 'degrade the UI, not 500 it'.",
+    "fix": "Expose the bar's billing_status to the client (WineBar read for the tenant is allowed). Add a global banner in Layout.jsx explaining view_only/suspended and disable write actions, or at minimum show the banner. Make sure the trial-ending state shows the days left.",
+    "files": [
+     "/home/user/sommel/src/components/Layout.jsx",
+     "/home/user/sommel/src/lib/PermissionContext.jsx"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "No test or guard pins the 30-day trial and the trial-status creation shape in createWineBar. The other guarantees are covered by guard_logic_test.",
+    "fix": "Extract computeTrialEnd into an import-free module, or add a deno test asserting that the trial_end_at delta is exactly 30 days and billing_status is 'trial'. Optionally add a CI check that grep finds no function writing billing_status other than createWineBar.",
+    "files": [
+     "/home/user/sommel/base44/functions/createWineBar/entry.ts",
+     "/home/user/sommel/base44/tests"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   }
+  ]
+ },
+ {
+  "module": 4,
+  "title": "Multi-tenant data isolation (RLS)",
+  "status": "done",
+  "evidence": "Repo: `npm run validate:rls` passes (19 entities, 13 tenant-scoped), and `npm run validate:tenant-roles` passes. CI (.github/workflows/ci.yml) runs both as blocking steps, plus check:guards and deno test. scripts/lib/entity-rls-rules.mjs is adapted from StockFlow's checker for tenant_id. It enforces the `data.` entity prefix, the `{{user.data.*}}` user templates, the tenant equality on read, and the `role:admin` service branch on read/create/update/delete.\n\nDeployed schema: I read all 19 entities with list_entity_schemas (appId 6ab41c2a89f592a0eca074d2) and compared them with base44/entities/*.jsonc. RLS blocks match the repo for every entity checked.\n- The 13 tenant-scoped entities read with `$or[data.tenant_id == {{user.data.tenant_id}}, role:admin]`. Create/update/delete are `role:admin` only, which suits Sommel because every write goes through Safe functions as the service role.\n- Product, Attendance and StaffPin have read limited to `role:admin`. This is deliberate: the Product.jsonc header documents that costs are redacted by the `catalog` function, and Attendance/StaffPin are served through functions.\n- SupportTicket create also allows the tenant branch.\n- WineBar update is `$or[role:admin, $and[id == tenant_id, user_condition{data.app_role:bar_admin}]]`. That is a tenant-scoped role inside `$and`, which Module 24 allows. There are no `user_condition` entries with sibling keys, so the liuma defect does not apply.\n- WineBar billing_status, trial_end_at, current_period_end, plan and owner_id carry `rls.write: role:admin` in the deployed schema (Module 19).\n- User.tenant_id and User.app_role carry `rls.write: false`.\n- OrderItem.unit_cost, InventoryItem.unit_cost and InventoryMovement.unit_cost have `rls.read` limited to the platform tier.\n\nLive data: only h.josepablo@gmail.com holds built-in role admin. All other users are role `user`, with tenant_id and app_role on the data fields.\n\nCompared with the StockFlow reference: same four-op shape and same checker. Sommel's tenant-roles checker is byte-identical to shared/tenant-roles/check-tenant-roles.mjs.\n\nNot verified: no authenticated session as a restricted user of a second tenant, so I checked the rules by reading them, not by exercising them. I made no writes.",
+  "gaps": [
+   {
+    "what": "Nothing in AGENTS.md, CLAUDE.md or docs/ records a dated Module 14 isolation audit that names the deployed-vs-repo diff and what could not be verified. docs/plan-tecnico.md only schedules the audit for week 7. Module 4's deployed-schema check is therefore done but undocumented. There are already 2 real tenants and 7 users in live data.",
+    "fix": "Add a dated 'Módulo 4/14' section to AGENTS.md or docs recording the result above. It should say the deployed schema matches the repo for all 19 entities, list the deliberate admin-only reads (Product, Attendance, StaffPin) and the field locks, and state that a restricted second-tenant session was not verified.",
+    "files": [
+     "/home/user/sommel/AGENTS.md",
+     "/home/user/sommel/docs/plan-tecnico.md"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "Minor and optional, not a standard requirement: SupportTicket create allows the tenant branch, so a tenant member can raw-create a ticket with arbitrary status or fields. The tenant_id is pinned by the rule, so this is not a cross-tenant issue.",
+    "fix": "Route ticket creation only through a Safe function and make create `role:admin` only, or leave it as is. This is optional.",
+    "files": [
+     "/home/user/sommel/base44/entities/SupportTicket.jsonc"
+    ],
+    "size": "S",
+    "blocked_on": "user decision"
+   }
+  ]
+ },
+ {
+  "module": 3,
+  "title": "Granular permissions",
+  "status": "partial",
+  "evidence": "DONE: (a) Client registry src/lib/permissionRegistry.js has 23 'Section:action' keys with bar_admin/staff defaults. PermissionContext.jsx and usePermission.js are split and use the same resolvePermission precedence (platform/bar_admin, then override, then default, then deny). Layout.jsx and App.jsx RequirePermission gate nav and routes. (b) Server side: base44/functions/*/_guard.ts calls requireContext, which re-reads User with asServiceRole (module 22). hasPermission reads PermissionProfile by tenant+role. My scan of every base44/functions/*/handlers/*.ts file found requirePermission on all of them. requireWritable (billing_status view_only/suspended gives 402) is present on all write handlers. The exceptions are read-only handlers, attendance resetPin/setMyPin/roster/records, manageStaff (inline billing gate on invite/setRole/removeMember, bar_admin-only) and the retired processSale (410). (c) Zero direct client writes except SuperAdmin.jsx:36 WineBar.update billing_status. That one is platform-admin-only, the field is RLS-locked to role:admin, and it is documented as a TODO exception. (d) Drift check: scripts/generate-guards.mjs generates the AUTOGEN block, npm run check:guards runs in .github/workflows/ci.yml, and deno test base44/tests/ runs guard_logic_test.ts. It covers the resolvePermission precedence, unknown-key deny and no-role deny. (e) PermissionProfile deployed schema (live list_entity_schemas) matches the repo: read is tenant-scoped, create/update/delete are role:admin only, so staff cannot rewrite their own profile. MISSING: the write side of overrides and the admin Permisos screen. Live query of PermissionProfile returned 0 rows. The deployed base44/functions has no 'permissions' function (13 groups: reports, orders, printing, processSale, payments, catalog, inventory, shifts, manageStaff, settings, createWineBar, stations, attendance). docs/plan-tecnico.md:86 plans 'permissions: getProfile, upsertProfile' and PermissionProfile.jsonc:7 references upsertProfile, but grep of src/, base44/ and scripts/ finds no implementation. src/pages has no Permisos/PermissionAdmin page and App.jsx has no such route. Overrides (step 2 of the precedence) are therefore unreachable in practice: a bar_admin cannot see or change what staff can do. STANDARD.md section 3 calls this screen a requirement and the CHECKLIST Module 3 item repeats it. Not verified: authenticated session as staff (no credentials). Minor: order is loadOwned, then permission, then requireWritable. The standard text says billing is checked before permission; the StockFlow reference does permission first, so I am not flagging it.",
+  "gaps": [
+   {
+    "what": "No server writer for PermissionProfile: the planned 'permissions' function (getProfile/upsertProfile) was never built. Entity RLS allows only role:admin to write, so no bar_admin can persist an override. Live table has 0 rows.",
+    "fix": "Add a permissions group (entry.ts + _guard.ts and _guard_logic.ts copies via generate-guards, handlers getProfile and upsertProfile). upsertProfile: requireContext, then require ctx.isPlatform or appRole==='bar_admin', then requireWritable. Validate role in {bar_admin,staff} (or restrict edits to staff), keep only keys that exist in PERMISSION_DEFAULTS with boolean values, reject unknown keys, re-derive tenant_id from ctx (never from the body), find or create the row by tenant_id+role via asServiceRole, and write. Add logic tests in base44/tests/. Register the new group in the generate-guards targets and check the maxFunctions budget (currently 40). Deploy with npm run deploy and verify by calling an action only the new code has.",
+    "files": [
+     "base44/functions/permissions/entry.ts",
+     "base44/functions/permissions/handlers/getProfile.ts",
+     "base44/functions/permissions/handlers/upsertProfile.ts",
+     "base44/functions/permissions/handlers/_logic.ts",
+     "scripts/generate-guards.mjs",
+     "base44/tests/permissions_logic_test.ts",
+     "base44.app.json"
+    ],
+    "size": "M",
+    "blocked_on": "Deploy and Publish need an authenticated Base44 CLI/panel (operator); the code itself can be written by an agent alone."
+   },
+   {
+    "what": "No admin-facing 'Permisos' screen. The standard requires a matrix page rendering the same registry.",
+    "fix": "Create src/pages/Permisos.jsx gated to bar_admin/platform. Render PERMISSION_DEFAULTS grouped by section (prefix before ':') with one column per action, a tri-state group checkbox per section, per-key overrides for the staff role, and an explicit edit/read-only toggle. Persist each change immediately through permissions.upsertProfile. Show defaults vs overrides, and add a Layout nav entry (bar_admin only) and a route in App.jsx. Refresh PermissionContext after saving. Also add an action label/description map in the registry so the matrix has readable names.",
+    "files": [
+     "src/pages/Permisos.jsx",
+     "src/App.jsx",
+     "src/components/Layout.jsx",
+     "src/lib/permissionRegistry.js",
+     "src/lib/PermissionContext.jsx"
+    ],
+    "size": "M",
+    "blocked_on": "Depends on the permissions function gap above (can be built in the same PR). Deploying the site needs the operator."
+   },
+   {
+    "what": "The 'Permisos' matrix cannot cover 'everything the app manages' because staff-management actions (manageStaff invite/setRole/removeMember/revokeInvite, PIN reset) are gated by a hardcoded bar_admin check, not registry keys. Also manageStaff/revokeInvite has no billing gate. The standard says member management is gated by Module 3 (CHECKLIST Module 7 line).",
+    "fix": "Add registry keys (e.g. 'Equipo:invitar', 'Equipo:cambiar_rol', 'Equipo:quitar') with bar_admin:true, staff:false. Make manageStaff resolve them with resolvePermission and PermissionProfile. Note manageStaff is intentionally standalone and does not use _guard.ts, so it needs a resolver import or an inline copy of the AUTOGEN block. Add requireWritable to revokeInvite. Keep the last-admin and owner protections as they are. This is optional depth beyond the strict module 3 text; prioritise the two gaps above first.",
+    "files": [
+     "src/lib/permissionRegistry.js",
+     "base44/functions/manageStaff/entry.ts",
+     "scripts/generate-guards.mjs",
+     "base44/tests/staff_members_logic_test.ts"
+    ],
+    "size": "M",
+    "blocked_on": "Product decision: should staff ever be allowed to manage the team? Default keys stay false so behaviour is unchanged."
+   },
+   {
+    "what": "SuperAdmin.jsx writes WineBar.billing_status directly from the client (own TODO admits it violates the 'no direct client writes' rule). It is not exploitable, because it is role:admin-only and the field is RLS-locked. It also overlaps module 1, where MC should own billing_status.",
+    "fix": "Route it through a platform-only Safe function action, or remove the manual control if Mission Control now owns billing_status. Update the TODO comment accordingly.",
+    "files": [
+     "src/pages/SuperAdmin.jsx",
+     "base44/functions/settings/entry.ts"
+    ],
+    "size": "S",
+    "blocked_on": "Product/operator decision on whether Mission Control owns billing_status for Sommel (module 1)."
+   },
+   {
+    "what": "The drift check and the resolver tests exist, but the CHECKLIST gate also expects the server to be tested against overrides via the real hasPermission path. That is partially covered: resolvePermission is tested, but the PermissionProfile lookup (tenant+role filter) is not. Nothing exercises an override end to end because no profile can be written.",
+    "fix": "After the writer exists, add a test that pins the profile lookup key (tenant_id+role) and the override shape produced by upsertProfile against what hasPermission reads, e.g. a shared pure normalizer in _guard_logic.ts.",
+    "files": [
+     "base44/tests/guard_logic_test.ts",
+     "scripts/templates/_guard_logic.ts"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   }
+  ]
+ },
+ {
+  "module": 6,
+  "title": "Changelog & versioning",
+  "status": "missing",
+  "evidence": "Grep of /home/user/sommel (excluding node_modules/dist) for APP_VERSION, RELEASE_DATE, changelog, appConfig, AppVersion, AppChangelog returns zero hits. No src/lib/appConfig.js (src/lib has AuthContext, PermissionContext, api, money, etc.). package.json has version \"0.0.0\" (Base44 template default) and no \"release\" script. scripts/ holds only deploy/validate/guard scripts (base44-audit, base44-deploy, check-tenant-roles, generate-guards, validate-entity-rls, validate-functions) with no release generator. .github/workflows has only ci.yml (no auto-release workflow). src has no version display or \"Novedades\" UI. Positive: build is just \"vite build\" and mutates no tracked file, so the \"build validates, release generates\" rule is not violated (nothing to violate yet). Reference stockflow has src/lib/appConfig.js (APP_VERSION, RELEASE_DATE, CHANGELOG), scripts/publish-release.mjs, \"release\" npm script and .github/workflows/auto-release-pr.yml.",
+  "gaps": [
+   {
+    "what": "No single version source: no appConfig.js with APP_VERSION, RELEASE_DATE and CHANGELOG array; package.json version is the template 0.0.0",
+    "fix": "Create src/lib/appConfig.js exporting APP_VERSION, RELEASE_DATE and a CHANGELOG array (seed with the entregas/checador history from git log), and set package.json version to the same number so appConfig and package.json agree.",
+    "files": [
+     "src/lib/appConfig.js",
+     "package.json"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "No release script; nothing generates or bumps the version/changelog",
+    "fix": "Port scripts/publish-release.mjs from stockflow (adapt name/paths) and add \"release\": \"node scripts/publish-release.mjs\" to package.json. It must be the only writer of appConfig.js and package.json version; keep 'build' as plain 'vite build' so no tracked file is mutated by a routine build.",
+    "files": [
+     "scripts/publish-release.mjs",
+     "package.json"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "No automated release workflow (stockflow has auto-release-pr.yml); versioning would otherwise be hand-edited per feature commit, which the standard forbids",
+    "fix": "Add .github/workflows/auto-release-pr.yml adapted from stockflow (runs npm run release on push to main, opens a release PR on an automated branch). If the AI-changelog step needs a secret, it is optional: a deterministic changelog from merged PR titles satisfies the module.",
+    "files": [
+     ".github/workflows/auto-release-pr.yml"
+    ],
+    "size": "M",
+    "blocked_on": "Optional: an Anthropic API key repo secret if AI-generated changelog is wanted; the owner must also allow GitHub Actions to open PRs"
+   },
+   {
+    "what": "Changelog not surfaced to users; no reachable screen shows version/Novedades (Module 6 says reachable from Account; the About screen is Module 21)",
+    "fix": "Add a minimal Novedades/Acerca de section reachable from the account/settings area that reads CHANGELOG from appConfig (current version prominent, collapsible history). Coordinate with Module 21 so a single screen serves both; do not build a second changelog UI.",
+    "files": [
+     "src/pages/ (account/settings page)",
+     "src/lib/appConfig.js"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "Portfolio-notable releases are not pushed to Mission Control announcements",
+    "fix": "Standard says announce to MC's announcements table only if the release is portfolio-notable (breaking change, new module, pricing). Decide whether the release script should optionally post to MC announcements via the existing bridge; can be deferred until the first notable release.",
+    "files": [
+     "scripts/publish-release.mjs"
+    ],
+    "size": "S",
+    "blocked_on": "User decision on whether/when to post announcements, and a working MC ingest path for Sommel (Modules 15/17)"
+   }
+  ]
+ },
+ {
+  "module": 5,
+  "title": "Health & latency reporting",
+  "status": "missing",
+  "evidence": "The repo has no health or ping endpoint.\n- /home/user/sommel/base44/functions/ holds 13 groups: attendance, catalog, createWineBar, inventory, manageStaff, orders, payments, printing, processSale, reports, settings, shifts and stations. There is no acaciaControl directory.\n- grep for ping, health and acaciaControl across base44/, src/, scripts/ and docs/ finds only planning text. docs/plan-tecnico.md:87 lists \"`acaciaControl` | ping (salud, módulo 5), license, tickets, usage\" as a future endpoint. base44/entities/AppSession.jsonc:4 mentions the bridge in a comment.\n- The Base44 deployed tree (read-only list_directory on appId 6ab41c2a89f592a0eca074d2, base44/functions) shows the same 13 directories and no acaciaControl.\n- Mission Control cannot probe Sommel. /home/user/acacia-mission-control/api/_lib/sync/syncHealth.js probes every backend='base44' app with callBridge(app,'ping') and accepts out.ok, out.pong or out.data.ok. It measures latency itself and marks the app degraded above 2000ms. A repo-wide grep of Mission Control finds no \"sommel\" in any source, migration or seed, so no apps row exists and no app_health row can be written.\n- The verification gate is \"an app_health row with status: ok dated today\". That is impossible today.\n- Reference: /home/user/stockflow/base44/functions/acaciaControl/entry.ts:44-45 answers ping with `{ ok: true, pong: true }`. The standard asks for a real backend round-trip, and Mission Control only times the call from outside, so Sommel's ping should read one row from an entity.\n- The endpoint budget is not a blocker. base44.app.json sets maxFunctions to 40 and Sommel has 13 groups. plan-tecnico.md counts about 14 endpoints, and acaciaControl is one of them.\n- Not checked: the live site (curl to sommel.acaciaco.com.mx), because module 5 does not depend on it.",
+  "gaps": [
+   {
+    "what": "There is no acaciaControl function, so no health endpoint exists in the repo or in the deployed backend.",
+    "fix": "Create base44/functions/acaciaControl/entry.ts with HMAC verification and an `action` switch. `ping` must do a real store round-trip using asServiceRole, for example `sr.entities.WineBar.list('-created_date', 1)` or `Tenant.list`, inside try/catch. It returns `{ok:true,pong:true}` on success and a 5xx or `{ok:false,error}` if the read fails. Copy the shared verifier byte for byte from acaciaSign.ts in shared/bridge/ (module 15, verifyFrom with ACACIA_APP_SLUG=sommel and ACCEPT_LEGACY_MASTER=false) and from stockflow's acaciaControl/_acaciaSign.ts. `ping` shares its shell with license, tickets and usage (modules 8 and 15), so build the shell once. A ping-only first cut is acceptable. Add a unit test that a bad signature is rejected. Comply with the `validate:functions` budget (maxFunctions 40).",
+    "files": [
+     "base44/functions/acaciaControl/entry.ts",
+     "base44/functions/acaciaControl/_acaciaSign.ts",
+     "base44/tests/"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "The function is not deployed, so nothing answers Mission Control's probe.",
+    "fix": "Run `npm run deploy` from the sommel directory, then click Publish in the Base44 panel. The CLI's `unchanged` is not proof (2026-09-24 note). Verify by content: call ping with a valid signature and read the pong. Calling an action only the new code has and getting `unknown action` means the old code is still live.",
+    "files": [
+     "scripts/base44-deploy.mjs"
+    ],
+    "size": "S",
+    "blocked_on": "Base44 CLI or panel access and an authenticated operator. The MCP here is read-only for this task."
+   },
+   {
+    "what": "Sommel is not registered in Mission Control, so no health row is ever written.",
+    "fix": "Add an `apps` row (id sommel, backend base44, external_id 6ab41c2a89f592a0eca074d2, url https://sommel.acaciaco.com.mx) via a new migration and seed in /home/user/acacia-mission-control/supabase/migrations. Put the per-app token in BASE44_TOKEN_6AB41C2A89F592A0ECA074D2 or use the shared BASE44_SERVICE_TOKEN. Set ACACIA_APP_SLUG=sommel and INGEST_HMAC_SECRET (the shared master) in Sommel's secrets. Then run 'Sincronizar ahora' and confirm an app_health row with status ok and latency_ms today, and a sync with no `rejected the derived key` warnings. This overlaps modules 15, 16 and 17.",
+    "files": [
+     "/home/user/acacia-mission-control/supabase/migrations/",
+     "/home/user/acacia-mission-control/scripts/onboard-base44.js"
+    ],
+    "size": "M",
+    "blocked_on": "Mission Control repo write access, Supabase migration apply, and Vercel or Base44 secret access. The operator (Alby) must set the secrets."
+   },
+   {
+    "what": "Do not build a second in-app status page. The standard allows only a thin one fed from the same signal. Nothing exists today, so nothing needs to be done.",
+    "fix": "None. If an in-app status is added later, read it from acaciaControl.ping or app_health, not from a separate signal.",
+    "files": [],
+    "size": "S",
+    "blocked_on": ""
+   }
+  ]
+ },
+ {
+  "module": 7,
+  "title": "Account & danger zone",
+  "status": "partial",
+  "evidence": "Done: (a) Profile/org edit: src/pages/Ajustes.jsx + components/settings (TicketForm name/address/RFC/ticket header-footer, PaymentMethodsCard, CorteEmailsCard) via base44/functions/settings (get/update), gated by 'Ajustes:editar' (permissionRegistry.js:40) with requirePermission + requireWritable (billing gate). (b) Member mgmt: src/pages/Staff.jsx + base44/functions/manageStaff/entry.ts (list, invite, revokeInvite, setRole, removeMember) with server re-derived tenant, target read from tenant's own User.filter, guards checkSetRole/checkRemoveMember (owner_locked, last_admin, self_remove), billing gate 402, access-cut verified by re-read, StaffPin/Attendance cleanup. Partial-credit gap: gate is a bespoke `appRole !== 'bar_admin' && !isPlatformAdmin` check (entry.ts ~line 58), not hasPermission()/Module 3; registry has no Staff key. Note: setRole to bar_admin IS the \"promote member to tenant admin\" (multiple bar_admins supported, last_admin protected, owner locked). Missing: no danger zone anywhere in src (grep for export/delete/eliminar/peligro finds nothing outside UI primitives and attendance strings). No `account` function exists in base44/functions (list: attendance catalog createWineBar inventory manageStaff orders payments printing processSale reports settings shifts stations) although docs/plan-tecnico.md:85 plans `account | exportData, deleteMyAccount, deleteBar | 7`. No delete-my-account, no delete-tenant, no export, no delegate/transfer owner (WineBar.owner_id is RLS-locked and manageStaff returns 'owner_locked', so there is no path to hand the bar over except via ACACIA). No read-only billing_status/plan display in Ajustes or Layout (billing_status appears in src only in SuperAdmin.jsx, platform view). Positive: billing_status/trial_end_at/current_period_end/plan/owner_id carry rls.write admin in WineBar.jsonc. Did not run live schema/curl checks; conclusions are from repo code.",
+  "gaps": [
+   {
+    "what": "No data export (self-service) anywhere",
+    "fix": "Add `account` function group (router + handlers) with exportData: re-derive tenant from stored User via asServiceRole, requirePermission('Ajustes:exportar'), NO billing gate (read-only, suspended tenants must be able to export), return WineBar row plus all tenant-scoped entities (BarTable, CashMovement, Category, InventoryItem, InventoryMovement, Order, OrderItem, Payment, PermissionProfile, PrintJob, Product, Shift, StaffInvite, StaffPin, Attendance, SupportTicket, AppSession) filtered by verified tenant_id; per-entity failure returns empty + errors[] and UI warns; exclude other users' PII beyond roster. Client downloads JSON.",
+    "files": [
+     "base44/functions/account/entry.ts",
+     "base44/functions/account/_guard.ts (copy of shared guard)",
+     "base44/functions/account/handlers/exportData.ts",
+     "src/lib/permissionRegistry.js",
+     "src/pages/Ajustes.jsx",
+     "src/components/settings/DangerZone.jsx"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "No 'delete my account' (member scope: leave tenant and drop own membership)",
+    "fix": "account.deleteMyAccount: three-step typed confirmation in UI; server re-reads self, refuses if caller is WineBar.owner_id or the last bar_admin (must delegate first), cuts access (User.tenant_id/app_role null with re-read fallback to '' like removeMember), deletes own StaffPin, closes open Attendance, then deletes/anonymises the User; document what is retained (orders/payments authored, attendance history) in the modal and in CLAUDE.md. Also file an audit/ticket per Module 8 if account-deletion is a ticket there.",
+    "files": [
+     "base44/functions/account/handlers/deleteMyAccount.ts",
+     "base44/functions/manageStaff/_member_logic.ts (reuse checkRemoveMember)",
+     "src/components/settings/DangerZone.jsx"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "No 'delete tenant' (WineBar) path for the tenant admin",
+    "fix": "account.deleteBar gated to bar_admin of that tenant (never a platform-wide check), typed-name confirmation, server re-derives tenant, then cascade over every tenant entity (Order, OrderItem, Payment, CashMovement, Shift, Product, Category, BarTable, InventoryItem, InventoryMovement, PrintJob, Attendance, StaffPin, StaffInvite, PermissionProfile, SupportTicket, AppSession) plus clear tenant_id/app_role on all members, then WineBar delete; OR explicitly document retained data (fiscal/payment history for compliance). Decide and write it down before shipping the button. Consider whether a paid-active tenant must be blocked or warned (MC purge only touches bodega, so app must do real delete).",
+    "files": [
+     "base44/functions/account/handlers/deleteBar.ts",
+     "base44/entities/WineBar.jsonc (delete rule check: role:admin only, per M19 lock)",
+     "src/components/settings/DangerZone.jsx",
+     "CLAUDE.md"
+    ],
+    "size": "L",
+    "blocked_on": "User decision: hard cascade delete vs retention of Order/Payment history for compliance; also Base44 function budget (maxFunctions 40) is fine but confirm current count."
+   },
+   {
+    "what": "No delegate/transfer tenant ownership",
+    "fix": "account.delegateBar (or manageStaff action) : actor must be current bar_admin/owner per stored record; target user_id re-read from User.filter({tenant_id}) and must already be an approved member; write WineBar.owner_id via svc; confirmation step states whether outgoing owner stays bar_admin/member or is demoted (explicit choice in request, validated). Currently owner_locked in checkSetRole/checkRemoveMember makes the owner un-transferable except via ACACIA.",
+    "files": [
+     "base44/functions/account/handlers/delegateBar.ts",
+     "base44/functions/manageStaff/_member_logic.ts",
+     "src/pages/Staff.jsx or src/components/settings/DangerZone.jsx"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "Promote-to-admin exists but is not surfaced/verified as Module 7 requires; member management gate is bespoke, not Module 3",
+    "fix": "Keep setRole('bar_admin') as the promote path but (1) add a registry key (e.g. 'Equipo:gestionar') and have manageStaff call requirePermission/hasPermission instead of the inline `appRole !== 'bar_admin' && !isPlatformAdmin` check (still default bar_admin-only, generated copies/drift check), (2) update the confirmation copy on Staff.jsx to state promoting grants full tenant admin. Add unit test for the stored-membership re-derivation.",
+    "files": [
+     "base44/functions/manageStaff/entry.ts",
+     "src/lib/permissionRegistry.js",
+     "base44/functions/*/_guard*.ts (regenerated)",
+     "src/pages/Staff.jsx"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "No read-only display of current billing_status and plan for tenant users",
+    "fix": "Add a 'Licencia' card to Ajustes (or Layout banner) showing plan, billing_status, trial_end_at/current_period_end, read-only, no self-serve status change. Extend settings.get's settingsView to include those fields (read via svc, not client entity write) and link to Mercado Pago pay flow owned by Mission Control; explain view_only/suspended states.",
+    "files": [
+     "base44/functions/settings/handlers/_shared.ts",
+     "src/components/settings/LicenseCard.jsx",
+     "src/pages/Ajustes.jsx"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "SuperAdmin.jsx writes WineBar.billing_status directly from the client",
+    "fix": "Module 1 says only Mission Control writes billing_status; remove or route this platform-owner toggle through MC (or remove the control) and confirm no native writer remains. Verify against deployed schema that the rls.write lock is live (list_entity_schemas) - not run in this audit. (Cross-cutting, mostly Module 1, noted because it is the only status-changing UI.)",
+    "files": [
+     "src/pages/SuperAdmin.jsx"
+    ],
+    "size": "S",
+    "blocked_on": "User decision on whether platform-owner manual override is an accepted exception; needs read of deployed WineBar schema via Base44 MCP."
+   },
+   {
+    "what": "Function slot budget/verification for new account group",
+    "fix": "Adding `account` group needs Module 11 endpoint budget check (npm run functions:audit / validate:functions, maxFunctions 40), deploy via repo deploy scripts, verify by content (call an action only new code has) and Publish in Base44 panel per Verification gates.",
+    "files": [
+     "base44.app.json",
+     "package.json"
+    ],
+    "size": "S",
+    "blocked_on": "Base44 CLI/panel access for deploy and Publish (not available to sandbox agent)."
+   }
+  ]
+ },
+ {
+  "module": 8,
+  "title": "Support & improvements → Mission Control",
+  "status": "missing",
+  "evidence": "In /home/user/sommel only the entity exists (base44/entities/SupportTicket.jsonc: tenant_id, kind soporte|mejora|baja, subject, body, status, created_by_email; tenant-$or create, admin-only update/delete; the header comment says the bar's browser creates it and MC picks it up via ticket-pull). Nothing else implements the module. grep for SupportTicket, ticket-pull, ingest, soporte across src/, base44/functions and scripts (excluding dist and node_modules) finds nothing beyond that entity and docs/plan-tecnico.md lines 68 and 87, which only plan it. src/pages has no Soporte page (Ajustes, Staff and the others are unrelated). There is no account-deletion or 'baja' request UI; the only 'baja' hits are staff removal and inventory merma. base44/functions has no acaciaControl, so MC cannot read tickets, and plan-tecnico.md line 87 lists it as planned only. Mission Control does not know Sommel: grep -ri sommel in /home/user/acacia-mission-control returns no files, and api/_lib/ticketControl.js APPS has no sommel entry. ticket-pull.js therefore returns 400 'app sommel no soporta tickets'. Reference: stockflow src/pages/SupportTickets.jsx creates SupportTicket, then fires a fetch POST to https://control.acaciaco.com.mx/api/ingest/ticket-pull with {app, ticketId} and a catch. Not checked live: the deployed SupportTicket schema (Base44 MCP) and the MC registry row. The repo evidence already shows no UI and no notification path.",
+  "gaps": [
+   {
+    "what": "No visible Soporte / Sugerir una mejora entry point. The SupportTicket entity has no UI, so a bar cannot raise a ticket.",
+    "fix": "Add a Soporte page (or Ajustes tab) with a form for kind soporte|mejora, subject and body. Write it with base44.entities.SupportTicket.create({tenant_id from the current user, kind, subject, body, created_by_email}). Show only submitted/resolved to the user (map abierto/en_proceso to 'enviado', cerrado to 'resuelto'), with no triage UI. Add the route and a nav entry visible to the owner/admin role. Reuse the ui components and follow the pattern of stockflow SupportTickets.jsx without its message-thread parts.",
+    "files": [
+     "src/pages/Soporte.jsx (new)",
+     "src/App.jsx or the router file",
+     "the nav/sidebar component",
+     "base44/entities/SupportTicket.jsonc"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "No real-time notification to Mission Control after the ticket is written. The 08:00 UTC sync is only a backstop.",
+    "fix": "After a successful create, call fetch('https://control.acaciaco.com.mx/api/ingest/ticket-pull', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({app:'sommel', ticketId: ticket.id})}).catch(() => {}). This is the preferred sanctioned path, needs no secret and costs no function slot. The slug must equal the id in the MC apps registry. Check base44.app.json maxFunctions/validate:functions before adding any function; ticket-pull needs none.",
+    "files": [
+     "src/pages/Soporte.jsx",
+     "the shared ticket-notify helper if one is extracted"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "The account-deletion / 'baja' request is not wired, and it is a ticket too. The enum has 'baja' but nothing raises one. Sommel has no Module 7 danger zone yet, or it is not in this repo.",
+    "fix": "Where the tenant-level 'solicitar baja' flow lives (Ajustes danger zone, if or when Module 7 is added), create a SupportTicket with kind 'baja' and fire the same ticket-pull ping. If Module 7 is out of scope now, note it as a dependency and wire 'baja' when that flow lands.",
+    "files": [
+     "src/pages/Ajustes.jsx",
+     "src/components/settings/*"
+    ],
+    "size": "S",
+    "blocked_on": "Depends on Module 7 (danger zone) existing in Sommel. Confirm with the owner whether tenant deletion is a ticket request."
+   },
+   {
+    "what": "Mission Control cannot read Sommel tickets, so ticket-pull would no-op or 502. There is no acaciaControl bridge function in base44/functions. plan-tecnico.md line 87 shows it only as planned. It is also a dependency of Modules 5, 15 and 17.",
+    "fix": "Implement the acaciaControl group with a tickets.list action (and tickets.thread/update as MC requires). Verify the caller with the per-app derived key from shared/bridge/acaciaSign.ts, byte-identical, with ACACIA_APP_SLUG=sommel and ACCEPT_LEGACY_MASTER=false. tickets.list returns SupportTicket records for {entity:'SupportTicket'}. Check the endpoint budget in base44.app.json first, and add it as a new action group. Then set the secrets and Publish in the Base44 panel and verify with a call that only the new code answers.",
+    "files": [
+     "base44/functions/acaciaControl/entry.ts (new)",
+     "base44/functions/acaciaControl/_acaciaSign.ts (copy of shared/bridge/acaciaSign.ts)",
+     "base44.app.json",
+     "base44/tests"
+    ],
+    "size": "L",
+    "blocked_on": "Base44 secrets INGEST_HMAC_SECRET and ACACIA_APP_SLUG must be set in the panel by the owner. Deploy and Publish need a CLI/panel session; an agent without Base44 credentials can only write the code."
+   },
+   {
+    "what": "Sommel is not onboarded in Mission Control (Module 17): no apps registry row and no ticketControl.js entry.",
+    "fix": "In acacia-mission-control add an apps row with id 'sommel' (adapter base44, appId 6ab41c2a89f592a0eca074d2, URL sommel.acaciaco.com.mx) and a sommel entry in api/_lib/ticketControl.js APPS: entity SupportTicket, tenantField tenant_id, subjectField subject, statusField status, statuses abierto|en_proceso|cerrado, openStatus abierto, inProgressStatus en_proceso, requester created_by_email. No priority or resolvedField exists, and there is no message entity, so use whichever thread mode fits (message or none). If MC requires a thread or a resolved timestamp, first extend the SupportTicket entity (see the next gap). Then add the migration/seed and tests.",
+    "files": [
+     "/home/user/acacia-mission-control/api/_lib/ticketControl.js",
+     "/home/user/acacia-mission-control/supabase/migrations/* (new seed)",
+     "/home/user/acacia-mission-control/api/_lib/ticketControl.test.js"
+    ],
+    "size": "M",
+    "blocked_on": "Needs a change to the Mission Control repo (not the sommel repo) and access to it. Applying the Supabase migration to production also needs the owner."
+   },
+   {
+    "what": "The SupportTicket schema differs from the MC contract of the other apps: English status set and priority/resolved_at/closed_at fields are missing, and there is no SupportTicketMessage for MC replies. MC's tickets.update and thread expectations are unmet.",
+    "fix": "Either adapt the MC ticketControl config to Sommel's Spanish statuses (preferred, no schema change), or align SupportTicket with the portfolio shape (status open|in_progress|resolved|closed, priority, resolved_at, closed_at) and add a SupportTicketMessage entity for the operator thread. After changing an entity, deploy it with npm run deploy:entities, then re-read it with list_entity_schemas to confirm.",
+    "files": [
+     "base44/entities/SupportTicket.jsonc",
+     "base44/entities/SupportTicketMessage.jsonc (new, if aligning)",
+     "docs/plan-tecnico.md"
+    ],
+    "size": "M",
+    "blocked_on": "Decision needed: adapt MC to Sommel or align Sommel to the portfolio. Deploying the schema needs Base44 credentials."
+   },
+   {
+    "what": "There is no verification of the module. The standard's gate is 'raise one and watch it appear in MC in seconds', and nothing evidences it. The docs mention only planned wiring.",
+    "fix": "After deploying, raise a real ticket from the live site and confirm a tickets row in MC's bodega within seconds. Record the date and result in Sommel's docs (a dated section). Add a unit test around any pure helper (payload builder, status mapping). Update plan-tecnico.md and the CHECKLIST Module 8 checkbox.",
+    "files": [
+     "docs/plan-tecnico.md",
+     "AGENTS.md or CLAUDE.md notes"
+    ],
+    "size": "S",
+    "blocked_on": "Requires a deployed Sommel with the bridge and MC onboarding above, and a live-session run by the owner."
+   }
+  ]
+ },
+ {
+  "module": 9,
+  "title": "Presence on the ACACIA site (acaciaco-site)",
+  "status": "missing",
+  "evidence": "STANDARD.md section 9 requires one page under apps/ in jospabloh/acaciaco-site (or freeware/ if public) covering what it does, who it is for, pricing tier, and a link into the app's own login/trial flow. It must use styles/base.css tokens and work in dark theme. Copy is in Spanish and identifiers are in English.\n\nFindings:\n- /home/user/acaciaco-site/apps/ (local checkout, HEAD 84a04ff, and origin/main after a fetch) has 11 files: artiskids, cateqhub, ctrlhq, flowfin, index, kitchops, liuma, puntos-plus, radar, rumbo, stockflow. There is no sommel.html.\n- `git ls-tree -r origin/main` finds no path containing \"sommel\". A recursive grep of the site for \"sommel\" finds nothing.\n- The live site agrees. `curl https://www.acaciaco.com.mx/apps/sommel` returns 308 to https://acaciaco.com.mx/apps/sommel, which returns 404. The app itself, https://sommel.acaciaco.com.mx, returns 200.\n- Other places in the site that list every app do not mention Sommel: apps/index.html, index.html (the #apps grid, where StockFlow is at line 402), sitemap and legal/servicios/contacto, and api/_soporteValidation.ts KNOWN_APPS (line 12, which does not include Sommel).\n- Sommel's own docs defer this on purpose. /home/user/sommel/docs/plan-tecnico.md lines 149-150 say \"El 9 (página en acaciaco-site) y el 17 (Mission Control) se hacen en la fase 4\". Modules 9, 13 and 17 are to be closed in phase 4 (week 7, arranque). Sommel is therefore not done, but this is a planned deferral rather than an oversight.\n- The only mention of acaciaco in the Sommel repo besides that plan is the URL sommel.acaciaco.com.mx in src/pages/Staff.jsx:49. No Sommel asset (logo) exists in acaciaco-site/assets.\n- The reference pattern is apps/stockflow.html with /assets/stockflow-logo.png.\n- There is a design decision to make before writing the page. Sommel is a POS for a specific customer (Vindima, a WineBar), accepted by Alby on 2026-09-27. Whether to list it publicly under apps/ or keep it private as a client micro-site (like roseta/ and baristop/) is not stated in the standard. Section 9 says every portfolio app gets an apps/ page, so the default is apps/.\n- I did not audit the login page (module 10). Section 9 does not cover it. Section 10 does, and the user asked about the login screen. That needs a separate module 10 check.",
+  "gaps": [
+   {
+    "what": "No apps/sommel.html page exists in acaciaco-site. /apps/sommel returns 404 on the live site.",
+    "fix": "Create apps/sommel.html by copying the structure of apps/stockflow.html. Include: what it does (multi-tenant POS for wine bars/restaurants: orders, stations, corte, staff/checador); who it is for (wine bars and restaurants); pricing tier (from the real Sommel plan/license, not invented); and a CTA to https://sommel.acaciaco.com.mx (login/trial). Use only styles/base.css tokens (--bg-card, --border, --text-muted, --radius-card), with no hardcoded colors, and check it under [data-theme=\"dark\"]. Keep all copy in Spanish and identifiers/comments in English. Include SEO meta and JSON-LD like the sibling pages.",
+    "files": [
+     "/home/user/acaciaco-site/apps/sommel.html"
+    ],
+    "size": "M",
+    "blocked_on": "Work happens in the jospabloh/acaciaco-site repo, not the sommel repo. Pricing tier and public-listing decision need Jose Pablo/Alby (Sommel is a bespoke client deployment for Vindima). Marketing copy is a product decision."
+   },
+   {
+    "what": "No Sommel logo asset on the site.",
+    "fix": "Add a Sommel logo under assets/ (for example assets/sommel-logo.png) and use it in the page header, matching stockflow-logo.png. If no logo exists, use the portfolio-wide og image as ArtisKids did before its logo arrived.",
+    "files": [
+     "/home/user/acaciaco-site/assets/sommel-logo.png"
+    ],
+    "size": "S",
+    "blocked_on": "A logo file from the brand owner (Alby or Jose Pablo) is needed. There is no Sommel logo asset in either repo."
+   },
+   {
+    "what": "Site-wide app listings and validators do not know about Sommel.",
+    "fix": "Add a Sommel card to the #apps grid in index.html and to apps/index.html. Add it to the sitemap and to any nav/footer app lists. If Sommel should accept support intake, add it to KNOWN_APPS in api/_soporteValidation.ts and to the soporte.html #sop-app options (they must stay identical, and tests/soporteValidation.test.ts enforces this). Run npm test.",
+    "files": [
+     "/home/user/acaciaco-site/index.html",
+     "/home/user/acaciaco-site/apps/index.html",
+     "/home/user/acaciaco-site/api/_soporteValidation.ts",
+     "/home/user/acaciaco-site/soporte.html"
+    ],
+    "size": "S",
+    "blocked_on": "Same acaciaco-site repo access as above. The soporte change depends on whether Sommel gets public support intake, and standard module 8 already routes support through the app itself."
+   },
+   {
+    "what": "Sommel's own repo does not record module 9 as pending in a checklist. It only appears as a phase-4 note in the plan.",
+    "fix": "After the site page ships, update /home/user/sommel/docs/plan-tecnico.md to mark module 9 done with the page URL. Check the served page by content (curl the live URL and grep for the Sommel title), not by deploy hash. Run the acaciaco-site smoke test in Actions.",
+    "files": [
+     "/home/user/sommel/docs/plan-tecnico.md"
+    ],
+    "size": "S",
+    "blocked_on": "Must wait for the acaciaco-site page to be merged and deployed. Then verify with a content curl of the live URL."
+   }
+  ]
+ },
+ {
+  "module": 10,
+  "title": "Login page - \"pro\" bar",
+  "status": "partial",
+  "evidence": "MET. Login is an in-app route (/login) that calls base44.auth.loginViaEmailPassword (src/pages/Login.jsx:26) with its own email/password form, loading state (Loader2 \"Ingresando...\") and an error box. Design tokens only. --primary is already the brand terracotta (src/index.css `--primary: 28 75% 42%`), so the shared/auth/README.md scaffold-default trap does not apply. Dark theme is handled through tokens plus the pre-mount script in index.html. Google button: live GET /api/apps/public/prod/by-id/6ab41c2a89f592a0eca074d2 shows auth_config.enable_google_login=true, so the button is not dead (I did not test the OAuth handshake). The only social button shown is Google. Public settings are public_without_login. The live bundle /assets/index-DlIPNGMl.js contains \"Bienvenido de nuevo\" and \"Continuar con Google\", but no \"headline\" string and no brand panel, so live matches the repo.\n\nNOT MET. (1) src/components/AuthLayout.jsx is the old single centered card, 33 lines, a `max-w-md` card with an icon tile. It has no split screen, no logo lockup, no brand panel, no eyebrow/headline/description and no tagline. It does not match shared/auth/AuthLayout.example.jsx. It is shared by Login, Register, ForgotPassword, ResetPassword and OAuthConsent. Compare STANDARD.md sec. 10, bullet 2. (2) The hosted Base44 login is still reachable: AuthContext.jsx:119-120 `navigateToLogin()` calls base44.auth.redirectToLogin(window.location.href), and App.jsx AuthenticatedApp calls it when authError.type==='auth_required'. checkUserAuth sets that on a 401/403, for example an expired token. That contradicts \"never send the user to redirectToLogin's page\". (3) The login has no \"request access / start a trial\" link and no support link. Register is linked, but there is no acaciaco-site product page: /home/user/acaciaco-site/apps has no sommel.html, and the sommel.acaciaco.com.mx URL appears only in Staff.jsx:49. (4) Suspended/view_only is not explained. grep for billing_status in src finds only SuperAdmin.jsx. Layout.jsx has no banner. 'read_only' appears only in the error maps PunchEntry.jsx:13 and memberErrors.js:7, so a user learns of it only when a write fails with a 402. The login's catch shows raw err.message with no mapping for wrong credentials, unverified email or 429. (5) UserNotRegisteredError.jsx is unbranded and in English. It hardcodes bg-white, slate-* and orange-* colors, so it is a washed-out light card in dark mode. The AuthenticatedApp and ProtectedRoute spinners hardcode slate-200/slate-800. Rate-limit/lockout feedback is \"if you have one\", and Sommel has none, so that item is not applicable. Not checked: the OAuth flow, and rendering in a browser. This was read-only and I ran no build.",
+  "gaps": [
+   {
+    "what": "AuthLayout is a single centered card, not the split-screen shell. It has no logo lockup, no brand panel and no tagline, and it accepts no brand props.",
+    "fix": "Replace src/components/AuthLayout.jsx with an adaptation of shared/auth/AuthLayout.example.jsx: form column on the left with logo lockup, icon/title/subtitle/children/footer and a bottom tagline; brand panel on the right, `hidden lg:block`. Make appName, logoSrc, tagline, eyebrow, headline, headlineAccent and description work for every existing caller. Use Sommel-specific defaults inside AuthLayout, or pass them from Login/Register/ForgotPassword/ResetPassword, so OAuthConsent (icon/title only) still renders a complete page. Logo: https://media.base44.com/images/public/6ab41c2a89f592a0eca074d2/068ca3173_Sommel_logo.png (the URL used in Layout.jsx:19). Write real Spanish copy for a wine bar POS, for example an eyebrow such as 'Punto de venta para wine bars'. Use tokens only. Keep the existing props and check every screen in light and dark at 390 and 1440. Afterward, verify the live bundle for the headline string, and publish, because sync does not publish.",
+    "files": [
+     "src/components/AuthLayout.jsx",
+     "src/pages/Login.jsx",
+     "src/pages/Register.jsx",
+     "src/pages/ForgotPassword.jsx",
+     "src/pages/ResetPassword.jsx",
+     "src/pages/OAuthConsent.jsx"
+    ],
+    "size": "S",
+    "blocked_on": "Brand copy sign-off is optional. Publishing in the Base44 panel is a manual step, not a blocker to implementing it."
+   },
+   {
+    "what": "Session-expiry and auth_required paths send users to Base44's hosted login page via redirectToLogin.",
+    "fix": "Change navigateToLogin in AuthContext.jsx to send the user to the in-app /login: `window.location.href = '/login?returnTo=' + encodeURIComponent(location.pathname+location.search)`. It must not loop when the user is already on /login, and safeReturnTo already validates the value. In App.jsx AuthenticatedApp, replace `navigateToLogin(); return null;` with <Navigate to=\"/login\" replace/>, or the same in-app redirect. Confirm that /login, /register, /forgot-password and /reset-password render while authError is set. They currently sit inside AuthenticatedApp, whose early return on authError would block them, so /login must render before that branch.",
+    "files": [
+     "src/lib/AuthContext.jsx",
+     "src/App.jsx"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "The login has no 'request access / start a trial' link to acaciaco-site and no support link, so a locked-out tenant hits a dead end. The site has no Sommel product page at all.",
+    "fix": "Add a footer or below-form links to (a) the Sommel page on acaciaco.com.mx and (b) soporte@acaciaco.com.mx or the site's soporte.html, consistent with Module 8. The agent can add the links in the sommel repo, targeting the intended https://acaciaco.com.mx/apps/sommel URL, but that URL 404s until the site page exists. Module 9 (apps/sommel.html in jospabloh/acaciaco-site) is separate.",
+    "files": [
+     "src/pages/Login.jsx",
+     "src/components/AuthLayout.jsx",
+     "/home/user/acaciaco-site/apps/sommel.html (does not exist)"
+    ],
+    "size": "S",
+    "blocked_on": "The link target needs the Module 9 page in acaciaco-site. Confirm the support channel with Alby (support page or email)."
+   },
+   {
+    "what": "Account suspended/view_only is never explained post-login, and login failures are shown as raw err.message.",
+    "fix": "After login, read the WineBar of user.tenant_id. If billing_status is suspended or view_only, show a persistent plain-Spanish banner or gate in Layout.jsx ('Tu bar está en modo solo lectura / suspendido, contacta a soporte' with the support link). Suspended users must still be able to log in and see the message, so do not block login. In Login.jsx, map SDK errors by status or message to distinct Spanish copy: wrong credentials, email not verified (offer resend or /register OTP), 429 too many attempts, and generic network failure. This is per-bar and per the read_only/402 contract in entrega-1-contratos.md, so do not add any write path to billing_status.",
+    "files": [
+     "src/components/Layout.jsx",
+     "src/pages/Login.jsx",
+     "src/lib/AuthContext.jsx"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "UserNotRegisteredError and the app-loading spinners are unbranded, English and hardcoded light-only colors (bg-white, slate-*, orange-*), breaking the dark-theme rule on an auth-adjacent screen.",
+    "fix": "Rewrite UserNotRegisteredError.jsx in Spanish using AuthLayout and token classes (bg-card, text-foreground, border-border, bg-destructive/10), with a logout or 'usar otra cuenta' button and the support link. Replace border-slate-200/border-t-slate-800 in App.jsx and ProtectedRoute.jsx with border-border / border-t-primary.",
+    "files": [
+     "src/components/UserNotRegisteredError.jsx",
+     "src/App.jsx",
+     "src/components/ProtectedRoute.jsx"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   }
+  ]
+ },
+ {
+  "module": 11,
+  "title": "Deploy discipline & endpoint budget",
+  "status": "partial",
+  "evidence": "All five mandated pieces exist and match the reference. /home/user/sommel/base44.app.json has {name:\"Sommel\", appId:\"6ab41c2a89f592a0eca074d2\", maxFunctions:40}. package.json defines deploy, deploy:site, deploy:entities, validate:functions and functions:audit, and lint = \"eslint . --quiet && npm run validate:functions\". scripts/base44-deploy.mjs, validate-functions.mjs and base44-audit.mjs are byte-identical to /home/user/stockflow/scripts (empty diff). The deploy script rejects --app-id, reads the id from base44.app.json, gives deploy:site its own step, and makes deploy:entities print the entity list and require typing \"Sommel\". npm run validate:functions gives \"13 endpoints (techo 40, límite Base44 50) — margen: 27\". Counting rule is met: 13 entry.ts files, each a router or single endpoint, with helper modules prefixed \"_\" and handlers under handlers/ (not entry files). docs/plan-tecnico.md D12 and section 8 state \"Mergear no despliega. Se verifica por contenido.\" Live check: https://sommel.acaciaco.com.mx returns 200 and the served bundle /assets/index-DlIPNGMl.js contains \"Checador\" (the latest merged feature, PR #13), so the site is current at the content level. Base44 function deploy state was not read live. Gaps: (1) The standard's verification-gate addendum dated 2026-09-24 says the CLI's \"unchanged\" is not proof, and that production kept old code until Publish in the Base44 panel. Nothing in Sommel encodes it. README.md (\"Publish Your Changes\") tells the operator to publish from the dashboard and NOT to use \"base44 deploy\". That directly contradicts the sanctioned npm run deploy path, and scripts/base44-deploy.mjs never prints a Publish or verify-by-content reminder. (2) AGENTS.md says \"Prefer the existing Base44 CLI workflow over adding new npm scripts\" and never mentions the module 11 scripts. CLAUDE.md is only \"See AGENTS.md\", and plan-tecnico.md §8 says audits are annotated in CLAUDE.md, but there is no such section. An agent reading AGENTS.md would hand-run `npx base44 functions deploy --app-id`, the exact incident the standard describes. (3) The standard says routers document their mapping in docs/BACKEND_FUNCTION_LIMIT_REORG.md, as stockflow and flowfin do. Sommel has no such file, so the action-to-handler mapping of its 13 routers is not written down. That is a weak gap, since the repo was built router-first and never consolidated. (4) No functions-served-by-content proof recipe (call an action only the new code has and read \"unknown action\") is documented for this repo. This is one level of the same addendum.",
+  "gaps": [
+   {
+    "what": "README.md 'Publish Your Changes' contradicts module 11 and omits the 2026-09-24 Publish-in-panel step. It says publish from the dashboard and not `base44 deploy`. The standard mandates `npm run deploy`, and adds that after the CLI reports 'unchanged' the operator must still press Publish.",
+    "fix": "Rewrite the section to state the sequence: npm run deploy / deploy:site / deploy:entities, then Publish in the Base44 panel, then verify by content. Explain that `unchanged` and a matching git_commit_hash are not proof.",
+    "files": [
+     "/home/user/sommel/README.md"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "AGENTS.md instructs 'prefer the Base44 CLI workflow over adding new npm scripts' and never mentions the module 11 scripts or the ban on hand-running `--app-id`. CLAUDE.md is just a pointer. plan-tecnico.md says audits are annotated in CLAUDE.md, but there is no portfolio section.",
+    "fix": "Add a 'Deploy (módulo 11)' section to AGENTS.md (which CLAUDE.md points to): the five scripts, never pass --app-id, merging deploys nothing, verify by content, Publish step, the 50-function cap with maxFunctions 40 and the router pattern. Adjust the contradicting bullet.",
+    "files": [
+     "/home/user/sommel/AGENTS.md",
+     "/home/user/sommel/CLAUDE.md"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "The deploy script gives no on-screen reminder that the CLI success message is not proof and that Publish/content verification is still required. It is identical to the portfolio copy, so this is a portfolio-wide gap.",
+    "fix": "Print a closing reminder after success ('Publica en el panel y verifica por contenido'). Ideally change the canonical copy in acacia-app-standard/shared and re-copy it to every app.",
+    "files": [
+     "/home/user/sommel/scripts/base44-deploy.mjs"
+    ],
+    "size": "S",
+    "blocked_on": "Canonical script lives in acacia-app-standard; the change should land there first so the copies stay identical."
+   },
+   {
+    "what": "No docs/BACKEND_FUNCTION_LIMIT_REORG.md documenting the router-to-handler mapping (13 routers) that the counting rule says apps should document.",
+    "fix": "Add a short doc listing each of the 13 endpoints, its `action` values and its handlers/ modules, and the 13/40/50 budget.",
+    "files": [
+     "/home/user/sommel/docs/BACKEND_FUNCTION_LIMIT_REORG.md"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "No documented recipe or evidence that deployed functions run the merged code. Only the site bundle was checked live. Function code parity is unverified, and the standard says that for functions you call an action only the new code has.",
+    "fix": "Document one probe per router. Then run it once after Publish (for example call a recent action such as the checador/attendance PIN action and confirm it does not return 'unknown action') and record the result in AGENTS.md.",
+    "files": [
+     "/home/user/sommel/AGENTS.md"
+    ],
+    "size": "S",
+    "blocked_on": "Needs an authenticated call to the live backend after a Publish, which only the operator can do."
+   }
+  ]
+ },
+ {
+  "module": 12,
+  "title": "Theme control — light, dark, and the device",
+  "status": "partial",
+  "evidence": "DONE: preference stored as light|dark|system under 'sommel-theme' (src/lib/useTheme.js); 'system' follows prefers-color-scheme live; index.html has a pre-mount script using the same key and values, with cross-referencing comments; src/index.css has a real light :root palette plus .dark, all as semantic tokens; only 5 raw status-colour classes and no hardcoded light surfaces (bg-black/80 overlays and the Google icon are fine).\n\nMISSING: (1) No ThemeSwitcher. src/components/ThemeSwitcher.jsx does not exist, and neither does shared/theme's useThemeMode adapter. The only control is a sidebar cycle button in src/components/Layout.jsx:13-17,57,107-112 (Sun/Moon/Monitor), which the standard explicitly says must come out. (2) The control exists only inside Layout, so it is absent on /login (AuthLayout) and on the 404, which the standard requires. (3) --theme-switcher-bottom/right are not declared in src/index.css. (4) src/pages/Orden.jsx:447 has a fixed bottom bar (fixed bottom-0 left-20 right-0) that the bottom-right corner control would sit on; it needs a per-breakpoint lift. (5) Module 13 smoke suite is absent: no tests/smoke, no smoke.yml (only .github/workflows/ci.yml), and no test:smoke script in package.json. The standard says module 12's cover check is enforced there. (6) The dark palette's status chips are not finished: 5 raw red/amber/emerald/blue classes have 0 dark: counterparts. (7) src/components/ui/sonner.jsx imports next-themes' useTheme, and next-themes is in package.json (^0.4.4) but no ThemeProvider is mounted (App.jsx has none). Toasts therefore always get theme='system' and ignore an explicit Light or Dark choice. (8) The catch fallback in the index.html pre-mount script forces dark, but useTheme.js's readStored returns 'system' when storage is blocked. The two disagree on the blocked-storage default, so a flash or mismatch is possible.\n\nNot verified: authenticated screens in dark, and the live site (no live checks run; this audit was static). Compliant reference: /home/user/stockflow (ThemeSwitcher.jsx, useThemeMode.js, tests/smoke).",
+  "gaps": [
+   {
+    "what": "No corner ThemeSwitcher: the app has only a sidebar cycle button, and none of the canonical files are copied.",
+    "fix": "Copy shared/theme/ThemeSwitcher.jsx byte-identical to src/components/ThemeSwitcher.jsx. Adopt a useThemeMode adapter at src/lib/useThemeMode.js. Sommel has its own useTheme hook and no ThemeProvider, so either (a) copy ThemeContext.jsx to src/lib/ThemeContext.jsx with STORAGE_KEY='sommel-theme' plus useThemeMode.context.js and delete useTheme.js, or (b) write a thin adapter over useTheme. Option (a) is the canonical path. Check the '@' alias in vite.config.js/jsconfig.json (Sommel already uses '@/'). Render <ThemeSwitcher/> once in App.jsx next to <Toaster/>, inside the provider, and not inside Layout.",
+    "files": [
+     "src/components/ThemeSwitcher.jsx",
+     "src/lib/useThemeMode.js",
+     "src/lib/ThemeContext.jsx",
+     "src/lib/useTheme.js",
+     "src/App.jsx"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "The sidebar theme button is a second theme writer. The standard requires it to be removed once the switcher goes in.",
+    "fix": "Delete THEME_CYCLE, THEME_ICON, THEME_LABEL, the useTheme import, the button (Layout.jsx ~lines 105-113) and the now-unused Sun/Moon/Monitor imports.",
+    "files": [
+     "src/components/Layout.jsx"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "The control is not on the login page or the 404, because it lives only in Layout.",
+    "fix": "Mounting it once in App.jsx (see the first gap) fixes this. Then confirm it renders on /login (src/pages/Login.jsx via AuthLayout) and on PageNotFound.",
+    "files": [
+     "src/App.jsx",
+     "src/pages/Login.jsx",
+     "src/components/AuthLayout.jsx",
+     "src/lib/PageNotFound.jsx"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "No placement variables, and the fixed bottom bar on the order screen collides with the bottom-right corner.",
+    "fix": "Add :root{--theme-switcher-bottom:1rem;--theme-switcher-right:1rem} to src/index.css, plus a media-query lift above the Orden.jsx fixed bar (p-4 with several rows, about 8-9rem tall on phones). Alternatively move the switcher to the bottom-left; the sidebar is at left-20, so check it there too. Also check toast.jsx (sm:bottom-0 sm:right-0) and the drawers. Verify at 390/834/1440, collapsed and expanded.",
+    "files": [
+     "src/index.css",
+     "src/pages/Orden.jsx",
+     "src/components/ui/toast.jsx"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "Module 13 smoke suite is missing, so module 12's cover check is not enforced.",
+    "fix": "Copy shared/smoke/smoke.spec.js, playwright.config.js and smoke.yml (to .github/workflows/smoke.yml). Write tests/smoke/smoke.config.js (URL https://sommel.acaciaco.com.mx, the <title> 'Sommel', theme key 'sommel-theme', routes ['/login']) modelled on stockflow/tests/smoke/smoke.config.js. Add the test:smoke script and @playwright/test devDependency. A run needs GitHub Actions, since the sandbox proxy blocks the domain.",
+    "files": [
+     "tests/smoke/smoke.spec.js",
+     "tests/smoke/smoke.config.js",
+     "playwright.config.js",
+     ".github/workflows/smoke.yml",
+     "package.json"
+    ],
+    "size": "M",
+    "blocked_on": "Running it against production needs a GitHub Actions dispatch after the site is deployed (deploy:site is manual). Writing the files needs nothing."
+   },
+   {
+    "what": "Status chips (red/amber/emerald/blue) have no explicit dark counterparts, so the dark palette is not finished per the standard.",
+    "fix": "Find the 5 raw colour classes with grep -rnE '(bg|text|border)-(red|amber|emerald|green|blue|yellow|orange)-[0-9]+' src. Add dark: variants (a -50 wash becomes a deep tint, and text 6xx-8xx becomes 3xx-4xx). Alternatively, use tokens. Then eyeball the main screens in both themes.",
+    "files": [
+     "src/components/orders/TableCard.jsx",
+     "src/components/orders/helpers.js",
+     "src/pages"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "Toaster ignores the chosen theme: sonner.jsx reads next-themes' useTheme, but no ThemeProvider from next-themes is mounted, so the theme is always 'system'.",
+    "fix": "After the switcher is wired, pass the resolved theme from the app's own theme hook/context (useThemeMode) to <Sonner theme=...>, or remove the next-themes import. Note that src/components/ui/sonner.jsx may not be the Toaster actually mounted; App.jsx imports @/components/ui/toaster, so confirm whether Sonner is used at all before spending effort here.",
+    "files": [
+     "src/components/ui/sonner.jsx",
+     "src/App.jsx"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "Pre-mount script and hook disagree on the blocked-storage fallback: index.html forces 'dark' in its catch block, while useTheme.js/readStored falls back to 'system'.",
+    "fix": "Make both resolve the same way. The canonical rule is system, resolved via matchMedia, with the storage failure ignored. Update the paired comments in the same commit.",
+    "files": [
+     "index.html",
+     "src/lib/useTheme.js"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "After deploying, a manual look at the authenticated corner (order screen, dialogs, sticky Guardar buttons) is owed, and the standard asks for it to be written in the app's docs. The suite cannot cover it.",
+    "fix": "After deploy:site, open the app on a phone, tablet and desktop, and note what you find (including anything you could not check) in Sommel's CLAUDE.md/AGENTS.md or docs. This is Sommel's first mention of module 12 there.",
+    "files": [
+     "AGENTS.md",
+     "CLAUDE.md"
+    ],
+    "size": "S",
+    "blocked_on": "Needs a deployed build and a person or a browser session with a logged-in Sommel account."
+   }
+  ]
+ },
+ {
+  "module": 13,
+  "title": "Live-site smoke test (npm run test:smoke)",
+  "status": "missing",
+  "evidence": "Nothing of Module 13 exists in /home/user/sommel.\n- /home/user/sommel/tests does not exist, so there is no tests/smoke/smoke.spec.js, smoke.config.js or playwright.config.js.\n- /home/user/sommel/package.json has no \"test:smoke\" script and no @playwright/test devDependency. node_modules/@playwright is absent.\n- .github/workflows/ has only ci.yml (lint, build, validate:rls, validate:tenant-roles, check:guards, deno test). There is no smoke.yml, so there is no workflow_dispatch or daily cron.\n- .gitignore has no test-results/ or playwright-report/ entries.\n- Neither AGENTS.md, CLAUDE.md, README.md nor docs/ mentions smoke. docs/plan-tecnico.md lists 13 as \"a cerrar antes del arranque en piso\".\n- Reference /home/user/stockflow is compliant: \"test:smoke\": \"playwright test\", @playwright/test ^1.63.0, tests/smoke/{smoke.spec.js,smoke.config.js}, and .gitignore entries.\n\nLive read-only checks on https://sommel.acaciaco.com.mx:\n- curl through the proxy returns 200. The served <title> is \"Sommel\" (whitespace-wrapped, so /Sommel/ matches). The served HTML contains the pre-mount script with key 'sommel-theme', so assertions 1 and 3 would probably pass.\n- Assertions 4 and 5 cannot pass today. The shared suite needs the Module 12 corner switcher (button[aria-expanded] plus three role=radio inside the configured root). Sommel has no ThemeSwitcher.jsx and no useThemeMode.js. Layout.jsx:15-111 uses a cycling Sun/Moon/Monitor button driven by src/lib/useTheme.js, and the pre-mount key is 'sommel-theme' rather than the shared 'acacia-theme'. Module 12 is therefore only partly done, and smoke's theme half is blocked on it. That is a Module 12 gap, listed here only because it decides the smoke config.\n- Public routes for config.routes, taken from src/App.jsx:103-106 and the catch-all at line 152: /login, /register, /forgot-password, /reset-password, plus a 404 path. Everything else is behind ProtectedRoute, so the suite cannot reach it. Module 12 owes a manual look at those screens.\n- I could not run the suite here. The sandbox proxy blocks it by design, and the standard says it runs in GitHub Actions.",
+  "gaps": [
+   {
+    "what": "No smoke suite files in the repo (tests/smoke/ absent)",
+    "fix": "Copy shared/smoke/smoke.spec.js byte-identical to tests/smoke/smoke.spec.js. Copy shared/smoke/playwright.config.js to the repo root as playwright.config.js. Create tests/smoke/smoke.config.js from smoke.config.example.js with name 'Sommel', url 'https://sommel.acaciaco.com.mx', title /Sommel/, routes ['./', './login', './register', './forgot-password', './reset-password', './no-such-page'], and theme { kind:'class', root:'[data-theme-switcher]' } (Tailwind .dark on <html>). Check that the theme kind matches how useTheme.js applies the resolved theme. Use kind 'attribute' with root '.acacia-theme-switcher' only if the app moves to the vanilla switcher.",
+    "files": [
+     "tests/smoke/smoke.spec.js",
+     "tests/smoke/smoke.config.js",
+     "playwright.config.js"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "No test:smoke script and no Playwright dependency",
+    "fix": "Add \"test:smoke\": \"playwright test\" to package.json scripts. Add @playwright/test (^1.63.0, same as stockflow) to devDependencies and update package-lock.json. Do not add smoke to the ci.yml push/PR job, per the standard. Add test-results/ and playwright-report/ to .gitignore.",
+    "files": [
+     "package.json",
+     "package-lock.json",
+     ".gitignore"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "No .github/workflows/smoke.yml (no workflow_dispatch, no daily cron)",
+    "fix": "Copy shared/smoke/smoke.yml to .github/workflows/smoke.yml and replace both __PROD_URL__ with https://sommel.acaciaco.com.mx. Keep the 13:00 UTC cron and the failure-artifact upload.",
+    "files": [
+     ".github/workflows/smoke.yml"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "Smoke assertions 4 and 5 (switcher mounted, switches, persists, covers nothing) will be red until Module 12's shared ThemeSwitcher exists. Sommel still has the Layout.jsx cycling button and the 'sommel-theme' key.",
+    "fix": "Land Module 12 first or in the same change: copy shared/theme/ThemeSwitcher.jsx to src/components/ThemeSwitcher.jsx, use the matching useThemeMode adapter, remove the Layout.jsx toggle, and unify on the shared storage key and scripts. Set --theme-switcher-bottom/right in src/index.css, lifted over the mobile bottom nav at max-width 767px. Then smoke config kind:'class' passes. Do not set kind:'none' to get green: Sommel offers three themes.",
+    "files": [
+     "src/components/ThemeSwitcher.jsx",
+     "src/lib/useThemeMode.js",
+     "src/components/Layout.jsx",
+     "src/index.css",
+     "index.html"
+    ],
+    "size": "M",
+    "blocked_on": "Module 12 audit/implementation; may be handled by the parallel module-12 agent"
+   },
+   {
+    "what": "Gate not met: no green run of the suite in Actions against production",
+    "fix": "After the files are merged, dispatch the Production smoke test workflow from the Actions tab and record the run id and date in the Sommel CLAUDE.md smoke section. Expect it red until the latest deploy is live (npm run deploy:site) and Module 12 is deployed. Verify the served content, not a hash.",
+    "files": [],
+    "size": "S",
+    "blocked_on": "User or GitHub Actions access to merge, dispatch and read the run; Base44 deploy:site of the merged frontend"
+   },
+   {
+    "what": "Sommel repo docs do not describe the smoke suite (the other portfolio repos each carry a section)",
+    "fix": "Add a '## npm run test:smoke' section to AGENTS.md/CLAUDE.md, following the stockflow CLAUDE.md wording. It should say the suite checks the DEPLOYED site, that it runs only in Actions because the sandbox proxy blocks it, and how to point it at a preview with SMOKE_URL. It should also state that authenticated screens are not covered and name the manual look owed under Module 12.",
+    "files": [
+     "CLAUDE.md",
+     "AGENTS.md"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   }
+  ]
+ },
+ {
+  "module": 15,
+  "title": "The bridge to Mission Control: one shape, one key per app",
+  "status": "missing",
+  "evidence": "Nothing in the Sommel repo implements the bridge. Compared against stockflow, which has base44/functions/acaciaControl/{entry.ts,_acaciaSign.ts}.\n- /home/user/sommel/base44/functions/ contains only attendance, catalog, createWineBar, inventory, manageStaff, orders, payments, printing, processSale, reports, settings, shifts, stations. There is no acaciaControl directory, no _acaciaSign.ts and no acaciaSign.test.ts.\n- A grep for acaciaControl, INGEST_HMAC and ACACIA_APP_SLUG only hits docs/plan-tecnico.md:87 (a planned `acaciaControl` row: ping, license, tickets, usage; modules 5 and 15), a comment in base44/entities/AppSession.jsonc:4 and a comment in scripts/base44-deploy.mjs:12. None is code.\n- docs/plan-tecnico.md:143-150 lists module 15 as a standard item to close before floor launch (arranque en piso), planned for phase 4. It is not started.\n- A grep of /home/user/acacia-mission-control finds no mention of \"sommel\", so there is no `apps` row, licenseControl.js entry, ticketControl.js entry or messaging.js entry (module 17). Without acaciaControl, MC could not call Sommel's bridge even if it were registered.\n- No ACACIA_MC_INGEST_URL usage. base44/entities/SupportTicket.jsonc exists, but no function pushes tickets to MC's /api/ingest/ticket.\n- No drift check for _acaciaSign copies in CI. No ACACIA_APP_SLUG or INGEST_HMAC_SECRET is documented as set.\n- I did not run live checks (Base44 MCP or curl). The repo evidence is enough to establish \"missing\".\n- Unrelated to this module: the standard's module 10 and shared/auth define the login screen. Your original request was about applying the login screen, which is a separate audit.",
+  "gaps": [
+   {
+    "what": "There is no acaciaControl function. Mission Control cannot call Sommel for health ping, licence read/write, ticket pull, or usage/session sync. This also blocks modules 5, 8 and 20's MC side.",
+    "fix": "Create base44/functions/acaciaControl/entry.ts, modelled on /home/user/stockflow/base44/functions/acaciaControl/entry.ts and adapted to Sommel's entities (WineBar carries the licence fields, tenant = WineBar, User.tenant_id). It should verify the HMAC-signed body with the derived per-app key using verifyFrom, and support the actions ping, license get/set, tickets pull, usage and sessions. Fail closed when ACACIA_APP_SLUG or INGEST_HMAC_SECRET is unset. Add the function to the endpoint budget (maxFunctions is 40 in base44.app.json) and run validate:functions.",
+    "files": [
+     "base44/functions/acaciaControl/entry.ts",
+     "base44.app.json",
+     "docs/plan-tecnico.md"
+    ],
+    "size": "L",
+    "blocked_on": ""
+   },
+   {
+    "what": "The shared signing helper is not copied in, so there is no per-app derived key (appKey = HMAC-SHA256(master, 'acacia.app.v1.'+slug)). Nor is there a cross-language test vector or a check that a body signed by another app fails.",
+    "fix": "Copy /home/user/acacia-app-standard/shared/bridge/acaciaSign.ts byte for byte to base44/functions/acaciaControl/_acaciaSign.ts, with one more identical copy per additional function that touches the bridge (for example the ticket push). Copy acaciaSign.test.ts to the functions ROOT (base44/functions/acaciaSign.test.ts, or wherever CI runs deno test), changing only the import path. It must not sit inside a function directory, because that would create an endpoint. Set ACCEPT_LEGACY_MASTER = false from day one, since a new app has no legacy signatures in flight. Do not add inline stableStringify/hmacHex/timingSafeEqual.",
+    "files": [
+     "base44/functions/acaciaControl/_acaciaSign.ts",
+     "base44/functions/acaciaSign.test.ts"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "No CI drift check keeps the _acaciaSign.ts copies identical, and no deno test step runs the bridge test.",
+    "fix": "Add a script (for example scripts/check-bridge-drift.mjs) that compares every base44/functions/*/_acaciaSign.ts against the canonical file. Wire it into the CI workflow and into npm run lint. Add a `deno test` step for the sign test, or include it in the existing step if there is one. Also reuse the drift-check pattern from stockflow's generate/check scripts.",
+    "files": [
+     "scripts/check-bridge-drift.mjs",
+     ".github/workflows/ci.yml",
+     "package.json"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "There is no ticket push to Mission Control. The standard says the app calls MC's /api/ingest/ticket the moment a customer raises a ticket, HMAC-signed. (The pull half is covered by acaciaControl tickets, and by MC's ticket-pull.)",
+    "fix": "When a SupportTicket is created (module 8), call ACACIA_MC_INGEST_URL with a body {app:'sommel', record} signed via signFor using the derived key. Failure must be best-effort and must not fail the ticket write. Confirm the SupportTicket shape against MC's api/ingest/ticket.js and ticketControl.js.",
+    "files": [
+     "base44/functions/acaciaControl/entry.ts",
+     "base44/entities/SupportTicket.jsonc",
+     "(new or existing ticket-creating function)"
+    ],
+    "size": "M",
+    "blocked_on": "Depends on the module 8 support flow existing. Also needs ACACIA_MC_INGEST_URL set in Base44 secrets."
+   },
+   {
+    "what": "The secrets the bridge needs (INGEST_HMAC_SECRET, ACACIA_APP_SLUG='sommel', ACACIA_MC_INGEST_URL) are not set or read back. Module 16 says a value nobody has read back is not configured.",
+    "fix": "Set the three secrets in the Base44 app panel. INGEST_HMAC_SECRET must be identical to MC's value, and ACACIA_APP_SLUG must equal the apps.id row exactly, in lowercase. Read them back, or make a signed call that only succeeds if they are right. Document the slug in the repo docs.",
+    "files": [
+     "docs/plan-tecnico.md"
+    ],
+    "size": "S",
+    "blocked_on": "Needs the Base44 secrets panel and the master INGEST_HMAC_SECRET value. An operator must set and read them back; the agent cannot."
+   },
+   {
+    "what": "Mission Control does not know Sommel, so the app is not onboarded (module 17 and the flow that closes module 15). There is no apps row, no licence capabilities, no ticket control and no messaging copy.",
+    "fix": "In /home/user/acacia-mission-control: run `npm run onboard:base44 -- /home/user/sommel --dry` to preview the apps row, and add it with id 'sommel', appId 6ab41c2a89f592a0eca074d2 and the bridge URL. Add Sommel to api/_lib/licenseControl.js, api/_lib/ticketControl.js, api/_lib/messaging.js, src/lib/licenseCatalog.js and its test. Then press 'Sincronizar ahora' and confirm an app_health row (status ok) and a control:run-sync audit_actions row.",
+    "files": [
+     "acacia-mission-control: supabase/migrations (apps seed)",
+     "api/_lib/licenseControl.js",
+     "api/_lib/ticketControl.js",
+     "api/_lib/messaging.js",
+     "src/lib/licenseCatalog.js",
+     "src/lib/licenseCatalog.test.js"
+    ],
+    "size": "M",
+    "blocked_on": "Requires write access to the Mission Control repo and its Supabase/Vercel deploy. The Mission Control repo is read-only for this audit."
+   },
+   {
+    "what": "The verification gate for module 15 has not been met: a full sync with zero 'rejected the derived key' in MC's log. Deploy proof for the new function is also missing.",
+    "fix": "After deploy and a Publish in the Base44 panel (module 11: CLI 'unchanged' is not proof), call an acaciaControl action that only the new code has. Then run a full MC sync and read MC's runtime log for the window. Record the result and date in the Sommel docs or CLAUDE.md.",
+    "files": [
+     "docs/plan-tecnico.md"
+    ],
+    "size": "S",
+    "blocked_on": "Needs the deploy, the secrets, the MC registration above, and operator access to MC's Vercel logs."
+   }
+  ]
+ },
+ {
+  "module": 14,
+  "title": "Multi-tenant isolation audit",
+  "status": "partial",
+  "evidence": "The isolation itself checks out, but the audit has never been recorded, and the standard says \"audited\" means a dated line in the app's CLAUDE.md.\n\nRecording gap:\n- /home/user/sommel/CLAUDE.md only says \"See AGENTS.md\". AGENTS.md is generic Base44 boilerplate with no audit section.\n- Grep finds no dated audit anywhere in the repo. The only references are docs/plan-tecnico.md, which schedules it for \"Fase 4\" (line 146) and says each entity or function change must repeat the audit and be noted in CLAUDE.md (line 170). That never happened, although entities and functions changed several times (Entrega 2, Checador, Staff invites).\n\nWhat I read against the deployed app 6ab41c2a89f592a0eca074d2:\n\n1. Entities.\n- `list_entity_schemas` returns 19 entities. Their RLS matches the repo's base44/entities/*.jsonc in every rule I compared.\n- Local checks pass: `validate:rls` (19 entities, 13 tenant-scoped), `validate:tenant-roles` and `check:guards`. I ran them.\n- Tenant-scoped reads use `$or[{data.tenant_id:{{user.data.tenant_id}}},{user_condition:{role:admin}}]`. Both halves are correct, and there is no sibling-key `user_condition` (the liuma defect).\n- Every entity's create/update/delete is admin-only (service role). The only exceptions are AppSession, which is keyed to `created_by_id`, and SupportTicket, whose create is tenant-scoped and whose update/delete are admin-only.\n- Product, Attendance and StaffPin are read admin-only. That is deliberate, so cost and PINs never reach a tenant's browser.\n- Field locks are in place. `unit_cost` has admin-only read on OrderItem, InventoryItem and InventoryMovement.\n\n2. Backend functions (13 endpoints).\n- `requireContext` re-reads `User` with asServiceRole and derives tenantId, appRole and isPlatform from that row.\n- `loadOwned` compares against the stored row's `tenant_id`, and a missing row and a cross-tenant row both answer 404 (no existence oracle).\n- Every handler except `importMenu` calls `requirePermission` or `hasPermission`. `importMenu` is platform-only and takes `tenant_id` from the body, which is acceptable because it checks `ctx.isPlatform` and that the WineBar exists.\n- `addItems`, `upsertProduct` and the inventory handlers take `tenant_id` from the stored row, not from `ctx`.\n- `processSale` is retired (returns 410).\n- `manageStaff` re-derives tenant and role. Cross-bar targets are unreachable because the member list is filtered by tenant, and `revokeInvite` compares the stored `tenant_id`.\n- `claimInvite` looks up by the caller's stored email.\n- `createWineBar` answers 409 to anyone who already has a tenant.\n\n3. Field locks on tenant-written data.\n- WineBar `billing_status`, `trial_end_at`, `current_period_end`, `plan` and `owner_id` are admin-write-only, matching the repo.\n- `User.tenant_id` and `User.app_role` are `write:false`.\n- Live `User` rows: 7. The only role admin is h.josepablo@gmail.com. The rest are role `user`, across two real tenants (6abaa0c3… and 6abaacb1…) plus one tenantless user.\n\n4. Reports and exports.\n- `reports.summary` scopes everything by `ctx.tenantId` and gates cost and corte visibility with `hasPermission`.\n- Client reads all filter by `tenant_id`, and RLS backs them up.\n\n5. Outbound.\n- Corte email recipients come from the stored `WineBar.corte_emails` (`shifts/_shared.ts:142`). `resendEmail` uses `loadOwned` on the shift.\n- Invite email goes to the address the bar_admin typed, which is the intended behaviour.\n\n6. Tenant pointer.\n- Only `createWineBar`, `claimInvite` and `manageStaff` write it, all as service role. `Onboarding.jsx` runs only for tenantless users, so there is no prior-tenant cache to leak.\n\n7. Deployed schema versus repo: matches on RLS and field locks (compared above).\n\nNot verified, and it would go in the dated note:\n- An authenticated session as a restricted user of a second tenant. The QA accounts exist, but I have no credentials and did not write to production.\n- Whether realtime `.subscribe()` events (Order, OrderItem, PrintJob, BarTable) honour the field-level read lock on `OrderItem.unit_cost`.\n- The planned `account` (exportData, deleteBar), `permissions`, `acaciaControl` and `purgeStaleSessions` endpoints do not exist yet (they belong to modules 5, 7, 15 and 20). Their exports and outbound paths are therefore unaudited until they are built.",
+  "gaps": [
+   {
+    "what": "No dated, evidenced isolation audit is recorded in the app's CLAUDE.md. CLAUDE.md is only a pointer to AGENTS.md, and no audit section exists anywhere. The standard's gate is 'the dated audit, naming what could not be verified'.",
+    "fix": "Add a 'Módulo 14 — auditoría de aislamiento multi-tenant (fecha)' section to sommel's CLAUDE.md. Put it in CLAUDE.md itself rather than the AGENTS.md pointer, or repoint the pointer. It should list: the 19 entities and their RLS shape; the 13 functions and the guard order; the field locks (WineBar licence fields, User.tenant_id/app_role, unit_cost); the export/report/search and outbound-recipient checks; the tenant-pointer writers; and the deployed-vs-repo diff via list_entity_schemas. It must also state what could not be verified (the items in the next two gaps, and the not-yet-built account/acaciaControl/permissions/purgeStaleSessions endpoints). Also record the repeat-on-change rule already in plan-tecnico.md §8.",
+    "files": [
+     "/home/user/sommel/CLAUDE.md",
+     "/home/user/sommel/AGENTS.md",
+     "/home/user/sommel/docs/plan-tecnico.md"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "No authenticated cross-tenant check has been run. Restricted users of two tenants exist (staff in tenant 6abaa0c3…, bar_admin in tenant 6abaacb1…), but nobody has tried raw SDK reads/writes of the other tenant's Order/Payment/WineBar/PermissionProfile, or calling functions with a foreign id.",
+    "fix": "Someone with the QA logins (h.josepablo+sommelstaff@ and +sommelnew@) runs the cross-tenant matrix: raw entity reads and writes, and function calls with the other tenant's ids. The expected result is empty reads, refused writes and 404 not_found. Record the result in the CLAUDE.md audit section.",
+    "files": [
+     "/home/user/sommel/CLAUDE.md"
+    ],
+    "size": "M",
+    "blocked_on": "Credentials or an authenticated browser session for the QA users; the user or Alby must run it. Writing to production must not be done from an agent."
+   },
+   {
+    "what": "Unverified whether realtime subscribe events leak `OrderItem.unit_cost`, which has admin-only field-level read. The client subscribes to OrderItem, Order, PrintJob and BarTable (useOrderRealtime.js, Estacion.jsx, Mesas.jsx, usePrintStation.js).",
+    "fix": "Inspect the event payload for a staff user in a live session. If unit_cost is present, stop subscribing to OrderItem for full rows and use the event only as a trigger to refetch through the redacting `orders`/`stations` functions.",
+    "files": [
+     "/home/user/sommel/src/components/orders/useOrderRealtime.js",
+     "/home/user/sommel/src/pages/Estacion.jsx"
+    ],
+    "size": "S",
+    "blocked_on": "An authenticated staff session to observe the event payload."
+   },
+   {
+    "what": "`handle()` in the shared _guard.ts calls `requireContext(req, {allowNoTenant:true})` for every action. The default 403 `no_tenant` is therefore skipped, and each handler has to remember to check. A platform admin with no tenant can reach handlers that stamp `tenant_id: ctx.tenantId` (null), for example `orders.open` creates a tenant-less Order. Not exploitable across tenants today, because non-platform tenantless users are stopped by `requirePermission` (null role denies), but it is a hardening gap.",
+    "fix": "Default `allowNoTenant` to false in `handle()`, and allow it only for `catalog.importMenu` via a per-route flag. Alternatively require `ctx.tenantId` in the write handlers. Regenerate the copies with `npm run generate:guards` and check with `check:guards`.",
+    "files": [
+     "/home/user/sommel/scripts/templates",
+     "/home/user/sommel/base44/functions/orders/_guard.ts",
+     "/home/user/sommel/scripts/generate-guards.mjs"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "`src/pages/SuperAdmin.jsx` writes `WineBar.billing_status` directly from the client (`base44.entities.WineBar.update`). The code's own TODO admits this breaks the 'no direct entity writes' rule. It is RLS-gated to role:admin, so there is no tenant bypass. It does conflict with Module 1 ('written only by Mission Control') and with the platform-only-write intent of the field lock.",
+    "fix": "Route the action through a platform-only function that re-derives isPlatform, or remove the control once Mission Control owns the licence lifecycle (modules 1 and 15/17). Then delete the direct write.",
+    "files": [
+     "/home/user/sommel/src/pages/SuperAdmin.jsx"
+    ],
+    "size": "S",
+    "blocked_on": "Product decision: keep a manual platform override, or wait for Mission Control to own billing_status (modules 1 and 17)."
+   }
+  ]
+ },
+ {
+  "module": 17,
+  "title": "Mission Control side: app registered, adapter, licenseControl, ticketControl, messaging, catalog mirror, proven round-trip",
+  "status": "missing",
+  "evidence": "Case-insensitive grep for \"sommel\" across /home/user/acacia-mission-control (excluding node_modules/.git) returns zero hits. MC's latest migrations end at 0046_artiskids_url.sql, with no sommel seed. Sommel is absent from api/_lib/licenseControl.js, api/_lib/ticketControl.js, api/_lib/messaging.js, src/lib/licenseCatalog.js and the APP_SLUGS list in api/apps-visits.js. Compare artiskids, which has a seed migration plus an entry in each of those files. I did not query the live MC Supabase apps table. A row could exist there without a migration, but the repo history is the convention (0046 says \"brings the history in line\"). The sommel side also has no bridge. base44/functions/ in /home/user/sommel holds attendance, catalog, createWineBar, inventory, manageStaff, orders, payments, printing, processSale, reports, settings, shifts and stations. There is no acaciaControl or _acaciaSign.ts, and grep for INGEST_HMAC or ACACIA_APP_SLUG in base44/ finds nothing. The same listing read live from Base44 app 6ab41c2a89f592a0eca074d2 (list_directory on base44/functions) shows the same 13 groups, with no acaciaControl. docs/plan-tecnico.md:87 and :150 plan acaciaControl and say Module 17 is phase 4, so the work is planned but not started. The site https://sommel.acaciaco.com.mx answers HTTP 200, so the app is served but MC does not know it. No Sincronizar ahora sync can have run, so there is no app_health row and no control:run-sync audit row. Sommel entities relevant to the mapping: tenant WineBar (billing_status, trial_end_at, current_period_end, plan), SupportTicket (tenant_id, kind, subject, body, status, created_by_email; no thread entity), AppSession, User (tenant_id/app_role). Note that WineBar uses \"plan\" and \"current_period_end\", not license_plan and license_expires_at.",
+  "gaps": [
+   {
+    "what": "No `apps` row for sommel in Mission Control (the bodega registry). MC does not know the app exists.",
+    "fix": "Add migration 0047_seed_sommel.sql in MC modelled on 0045_seed_artiskids.sql. Row: id 'sommel', name 'Sommel', backend 'base44', external_id '6ab41c2a89f592a0eca074d2', category 'app', url null at first (a follow-up migration sets https://sommel.acaciaco.com.mx once the sync is proven, as 0046 did for artiskids), status 'active'. config: license_entity 'WineBar', ticket_entity 'SupportTicket', ticket_message_entity null, tenant_field 'tenant_id', session_entity 'AppSession', usage_entities (confirm with the bridge, e.g. Order, Payment, Product, InventoryItem), and field_map tenant_external_id=id, name=name, plan=plan, status=billing_status, trial_ends_at=trial_end_at, current_period_end=current_period_end. Use `npm run onboard:base44 -- /home/user/sommel --dry` to preview, then apply to production the same way earlier seeds were applied.",
+    "files": [
+     "/home/user/acacia-mission-control/supabase/migrations/0047_seed_sommel.sql"
+    ],
+    "size": "S",
+    "blocked_on": "Repo access to acacia-mission-control (write). Applying the migration to production Supabase needs the owner or MC operator."
+   },
+   {
+    "what": "No licenseControl.js entry for sommel. The Licencias panel would render its licences with no buttons (the radar failure mode).",
+    "fix": "Add a `sommel` entry to APPS in api/_lib/licenseControl.js. entity 'WineBar', statusField 'billing_status', planField 'plan'. statuses: active, suspended, view_only (check the WineBar enum for a canceled value). plans: decide the plan names. billing: expiryField 'current_period_end', trialField 'trial_end_at', dateFormat per the WineBar schema (datetime or date), payment 'ref' or per the app, dayConvention 'preserve_day'. lifecycle: paidPlanValues plus the standard grace days 8/15/30/45, readOnlyStatus 'view_only', blockedStatus 'suspended'. Update src/lib/licenseCatalog.js in the same commit (see the mirror gap below).",
+    "files": [
+     "/home/user/acacia-mission-control/api/_lib/licenseControl.js"
+    ],
+    "size": "S",
+    "blocked_on": "Product decision on plan names and billing mode for Sommel (Alby/owner). MC repo access."
+   },
+   {
+    "what": "No ticketControl.js entry for sommel. The operator ticket queue cannot read or reply to Sommel tickets.",
+    "fix": "Add `sommel` to api/_lib/ticketControl.js: entity 'SupportTicket', tenantField 'tenant_id', subjectField 'subject', statusField 'status', priorityField null, requester {nameField:'created_by_email', emailField:'created_by_email'}, statuses taken from SupportTicket.jsonc, openStatus/inProgressStatus from the same enum, and `thread: null` (no message entity, the artiskids shape) unless Sommel adds a thread. Extend api/_lib/ticketControl.test.js.",
+    "files": [
+     "/home/user/acacia-mission-control/api/_lib/ticketControl.js",
+     "/home/user/acacia-mission-control/api/_lib/ticketControl.test.js"
+    ],
+    "size": "S",
+    "blocked_on": "MC repo access. Confirm the SupportTicket status enum (read from base44/entities/SupportTicket.jsonc)."
+   },
+   {
+    "what": "No messaging.js entry for sommel, so MC cannot mail Sommel tenants (renewal, read-only and blocked notices).",
+    "fix": "Add `sommel` to APP_MSG in api/_lib/messaging.js: name 'Sommel', entity 'WineBar', a one-line value phrase, and a recipient that resolves the admins: related entity 'User', keyField 'tenant_id', keyFromRecord 'id', emailField 'email', roleField 'app_role', roles = the tenant admin role values (verify in src/lib/permissionRegistry.js and User.jsonc). nameField 'name' for WineBar.",
+    "files": [
+     "/home/user/acacia-mission-control/api/_lib/messaging.js"
+    ],
+    "size": "S",
+    "blocked_on": "MC repo access. Confirm the app_role value for the tenant admin."
+   },
+   {
+    "what": "Client catalogue mirror lacks sommel. licenseCatalog.test.js will fail once licenseControl.js gains the entry, which is intentional, so both must change together.",
+    "fix": "Add a `sommel` block to LICENSE_CATALOG in src/lib/licenseCatalog.js matching the licenseControl.js entry (plans, statuses, hasBilling, hasViewOnly, hasExpiry, hasTrial, dateFormat, dayConvention, addons). Run `npm test` in MC.",
+    "files": [
+     "/home/user/acacia-mission-control/src/lib/licenseCatalog.js"
+    ],
+    "size": "S",
+    "blocked_on": "MC repo access."
+   },
+   {
+    "what": "Small related list: 'sommel' is not in APP_SLUGS in MC's api/apps-visits.js. The standard does not list this as a step 17 requirement, and the file's own comment says a slug missing there just reads as zero visits. It is only relevant once Module 9 (site page) exists.",
+    "fix": "Add 'sommel' to APP_SLUGS when the apps/sommel.html page on acaciaco-site lands.",
+    "files": [
+     "/home/user/acacia-mission-control/api/apps-visits.js"
+    ],
+    "size": "S",
+    "blocked_on": "Module 9 page on acaciaco-site must exist first."
+   },
+   {
+    "what": "The data path cannot round-trip because Sommel has no deployed `acaciaControl` function. The bridge is a prerequisite for Module 17's proof step (Modules 5, 8 and 15 depend on it too). Registration alone would repeat the ctrlhq failure: configured, but nothing moves.",
+    "fix": "In the sommel repo, add base44/functions/acaciaControl/ with entry.ts, the byte-identical _acaciaSign.ts from acacia-app-standard/shared/bridge, and the actions ping, license.get/set, tickets and usage, mapped to WineBar/SupportTicket/AppSession. Set ACACIA_APP_SLUG=sommel, INGEST_HMAC_SECRET and the other Module 16 secrets, with ACCEPT_LEGACY_MASTER=false. Then deploy and Publish it (the CLI's 'unchanged' is not proof, per the verification gates) via `npm run deploy`. Check the function count against maxFunctions=40.",
+    "files": [
+     "/home/user/sommel/base44/functions/acaciaControl/entry.ts",
+     "/home/user/sommel/base44/functions/acaciaControl/_acaciaSign.ts",
+     "/home/user/sommel/base44.app.json"
+    ],
+    "size": "L",
+    "blocked_on": "Secrets must be set in the Base44 panel and read back (owner). Deploy and Publish need an authenticated Base44 CLI or panel session, which an agent cannot do from the sandbox."
+   },
+   {
+    "what": "The round-trip proof required by Module 17 has not been done: no 'Sincronizar ahora' on Sommel's MC page, no app_health row with status ok, no control:run-sync audit row for target_app 'sommel'.",
+    "fix": "After the registry row, the MC entries and the bridge are all live, press Sincronizar ahora on the Sommel page in MC. Confirm app_health has a row for sommel with status ok and audit_actions has a control:run-sync row for sommel. Confirm there is no 'rejected the derived key' line in the log for that window. Record the result in sommel's CLAUDE.md or AGENTS.md.",
+    "files": [],
+    "size": "S",
+    "blocked_on": "Operator with MC login. Depends on every other gap above being deployed."
+   }
+  ]
+ },
+ {
+  "module": 19,
+  "title": "A shipped security fix needs a guard of its own",
+  "status": "partial",
+  "evidence": "Live read of the deployed schema (list_entity_schemas, appId 6ab41c2a89f592a0eca074d2, 19 entities read across 3 calls) against base44/entities/*.jsonc. In every entity that was read, the locks match the repo:\n- User.tenant_id and User.app_role have rls.write:false.\n- WineBar.billing_status, trial_end_at, current_period_end, plan and owner_id have rls.write:{role:admin}.\n- The unit_cost fields on OrderItem, InventoryItem and InventoryMovement have rls.read admin-only.\n- Product.read and Attendance.read are admin-only at the entity level.\n- StaffInvite, PermissionProfile and StaffPin are admin-write only.\nSo there is no drift on the locks I compared. I did not diff every description byte for byte.\n\nWhat exists:\n- The WineBar licence fields carry \"Módulo 19\" descriptions that say what breaks if the lock is removed (e.g. \"cualquier miembro del bar podría reactivar su propio bar suspendido\").\n- The User locks state the mechanism and the writer (\"Server-authoritative... write:false para que nadie se dé bar_admin con updateMe\").\n- CI runs validate:rls, validate:tenant-roles (Module 24; covers only the User tenant pointer and role locks) and check:guards.\n\nGaps:\n- Rationale for the OrderItem.unit_cost lock is not in the deployed descriptions. The read-lock descriptions on InventoryItem and InventoryMovement unit_cost, and WineBar.owner_id, are one-liners with no what-breaks-if-removed. Point 1 asks for the operation governed and what breaks; only User (write:false) and the WineBar licence fields state the operation explicitly. OrderItem.unit_cost says \"se bloquea a la plataforma\" without saying read, and the InventoryItem/InventoryMovement/owner_id descriptions do not name the operation at all.\n- The entity-level read locks on Product and Attendance (and the admin-only write on Order, Payment, Shift, CashMovement, StaffInvite, PermissionProfile and StaffPin) are explained only in .jsonc // comments. Comments are not deployed, and the live Product and Attendance schemas carry no explanation, so an in-app Base44 builder inspecting only the live schema sees no reason for them. A builder debugging \"products don't load\" could loosen Product.read.\n- Nothing in the repo asserts that the locks survive. No test or script fails if billing_status, plan or unit_cost loses its rls block, if a Módulo-19 description is deleted, or if Product.read is loosened. validate-entity-rls.mjs checks path syntax and that the admin branch is present, not the presence of specific locks.\n- Point 4 (repo file agrees with deployed schema) has no tool. No script or workflow diffs the deployed schema against the repo files; I did it by hand here.\n- Point 5 has no artefact. No dated lock inventory or drift-audit record exists in docs/ or AGENTS.md, and plan-tecnico.md §4 only schedules the Module 14 audit.\n- AGENTS.md and CLAUDE.md are stubs with no Module 19 rules (state the mechanism first, put the lock back if the symptom persists, check both surfaces).\n- The Verification gates row for 19 reads \"deployed schema still shows it, repo agrees, description states rationale\". The first two hold today; the third is only partly true (see above).",
+  "gaps": [
+   {
+    "what": "Lock descriptions do not all state the governed operation and what breaks if removed. The rationale for the OrderItem.unit_cost lock is not in the deployed descriptions.",
+    "fix": "Rewrite the descriptions of WineBar.owner_id, OrderItem.unit_cost, InventoryItem.unit_cost and InventoryMovement.unit_cost. Each should say: which operation the lock governs (read vs write, and that it does not affect the other), who legitimately writes or reads the field, and what security hole opens if the lock is removed. Add an equivalent line to User.role. Keep the wording in the repo .jsonc identical to the deployed schema.",
+    "files": [
+     "base44/entities/WineBar.jsonc",
+     "base44/entities/OrderItem.jsonc",
+     "base44/entities/InventoryItem.jsonc",
+     "base44/entities/InventoryMovement.jsonc",
+     "base44/entities/User.jsonc"
+    ],
+    "size": "S",
+    "blocked_on": "Repo edit is solo-doable. Reaching the live schema needs an operator to run npm run deploy:entities, or update_entity_schema via the Base44 MCP."
+   },
+   {
+    "what": "Entity-level locks (Product.read admin-only, Attendance.read admin-only, admin-only writes on the server-written entities) are documented only in // comments that never reach the deployed schema.",
+    "fix": "Move the rationale into schema text that is deployed. First check whether Base44 accepts a top-level entity description. If it does, use it. If not, put it in the description of a stable field, e.g. Product.cost and tenant_id, Attendance.clock_in, Order.total. State the operation (read) and why (variants[].cost cannot be field-locked, so nobody may read Product directly and catalog.listProducts redacts). Also state that writes go only through Safe functions, and that loosening the lock will not fix a display or read-resolution symptom.",
+    "files": [
+     "base44/entities/Product.jsonc",
+     "base44/entities/Attendance.jsonc",
+     "base44/entities/Order.jsonc",
+     "base44/entities/Payment.jsonc",
+     "base44/entities/Shift.jsonc",
+     "base44/entities/CashMovement.jsonc",
+     "base44/entities/StaffInvite.jsonc",
+     "base44/entities/PermissionProfile.jsonc",
+     "base44/entities/StaffPin.jsonc"
+    ],
+    "size": "M",
+    "blocked_on": "Deploy to the live schema needs an operator (deploy:entities or the MCP)."
+   },
+   {
+    "what": "No automated guard that the security locks stay in the repo files. Removing a lock or its rationale would pass CI.",
+    "fix": "Add scripts/validate-locks.mjs (npm run validate:locks, wired into ci.yml) plus a Deno test. It holds an explicit manifest, one entry per lock: User.tenant_id and app_role rls.write:false; WineBar.billing_status, trial_end_at, current_period_end, plan and owner_id rls.write admin; OrderItem, InventoryItem and InventoryMovement unit_cost rls.read admin; Product.read and Attendance.read admin; and the admin-only create/update/delete on the server-written entities. It fails if a lock is missing or changed, or if the field description is shorter than a minimum or lacks a required keyword (e.g. 'Módulo 19' plus the operation word). A new lock must be added to the manifest deliberately. Cover Module 1's billing_status, the Module 14 field locks and the tenant pointer, as point 5 lists.",
+    "files": [
+     "scripts/validate-locks.mjs",
+     "base44/tests/locks_test.ts",
+     "package.json",
+     ".github/workflows/ci.yml"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "No repo-vs-deployed drift check (point 4) and no dated lock audit (point 5).",
+    "fix": "Add scripts/check-lock-drift.mjs that takes the JSON output of list_entity_schemas (or reads it via the Base44 API when a token is present). It compares the manifest entries against it for both the rule and the description, and exits 1 on any difference. Document the run command. Add a dated 'Locks audited' section to docs listing each lock, deployed vs repo verdict, and what could not be verified. Repeat it whenever an entity, function or role is added, alongside the Module 14 re-audit. As of 2026-09-29 the by-hand comparison found no drift in the entities read, and that result can seed the first entry.",
+    "files": [
+     "scripts/check-lock-drift.mjs",
+     "docs/plan-tecnico.md",
+     "docs/locks-audit.md"
+    ],
+    "size": "M",
+    "blocked_on": "Running it against the live app needs the Base44 CLI/API token or an MCP session; the script and doc are solo-doable."
+   },
+   {
+    "what": "AGENTS.md and CLAUDE.md contain no Module 19 rules or lock inventory, so a debugging session (git agent, Base44 in-app builder, teammate) has no warning.",
+    "fix": "Add a section to AGENTS.md, not the CLAUDE.md pointer. List the locks with the operation each governs. Add the rules: an rls.write rule never affects reads and a read rule never affects writes; state and prove the mechanism before loosening; if the symptom persists, put the lock back first; after any live schema edit, update the .jsonc in the same session and run validate:locks. Also copy the essentials into base44 app-level instructions so the in-app builder sees them.",
+    "files": [
+     "AGENTS.md"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   }
+  ]
+ },
+ {
+  "module": 20,
+  "title": "Session control (inactivity timeout, one active device, stale sessions reaped)",
+  "status": "missing",
+  "evidence": "Only the data model exists; no behavior. (1) /home/user/sommel/base44/entities/AppSession.jsonc exists, and the deployed schema read via Base44 MCP list_entity_schemas (appId 6ab41c2a89f592a0eca074d2) matches it. Fields: user_email, user_name, device, started_at, last_active_at, revoked_at, revoked_by. It is the StockFlow/Mission Control shape, with created_by_id RLS on read/create/update and admin-only delete. (2) No client code: grep of src/, base44/, scripts/ for AppSession, idle, heartbeat, useSessionManager, purgeStale and last_seen finds only the entity file, scripts/lib/entity-rls-rules.mjs (a comment), and unrelated hits in shifts/printing helpers. There is no src/hooks/useSessionManager.js, useActivityTracker.js, IdleWarningDialog.jsx or SessionExpiredDialog.jsx (src/hooks holds only use-mobile.jsx and use-size.jsx), and nothing is mounted in App.jsx or Layout.jsx. So Layer 1 (20 min idle warning, 2 min countdown, logout) is absent. (3) Layer 2 is absent: there is no manageSession or sessionHeartbeat function (base44/functions holds attendance, catalog, createWineBar, inventory, manageStaff, orders, payments, printing, processSale, reports, settings, shifts and stations), no device_id, no active/passive/revoked status, and no \"also active on\" list. The current schema also differs from what the standard and shared/session/README.md require (user_id, device_id, device_name, status active|passive|revoked, last_seen). The reference StockFlow uses the older revoked_at-based shape with src/lib/SessionHeartbeat.jsx mounted in App.jsx (its heartbeat checks revoked_at), so the exact shape the standard calls for is not the one StockFlow ships. (4) Layer 3 is absent: no purgeStaleSessions function or cron. base44/workflows does not exist in sommel, and .github/workflows holds only ci.yml. docs/plan-tecnico.md lines 67 and 88 only plan \"AppSession ... Módulo 20\" and \"purgeStaleSessions cron 48 h\", and neither was built. (5) No acaciaControl bridge function exists in sommel, so Mission Control's sessions.list / sessions.revoke path (the reason the entity exists) has nothing to serve it. That belongs to modules 5/15 but blocks the revoke path of module 20. The Verification gates row (idle warning fires; a session with last_seen older than 48h flips to revoked) cannot pass today.",
+  "gaps": [
+   {
+    "what": "Layer 1 missing: no idle warning or forced logout. The four shared session files are not in sommel and not mounted.",
+    "fix": "Copy shared/session/{useSessionManager.js,useActivityTracker.js} to src/hooks/ and {IdleWarningDialog.jsx,SessionExpiredDialog.jsx} to src/components/, unchanged. Render both dialogs once in the app shell (App.jsx or Layout.jsx) as the README wiring shows: idleState==='idle_warning' and sessionExpired. Call useActivityTracker(tenantId) once the WineBar tenant_id is known. Check that the imports (auth/logout API, base44 client, '@/' alias) resolve against sommel's AuthContext.jsx and api.js. Confirm the dialogs use the sommel UI primitives (shadcn dialog) and the theme tokens. Add a small test or lint check for the 20 min / 2 min constants if the CI conventions allow.",
+    "files": [
+     "src/hooks/useSessionManager.js",
+     "src/hooks/useActivityTracker.js",
+     "src/components/IdleWarningDialog.jsx",
+     "src/components/SessionExpiredDialog.jsx",
+     "src/App.jsx or src/components/Layout.jsx"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "Layer 2 missing: no manageSession or sessionHeartbeat, no device identity, no active/passive demotion, no revoked-check on heartbeat. The AppSession entity lacks the fields the standard requires (user_id, device_id, device_name, status, last_seen).",
+    "fix": "Extend AppSession.jsonc with user_id, device_id, device_name, status enum (active|passive|revoked) and last_seen. Keep or migrate the existing Mission Control fields (revoked_at, revoked_by, last_active_at) so MC's sessions.list/revoke keep working. Decide with Alby whether to keep both shapes or align with the shared README. Add a base44/functions/session/ group (entry.ts with _guard.ts and _guard_logic.ts, following the sommel guard convention) with actions manageSession (find-or-create by user+device, mark active, demote the user's other active sessions to passive), sessionHeartbeat (bump last_seen, return 403 if status is revoked or revoked_at is set) and trackActivity. Add unit tests for the pure logic. Update scripts/lib/entity-rls-rules.mjs if the RLS changes. Re-verify RLS with npm run validate:rls. Deploy the schema and read it back with list_entity_schemas.",
+    "files": [
+     "base44/entities/AppSession.jsonc",
+     "base44/functions/session/entry.ts",
+     "base44/functions/session/_guard.ts",
+     "base44/functions/session/_guard_logic.ts",
+     "base44/functions/session/handlers/*",
+     "scripts/lib/entity-rls-rules.mjs",
+     "src/hooks/useSessionManager.js"
+    ],
+    "size": "L",
+    "blocked_on": "Deploying the entity schema and functions needs authenticated Base44 access (deploy:entities, deploy). Also decide whether to keep the MC-shaped fields alongside the standard ones."
+   },
+   {
+    "what": "Layer 3 missing: no server-side reap of stale sessions and no 48 h purge cron. docs/plan-tecnico.md lists purgeStaleSessions but it was not built.",
+    "fix": "Adapt shared/session/purgeStaleSessions.example.ts into base44/functions/purgeStaleSessions/entry.ts behind sommel's fail-closed cron guard (Module 16 pattern, as in _guard.ts). Set status:'revoked' (and revoked_at) on every active AND passive AppSession whose last_seen is older than 48 h. Register it as a scheduled trigger by an approved method (the cron mechanism used by other portfolio apps, or a Mission Control cron). Add a unit test for the threshold logic. Then prove it: hand-set a test session's last_seen to 49 h ago, run the job, and confirm status flips to revoked and the next heartbeat gets 403.",
+    "files": [
+     "base44/functions/purgeStaleSessions/entry.ts",
+     "base44/functions/purgeStaleSessions/_guard.ts (or a shared cron guard)",
+     "docs/plan-tecnico.md"
+    ],
+    "size": "M",
+    "blocked_on": "Scheduling the cron and the live run need Base44 panel/CLI access and a decision on where the schedule lives. The function code itself an agent can write alone."
+   },
+   {
+    "what": "The Module 7 danger-zone / account screen does not list the user's other active devices or let them revoke one. The standard names this as the place to surface unrecognized devices.",
+    "fix": "After Layer 2 exists, add a Sesiones activas list to the Cuenta/account settings screen (device_name, last_seen, this device / other devices) with a Revoke action that sets status:'revoked' via a session function. Use src/components/settings.",
+    "files": [
+     "src/pages/Ajustes* (account settings page)",
+     "src/components/settings/*",
+     "base44/functions/session/handlers/revokeSession.ts"
+    ],
+    "size": "M",
+    "blocked_on": "Depends on Layer 2; also confirm that sommel has a Module 7 account screen to attach it to."
+   },
+   {
+    "what": "Mission Control cannot list or revoke Sommel sessions: sommel has no acaciaControl bridge function exposing sessions.list / sessions.revoke, although AppSession.jsonc says it exists for that purpose. Module 20's remote-force-logout reuse depends on it.",
+    "fix": "Track under modules 5 and 15 (bridge and per-app signing key). Once acaciaControl exists, add the sessions.list and sessions.revoke actions against the new AppSession fields. Nothing to do in module 20 beyond making sure the heartbeat honours both revoked_at and status==='revoked'.",
+    "files": [
+     "base44/functions/acaciaControl/*"
+    ],
+    "size": "L",
+    "blocked_on": "Modules 5/15 work: the ACACIA_APP_SLUG secret, the INGEST_HMAC_SECRET on the Base44 panel, and Mission Control's onboarding of sommel."
+   },
+   {
+    "what": "No verification evidence for Module 20 (no idle timeout test, no reap proof). The Verification gates row cannot be satisfied.",
+    "fix": "After the layers are deployed, run a real browser session past the idle threshold and record the warning followed by the forced logout, and run the 49 h reap proof. Record both in sommel CLAUDE.md/AGENTS.md as the other apps do, naming anything not verified. Optionally add a smoke assertion only if it is derived from repo output.",
+    "files": [
+     "AGENTS.md",
+     "docs/plan-tecnico.md"
+    ],
+    "size": "S",
+    "blocked_on": "Needs a deployed build and a live browser session or an authenticated run. It cannot be verified from the read-only sandbox."
+   }
+  ]
+ },
+ {
+  "module": 21,
+  "title": "About screen (manual, changelog, version, contact + ACACIA line)",
+  "status": "missing",
+  "evidence": "Audited /home/user/sommel (main @ a3a7c95). None of the four parts of Module 21 exist. src/pages has no About/Manual page (Ajustes, Asistencia, Checador, Estacion, Impresion, Inventario, Login, Menu, Mesas, Onboarding, Orden, Reportes, Staff, SuperAdmin, Turno, plus auth pages). src/lib has no appConfig.js, so there is no APP_VERSION, RELEASE_DATE or CHANGELOG. A grep of src/ for version, changelog, manual, whatsapp, \"Hecho con\" finds nothing relevant; the only hits are Base44 SDK functionsVersion and a code comment. package.json \"version\" is \"0.0.0\", so a version line would not match anything meaningful. There is no release script (scripts/ has only base44-audit, base44-deploy, check-tenant-roles, generate-guards, validate-entity-rls, validate-functions). .github/workflows has only ci.yml, with no auto-release workflow. There is no update-available banner. App.jsx routes have no /about, and the nav in Layout.jsx has no entry for one. Module 6, which this screen reads from, is also absent, so 21 depends on it. Reference: /home/user/stockflow has src/pages/About.jsx (159 lines) that imports APP_VERSION, RELEASE_DATE and CHANGELOG from src/lib/appConfig.js, plus mailto:soporte@acaciaco.com.mx and wa.me/524498958291 contact links, a \"Hecho con cuidado\" line, scripts/publish-release.mjs and .github/workflows/auto-release-pr.yml. Standard 21 verification gate (version on screen equals package.json equals update banner; current-version changelog non-empty) cannot pass. I did not check the live site or the Base44 backend: this module is purely client-side and nothing there can change the result.",
+  "gaps": [
+   {
+    "what": "No version/changelog source (Module 6 prerequisite): no appConfig.js with APP_VERSION, RELEASE_DATE, CHANGELOG. package.json is 0.0.0.",
+    "fix": "Create src/lib/appConfig.js exporting APP_VERSION, RELEASE_DATE and a CHANGELOG array (newest first, with a non-empty entry for the current version, seeded from the git history and docs: checador/equipo, emails, etc.). Set package.json version to the same value. Add a release script (port scripts/publish-release.mjs from stockflow/flowfin) so build only validates and release generates. Add a check that fails when package.json version differs from APP_VERSION, and that the current version's changelog entry is non-empty.",
+    "files": [
+     "src/lib/appConfig.js",
+     "package.json",
+     "scripts/publish-release.mjs",
+     "scripts/check-version-sync.mjs",
+     "package.json (scripts)"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "No About screen or route, and it is not reachable from Account or Ajustes.",
+    "fix": "Add src/pages/About.jsx with a \"Novedades v{APP_VERSION}\" block for the current version, a collapsible full history, the version and release date line, and the contact and ACACIA cards. Add a lazy route /about in src/App.jsx inside the Layout and RequireTenant group with no RequirePermission gate, so every role can open it. Add a Layout.jsx nav or account-menu entry, not an entry hidden behind Ajustes:editar, since Ajustes requires that permission.",
+    "files": [
+     "src/pages/About.jsx",
+     "src/App.jsx",
+     "src/components/Layout.jsx"
+    ],
+    "size": "M",
+    "blocked_on": ""
+   },
+   {
+    "what": "No in-app searchable user manual.",
+    "fix": "Add src/components/UserManual.jsx: an accordion with a search box, one entry per feature area in plain-language \"how do I...\" form (Mesas and Orden, Menu, Estaciones and Impresion, Turno and corte, Checador and Asistencia, Inventario, Reportes, Staff and roles, Ajustes). Write content in Spanish from docs/plan-tecnico.md, docs/entrega-*-contratos.md and docs/checador-y-equipo-contratos.md. Embed it in About.jsx. Keep the content in a data file so it is easy to update.",
+    "files": [
+     "src/components/UserManual.jsx",
+     "src/lib/manualContent.js",
+     "src/pages/About.jsx"
+    ],
+    "size": "L",
+    "blocked_on": "Manual copy needs product review by Alby or the user, but a first draft can be written from the docs by an agent alone."
+   },
+   {
+    "what": "No contact card and no ACACIA acknowledgment.",
+    "fix": "Add a contact card in About.jsx with mailto:soporte@acaciaco.com.mx and the direct WhatsApp channel https://wa.me/524498958291 (the portfolio number used in stockflow and the site), plus a link to the in-app support path if one exists. Add an ACACIA mark, \"Hecho con ♥ para <bares de vino / operadores de Sommel>\" and a rights/licensing line. Sommel has no Module 8 ticket flow yet, so link only to the channels.",
+    "files": [
+     "src/pages/About.jsx"
+    ],
+    "size": "S",
+    "blocked_on": "Confirm the WhatsApp number and support email are right for Sommel (assumed portfolio-wide) and the exact audience wording."
+   },
+   {
+    "what": "No update-available banner, so the version-in-banner leg of the gate cannot be met.",
+    "fix": "Add an AppUpdateBanner component (port from flowfin or stockflow) that compares the served version with APP_VERSION and reads the same constant as About.jsx. Mount it in Layout.jsx.",
+    "files": [
+     "src/components/AppUpdateBanner.jsx",
+     "src/components/Layout.jsx"
+    ],
+    "size": "M",
+    "blocked_on": "Depends on whichever version-publishing mechanism Module 6 uses in the portfolio (stockflow and flowfin banner design); an agent can copy the reference pattern."
+   },
+   {
+    "what": "No CI or auto-release wiring keeps the changelog in sync, and the release-time generation of Module 6 is missing.",
+    "fix": "Port .github/workflows/auto-release-pr.yml from stockflow so a push to main opens a release PR that bumps APP_VERSION, RELEASE_DATE, the changelog and package.json together, and add the version-sync check to ci.yml.",
+    "files": [
+     ".github/workflows/auto-release-pr.yml",
+     ".github/workflows/ci.yml"
+    ],
+    "size": "M",
+    "blocked_on": "The stockflow workflow uses an AI-generated changelog that needs an Anthropic API key repo secret; a user must set that secret, or the changelog can be generated from commit messages instead."
+   },
+   {
+    "what": "Deploy and verification. After implementing, the site must be deployed manually and checked by content. Merging does not deploy on Base44.",
+    "fix": "Run npm run deploy:site, then curl the served bundle and grep for the version string and the About heading. Optionally add an About assertion to the smoke config, without changing the shared smoke.spec.js.",
+    "files": [
+     "tests/smoke/smoke.config.js"
+    ],
+    "size": "S",
+    "blocked_on": "Needs an authenticated Base44 CLI in the operator's terminal (not available in the agent sandbox)."
+   }
+  ]
+ },
+ {
+  "module": 22,
+  "title": "A server-authoritative field must never be verified against the auth session's own cached view",
+  "status": "done",
+  "evidence": "Grepped every function under /home/user/sommel/base44/functions for auth.me()/user.data/user.role/user.app_role/user.tenant_id/me.*. Result: no authorization or write decision reads from the auth.me() object. (1) The 10 guarded groups (catalog, orders, stations, attendance, shifts, inventory, payments, printing, reports, settings) share _guard.ts, which is identical across groups (npm run check:guards gives \"24 file(s) match their canonical source, no drift\"). requireContext() calls auth.me() only for identity (user.id), then re-reads `self` via svc.entities.User.filter({id:user.id}) and derives tenantId, appRole and isPlatform (self.role==='admin') from that fresh row. The isPlatform fix of 2026-09-28 is in place. The remaining ctx.user uses are user.id/user.email, which is identity and allowed (setMyPin, records.ts, created_by/opened_by). (2) manageStaff/entry.ts re-reads `self`, gets tenantId/appRole/isPlatformAdmin from it, and reads target/members fresh scoped to the tenant. claimInvite uses the stored self.email. There is no diff-then-skip pattern anywhere. (3) createWineBar/entry.ts uses auth.me() for user.id only and reads self.tenant_id fresh for the already_in_a_bar 409. (4) processSale is a 410 stub that no longer reads user.data (it was the last offender, retired 2026-09-28). (5) All User.update calls (manageStaff 143/199/212/214/282, createWineBar 39) are flat patches of svc-read rows, and Sommel rows are flat, so there is no `data:{...}` wholesale replace and the spread-full-object rule does not apply. (6) rowBelongsToTenant compares the stored row's flat tenant_id and is pinned by a test. The checklist gate (grep for a comparison gating a write outside a fresh asServiceRole read) comes back empty. Docs cite the module (docs/entrega-1-contratos.md:80, plan-tecnico.md:94). Not verified live: the Base44 MCP sandbox serves the last commit, not the deployed function bodies, so I did not confirm that deployed code matches main. That is the module 11 gate, out of scope here.",
+  "gaps": [
+   {
+    "what": "No mechanical CI guard for module 22. Compliance depends on convention plus the shared guard. A new standalone function like manageStaff and createWineBar (which do not use _guard.ts) could reintroduce a comparison against auth.me()'s .data/.role without CI noticing. Existing CI runs check:guards, validate:rls, validate:tenant-roles and deno test, and none of them scans for this pattern. The gate row in CHECKLIST.md's Verification table is a manual grep.",
+    "fix": "Add a small script (e.g. scripts/check-auth-me-usage.mjs, wired into npm run lint or CI) that fails when a non-test file under base44/functions matches /\\b(user|me|caller)\\.(data|role|app_role|tenant_id)\\b/ outside comments. The standalone entries (manageStaff, createWineBar) should be allowed to use only user.id/user.email. Optionally add a deno test that requireContext derives isPlatform/tenantId/appRole from `self`, using an injected fake client.",
+    "files": [
+     "scripts/check-auth-me-usage.mjs",
+     "package.json",
+     ".github/workflows/ci.yml"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "Minor and outside module 22's text: createWineBar/entry.ts calls base44.auth.me() uncaught, so an unauthenticated call throws and answers 500 with an SDK message. manageStaff and _guard.ts already map that case to 401 with a Spanish message. This is not a server-authoritative-field problem and no requirement in the standard demands it, so it is optional hygiene.",
+    "fix": "Wrap auth.me() in try/catch and answer 401 {code:'unauthenticated'}, matching manageStaff.",
+    "files": [
+     "base44/functions/createWineBar/entry.ts"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   }
+  ]
+ },
+ {
+  "module": 23,
+  "title": "Client navigation chrome survives a reload",
+  "status": "partial",
+  "evidence": "Read STANDARD.md section 23 and the module 23 row of Verification gates, then src/components/Layout.jsx and src/App.jsx in /home/user/sommel. I did not run live checks or a browser reload.\n\nPoint 1 is met. Layout.jsx line ~86 computes `active` on every render from `useLocation().pathname` (`pathname === it.to || pathname.startsWith(it.to)`). There is no mount-time `useState` and no one-shot animation for the highlight. Layout sits inside the ProtectedRoute and RequireTenant routes, so the active item follows the route once auth resolves. App.jsx shows a full-screen spinner while `isLoadingAuth` is true, so no wrong highlight is drawn in the meantime.\n\nPoint 3 is met. `grep \"location.reload\\|reload()\" src` finds no `window.location.reload` at all. The only `reload()` calls are data reloads in Orden.jsx and useOrderRealtime.js, not page reloads. Nothing in the app resets navigation on purpose.\n\nPoint 2 is only partly met. The nav has no collapsible groups: it is a flat list of up to 13 items with no manual expand or collapse state. But `<nav className=\"flex-1 min-h-0 overflow-y-auto\">` is a scrollable menu. The standard names \"a scroll position inside a long menu\" as chrome state that must persist via `sessionStorage`, keyed by a stable string and restored synchronously on mount. Sommel has no `sessionStorage` use anywhere in src. On a short viewport a reload therefore snaps the sidebar back to the top, and a lower item such as Ajustes or Staff can end up scrolled out of view after F5.\n\nSide observations, not standard requirements. The permission-gated items (`can()`) are computed while the PermissionProfile is still loading, so the list can change once the overrides arrive. That shifts the layout but does not affect the highlight. `src/components/ui/sidebar.jsx` is the unused shadcn component; its `sidebar_state` cookie is not wired to anything.\n\nThe checks in the \"nav survives reload\" row (hard-reload a deep route, expand a group, reload again) can only be done in a browser.",
+  "gaps": [
+   {
+    "what": "The sidebar's scroll position (nav with overflow-y-auto) is not persisted across reload. The standard (section 23, point 2) requires non-route-derived nav state, explicitly including scroll position inside a long menu, to be stored in sessionStorage and restored synchronously on mount.",
+    "fix": "In Layout.jsx, add a ref on the <nav>. Restore its scrollTop synchronously with useLayoutEffect on mount from a stable sessionStorage key (e.g. 'acacia.nav.scroll.sommel'), inside try/catch. Save the value on scroll (throttled or on pagehide/beforeunload). Do not use localStorage or a backend field. Optionally call scrollIntoView({block:'nearest'}) on the active item when it is outside the visible area. Keep the item-list filtering unchanged. Consider a small unit test with jsdom or a Playwright step that scrolls the nav, reloads, and asserts the same scrollTop.",
+    "files": [
+     "/home/user/sommel/src/components/Layout.jsx"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "No automated guard for the module 23 claim. The gates table says to hard-reload a deep route and check the highlight, then reload again with state expanded. Sommel's smoke suite does not cover this (I did not confirm whether a tests/smoke directory exists; the repo listing showed none).",
+    "fix": "Optional: once the scroll persistence above exists, add a Playwright assertion in the app's smoke config or a local test that reloads /reportes or /ajustes while authenticated and checks the highlighted item and nav scrollTop. This needs an authenticated session, so it may only be feasible as a manual check documented in the docs.",
+    "files": [
+     "/home/user/sommel/docs/plan-tecnico.md"
+    ],
+    "size": "S",
+    "blocked_on": "Authenticated test session or a decision to document this as a manual verification step only"
+   }
+  ]
+ },
+ {
+  "module": 24,
+  "title": "A tenant's role never reaches every tenant (built-in admin is the platform's)",
+  "status": "done",
+  "evidence": "Design A by construction. (1) Live User (Base44 query_entities, app 6ab41c2a89f592a0eca074d2, 2026-09-29): 7 users, only h.josepablo@gmail.com holds built-in role admin. All others are role=user with app_role bar_admin/staff or null. (2) Deployed schema (list_entity_schemas) for User: app_role and tenant_id both rls.write:false, and WineBar billing_status/trial_end_at/current_period_end/plan/owner_id are locked to user_condition role:admin, matching the repo files. WineBar update is $or[role admin, $and[id={{user.data.tenant_id}}, user_condition data.app_role=bar_admin]], so the tenant role is scoped to the tenant; delete and create are admin only. (3) /home/user/sommel/scripts/check-tenant-roles.mjs is byte-identical to the canonical shared/tenant-roles version; running it prints \"Module 24 - no tenant role reaches every tenant; no code hands out built-in admin\". package.json has validate:tenant-roles and .github/workflows/ci.yml runs it. (4) Repo entity files use only bare {user_condition:{role:admin}} (platform tier) or the scoped $and shape. Functions: createWineBar writes tenant_id/app_role via service role; manageStaff writes app_role/tenant_id under service role, and the invite path only ever sets staff or bar_admin; no function writes role:'admin' (checker passes; self.role==='admin' in _guard.ts is only an isPlatform check). Not verified: an authenticated session as a restricted user attempting the writes (read-only audit), and whether functions are Published in the Base44 panel.",
+  "gaps": [
+   {
+    "what": "docs/plan-tecnico.md is stale about module 24 state: it says 1 User (the platform owner) and cites WineBar.subscription_status, but live has 7 users (2 bar_admin, 4 staff, 1 unassigned, in 2 tenants) and the field is billing_status. There is also no dated Module 24 / 14 audit note recording the live-role read and the deployed-schema comparison the standard asks for (step 3).",
+    "fix": "Add a dated section to docs/plan-tecnico.md recording: built-in admin held only by the platform owner, deployed User/WineBar locks match the repo, checker green, and what was not verified (restricted-user session, Publish state). Correct the user count and field name.",
+    "files": [
+     "docs/plan-tecnico.md"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   }
+  ]
+ },
+ {
+  "module": 16,
+  "title": "Secrets & configuration",
+  "status": "missing",
+  "evidence": "Live: GET /api/apps/6ab41c2a89f592a0eca074d2/secrets (Base44 MCP, read-only) returned {} — no secrets set on Sommel, so INGEST_HMAC_SECRET, ACACIA_APP_SLUG, PLATFORM_OWNER_EMAIL, CRON_SECRET and ACACIA_MC_INGEST_URL are all absent. Repo: grep of /home/user/sommel (excluding node_modules/dist) for INGEST_HMAC|ACACIA_APP_SLUG|ACACIA_MC|CRON_SECRET|PLATFORM_OWNER|TRACK_SALT hits only docs/plan-tecnico.md:87 (planned acaciaControl row), scripts/base44-deploy.mjs comment and a comment in base44/entities/AppSession.jsonc. No Deno.env.get anywhere in base44/functions (no function reads any secret). base44/functions has no acaciaControl, no purgeStaleSessions, no account or permissions group; no _acaciaSign.ts. No .env.example, no secrets inventory or \"Secrets last read back\" line in README/docs/AGENTS.md. The 'fail closed' part is vacuously satisfied today: no guard depends on an env value (createWineBar gates on User.tenant_id, per-group _guard.ts use tenant/app_role), so nothing can fail open. That is the only thing compliant. Site is up (curl https://sommel.acaciaco.com.mx -> 200). No MC apps-row for sommel found in acacia-mission-control/supabase/migrations (module 17; the row may exist in the live DB, which I did not query).",
+  "gaps": [
+   {
+    "what": "No portfolio secrets are configured on Sommel's Base44 app (secrets list is empty): INGEST_HMAC_SECRET and ACACIA_APP_SLUG=sommel are missing, so the bridge (modules 5/15) cannot authenticate either direction.",
+    "fix": "Set INGEST_HMAC_SECRET (identical to Mission Control's Vercel value) and ACACIA_APP_SLUG=sommel (must equal apps.id in the bodega exactly: lowercase, no suffix) as Base44 secrets, then read them back: run an MC sync and confirm zero 'rejected the derived key' lines for app=sommel in MC's log, and that the health/ping call succeeds. Record the proof in the docs.",
+    "files": [
+     "Base44 app secrets (app 6ab41c2a89f592a0eca074d2)",
+     "Mission Control Vercel env / apps row"
+    ],
+    "size": "S",
+    "blocked_on": "Owner/Alby must supply the shared INGEST_HMAC_SECRET value (not readable by the agent) and confirm the MC apps.id slug; secrets are written in the Base44 panel or POST /secrets; depends on the acaciaControl function existing to prove it."
+   },
+   {
+    "what": "acaciaControl (the only consumer of INGEST_HMAC_SECRET/ACACIA_APP_SLUG) does not exist, so there is nothing to verify the secrets against. Planned in docs/plan-tecnico.md:87 but not built.",
+    "fix": "Implement base44/functions/acaciaControl with shared/bridge/acaciaSign.ts copied unchanged as _acaciaSign.ts plus its test at the functions root, ACCEPT_LEGACY_MASTER=false, verifying with the key derived from ACACIA_APP_SLUG. Missing/empty INGEST_HMAC_SECRET or ACACIA_APP_SLUG must return 401/503 (never accept), with a test asserting the unset branch rejects (assert guard(undefined) === reject). This is the module 15/5 work; listed here because module 16 needs its guard and test.",
+    "files": [
+     "base44/functions/acaciaControl/entry.ts",
+     "base44/functions/acaciaControl/_acaciaSign.ts",
+     "base44/functions/acaciaSign.test.ts",
+     "base44.app.json (endpoint budget)"
+    ],
+    "size": "L",
+    "blocked_on": ""
+   },
+   {
+    "what": "No platform-tier guard exists, and PLATFORM_OWNER_EMAIL is unset. The plan lists account.deleteBar, and licence/platform actions will need one; no PLATFORM_OWNER_EMAIL check exists.",
+    "fix": "When a platform-tier function is added, use PLATFORM_OWNER_EMAIL (the standard's name for new apps), written as `!PLATFORM_OWNER_EMAIL || user.email !== PLATFORM_OWNER_EMAIL` -> 403, with a Deno test covering the unset case and a wrong-caller case. If Sommel will have no platform tier, say so explicitly in the doc inventory instead.",
+    "files": [
+     "base44/functions/*/_guard_logic.ts (new platform guard)",
+     "base44/tests or colocated *_test.ts"
+    ],
+    "size": "S",
+    "blocked_on": "Owner to set PLATFORM_OWNER_EMAIL secret if a platform tier is wanted; the code and test can be done by an agent."
+   },
+   {
+    "what": "Planned scheduled endpoint purgeStaleSessions (module 20, cron 48 h) will need CRON_SECRET, and it does not exist yet; no fail-closed cron gate exists.",
+    "fix": "When building it, gate on CRON_SECRET fail-closed: unset -> 503, never 200; accept only Authorization: Bearer <CRON_SECRET>, never a caller-controlled header alone. Add a test for the unset branch, and read back with an anonymous call that must not return 200.",
+    "files": [
+     "base44/functions/purgeStaleSessions/entry.ts",
+     "its test"
+    ],
+    "size": "S",
+    "blocked_on": "CRON_SECRET value must be set by the owner in Base44 secrets."
+   },
+   {
+    "what": "ACACIA_MC_INGEST_URL is not set, and nothing pushes tickets from a backend function. It is only required if Sommel pushes tickets to MC (module 8); the plan's model is MC pulling via acaciaControl.",
+    "fix": "Decide push vs pull for tickets. If pull only (acaciaControl tickets action), record ACACIA_MC_INGEST_URL as not applicable in the inventory. If push, set the secret and prove it by raising a ticket that appears in MC within seconds.",
+    "files": [
+     "docs (inventory)",
+     "base44/functions/* ticket notify (if push)"
+    ],
+    "size": "S",
+    "blocked_on": "Product decision by owner on push vs pull."
+   },
+   {
+    "what": "There is no written secrets inventory or read-back record in the repo. The standard/checklist template requires a 'Secrets last read back: <date> - <which ones, and how each was proven>' line, and the module's rule is that documentation must reflect what was actually read back.",
+    "fix": "Add a Secrets section (e.g. in README.md or a new docs/secrets.md) listing each value (INGEST_HMAC_SECRET, ACACIA_APP_SLUG, PLATFORM_OWNER_EMAIL, CRON_SECRET, ACACIA_MC_INGEST_URL, plus Sommel's own: email/Resend keys if any), where it lives, its fail-closed behavior, and a 'Secrets last read back' line dated only after a real read-back. Note that Sommel's own email sending (manageStaff/_email.ts, shifts/_email.ts) relies on the Base44 integration and has no env-based secret, and say so. Mark values not yet set as 'not configured' rather than claiming they are.",
+    "files": [
+     "README.md or docs/secrets.md",
+     "docs/plan-tecnico.md"
+    ],
+    "size": "S",
+    "blocked_on": ""
+   },
+   {
+    "what": "Module 17 dependency: no evidence in the Mission Control repo migrations of an apps row with id 'sommel'; without it the slug in ACACIA_APP_SLUG has nothing to match.",
+    "fix": "Confirm or add the apps row (id = sommel) and the entries in licenseControl.js / ticketControl.js / messaging.js and the client catalogue mirror, then re-run the read-back in gap 1. I did not query the live MC DB, so the row may already exist.",
+    "files": [
+     "/home/user/acacia-mission-control/supabase/migrations",
+     "api/_lib/licenseControl.js",
+     "api/_lib/ticketControl.js",
+     "api/_lib/messaging.js",
+     "src/lib/licenseCatalog.js"
+    ],
+    "size": "M",
+    "blocked_on": "Mission Control repo write access and the owner's decision; the live apps table must be checked."
+   }
+  ]
+ }
+]

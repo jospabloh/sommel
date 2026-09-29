@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Lock, Loader2, AlertTriangle } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
+import { friendlyAuthError } from "@/lib/authErrors";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -28,7 +29,7 @@ export default function ResetPassword() {
       await base44.auth.resetPassword({ resetToken, newPassword });
       window.location.href = "/login";
     } catch (err) {
-      setError(err.message || "No se pudo restablecer la contraseña");
+      setError(friendlyAuthError(err, "No se pudo restablecer la contraseña. Inténtalo de nuevo.", "reset"));
     } finally {
       setLoading(false);
     }
@@ -60,7 +61,7 @@ export default function ResetPassword() {
       subtitle="Ingresa tu nueva contraseña"
     >
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+        <div role="alert" className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
           {error}
         </div>
       )}
