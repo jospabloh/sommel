@@ -1,7 +1,7 @@
 # Inventario de bloqueos (módulo 19)
 
 Fecha: **2026-09-29**. Fuente de verdad ejecutable:
-`scripts/lib/locks-rules.mjs` (manifiesto, 23 entradas), comprobado por
+`scripts/lib/locks-rules.mjs` (manifiesto, 25 entradas), comprobado por
 `scripts/validate-locks.mjs` y `base44/tests/locks_test.ts`.
 
 Principio: un bloqueo de seguridad se documenta en una **descripción de esquema
@@ -20,9 +20,19 @@ abre si se quita. **Un síntoma no se arregla aflojando un bloqueo.**
 | `WineBar.current_period_end` | escritura | `role:admin` | Mission Control |
 | `WineBar.plan` | escritura | `role:admin` | Mission Control |
 | `WineBar.owner_id` | escritura | `role:admin` | `createWineBar`; `manageStaff` lo lee para `owner_locked` |
+| `WineBar.archived_at` | escritura | `role:admin` | `account.deleteBar` (servicio), al dar de baja el bar; Mission Control lo lee |
+| `WineBar.license_audit` | escritura | `role:admin` | `settings.platformSetLicense` (servicio, solo plataforma) |
 | `OrderItem.unit_cost` | lectura | `role:admin` | servidor (reportes con `Menú:ver_costos`) |
 | `InventoryItem.unit_cost` | lectura | `role:admin` | servidor |
 | `InventoryMovement.unit_cost` | lectura | `role:admin` | servidor |
+
+`WineBar.archived_at` (ola 2, 2026-09-29): la escribe solo `account.deleteBar`
+(decisión 2 de José: el dueño da de baja el bar y se **retienen** pedidos,
+pagos, turnos, movimientos y asistencia por CFF art. 30). Si se quita el
+bloqueo, un `bar_admin` puede poner o borrar la marca de baja de su propio bar.
+
+`WineBar.license_audit` (ola 2): bitácora de cambios manuales de licencia; si se
+quita el bloqueo, un `bar_admin` puede borrar la evidencia de quién le cambió la licencia.
 
 Si se quita `billing_status`/`plan`/fechas, cualquier miembro del bar podría
 reactivar su propio bar suspendido. Si se quita el bloqueo de `User.tenant_id`

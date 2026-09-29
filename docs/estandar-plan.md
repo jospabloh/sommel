@@ -207,3 +207,50 @@ Las reglas son tres. Dentro de una ola, ningún archivo aparece en dos paquetes.
   `check:auth-me` de `ci.yml`: `npm run lint` ya los encadena.
 - **CLAUDE.md** actualizado: smoke/playwright/.gitignore ya cableados, bloque de
   comprobaciones, comando de deno de CI y conteo integrado (374/0).
+
+## Decisiones (José, 2026-09-29) que gobiernan la ola 2
+
+1. **Licencia desde el panel de plataforma de Sommel: se conserva, por servidor.** `SuperAdmin.jsx` deja de escribir `WineBar` desde el navegador. Llama a una acción solo de plataforma (`isPlatform`) que cambia `billing_status`/`trial_end_at`/`current_period_end`/`plan` y deja auditoría (quién, cuándo, valor anterior, nota). Mission Control sigue siendo el dueño principal; esto es el ajuste manual que el módulo 1 permite.
+2. **Borrar un bar retiene lo fiscal.** `account.deleteBar` (solo el dueño, confirmación en tres pasos, exportación ofrecida antes) archiva: `WineBar.billing_status = suspended` + `archived_at`, desliga a todos los usuarios (`tenant_id`/`app_role` vacíos), borra `StaffPin` y `StaffInvite` pendientes. **Se conservan** `Order`, `OrderItem`, `Payment`, `Shift`, `CashMovement`, `InventoryMovement` y `Attendance` (CFF art. 30: 5 años). El texto de la UI lo dice.
+3. **Sommel va en la lista pública de apps de acaciaco.com.mx** (módulo 9). Sin precio publicado hasta que José lo confirme: la tarjeta de precio dice "Cotiza" con enlace a soporte y WhatsApp.
+4. **Cualquiera puede crear su propio bar de prueba** (se conserva `createWineBar` por cuenta propia, 30 días).
+
+## Desviaciones ola 2
+
+Registradas por el agente de correcciones, 2026-09-29.
+
+- **Cuenta fuera de Ajustes.** Licencia, sesiones activas y zona de peligro pasan
+  de `/ajustes` (`Ajustes:editar`, staff false) a una ruta nueva `/cuenta`, sin
+  permiso, con entrada de menú para todos los roles. Se alimenta de
+  `settings.billing` (solo membresía), que ahora devuelve además `name`, `plan`,
+  `current_period_end` e `is_owner`. `settings.get` sigue con permiso.
+- **Baja = ticket.** `account.deleteBar` y `account.deleteMyAccount` escriben un
+  `SupportTicket` `kind: 'baja'` (best effort, antes de desligar) y devuelven
+  `ticket_id`; `DangerZone` avisa con `notifyMissionControl`. Un fallo al crear el
+  ticket no bloquea la baja. `Soporte` acepta `?tipo=baja`.
+- **Export sin costos.** `account.exportData` exige además `Menú:ver_costos` para
+  incluir costos (Product, OrderItem, InventoryItem, InventoryMovement); si falta,
+  van fuera y el payload trae `costs_redacted: true`. También quita `license_audit`
+  y `owner_id` de la fila del bar.
+- **Claves `Equipo:*` ocultas en Permisos.** Ningún servidor las consulta
+  (`manageStaff` exige `bar_admin`). `NOT_ENFORCED_KEYS` en `permissionsLogic.js`
+  las esconde; se quita la clave de la lista en el mismo cambio que la haga cumplir.
+- **Permisos y cuenta de plataforma.** La cuenta de plataforma sin bar ya no ve
+  Permisos (menú, ruta y pantalla exigen `tenant_id`).
+- **Versión 0.15.0 sembrada a mano** (changelog y `package.json`), contra la regla
+  de "solo el release la escribe": `appConfig.js` es archivo nuevo en este merge y
+  el propio merge sería el ancla del release, que se saltaría su PR.
+  `publish-release.mjs` ahora ancla en el último commit `chore: release`.
+- **`IdleWarningDialog.jsx` diverge del canónico** (tokens de tema en lugar de
+  `yellow-500`, por la regla "solo tokens"). No se subió al repo estándar desde
+  aquí; queda por hacer allá. `SessionExpiredDialog.jsx` diverge por el módulo 10
+  (login propio). Ninguna de las dos tiene comprobación de deriva.
+- **Literales de rol** sustituidos por `@/lib/rbac` en Permisos, DangerZone,
+  ActiveSessions, MemberActions, Staff y PageNotFound.
+- **Manual** corregido (los permisos se ven en la siguiente carga) y ampliado
+  (cuenta, sesiones, exportar, ceder/baja, soporte, aviso de versión).
+  `MANUAL_LAST_REVIEWED` no se tocó: falta lectura humana.
+- **Sitio (acaciaco-site).** `apps/sommel.html` enlaza a
+  `https://sommel.acaciaco.com.mx/register` en el hero y en la franja de precio, y
+  el rótulo pasa a "Prueba gratis por 30 días". Sommel sigue fuera de
+  `apps/index.html` (igual que ArtisKids); pendiente de decidir.

@@ -9,5 +9,5 @@ export const get: Route = async (ctx: Ctx) => {
   if (!ctx.bar) httpError(404, 'not_found', 'No se encontró el bar');
   const allowed = (await hasPermission(ctx, 'Cobro:cobrar')) || (await hasPermission(ctx, 'Ajustes:editar'));
   if (!allowed) httpError(403, 'forbidden', 'No tienes permiso para esta acción');
-  return { bar: settingsView(ctx.bar) };
+  return { bar: settingsView(ctx.bar, ctx.self?.id) };
 };

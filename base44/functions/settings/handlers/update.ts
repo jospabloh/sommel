@@ -25,5 +25,5 @@ export const update: Route = async (ctx: Ctx, body: any) => {
 
   await ctx.svc.entities.WineBar.update(bar.id, patch);
   const [fresh] = await ctx.svc.entities.WineBar.filter({ id: bar.id });
-  return { bar: settingsView(fresh ?? { ...bar, ...patch }) };
+  return { bar: settingsView(fresh ?? { ...bar, ...patch }, ctx.self?.id) };
 };

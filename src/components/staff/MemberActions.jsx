@@ -8,11 +8,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { BAR_ADMIN } from '@/lib/rbac';
 
 // Per-member action menu. The owner has no actions (badge only, handled by
 // the parent); your own row can change nothing that would lock you out.
 export default function MemberActions({ member, isSelf, busy, onSetRole, onRemove }) {
-  const isAdmin = member.app_role === 'bar_admin';
+  const isAdmin = member.app_role === BAR_ADMIN;
   const name = member.full_name || member.email;
   return (
     <DropdownMenu>
@@ -27,7 +28,7 @@ export default function MemberActions({ member, isSelf, busy, onSetRole, onRemov
             <User className="w-4 h-4 mr-2" /> Hacer equipo
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem className="py-3" onSelect={() => onSetRole(member, 'bar_admin')}>
+          <DropdownMenuItem className="py-3" onSelect={() => onSetRole(member, BAR_ADMIN)}>
             <ShieldCheck className="w-4 h-4 mr-2" /> Hacer administrador
           </DropdownMenuItem>
         )}

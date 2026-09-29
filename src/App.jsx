@@ -8,6 +8,7 @@ import { PermissionProvider } from '@/lib/PermissionContext';
 import { usePermission } from '@/lib/usePermission';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { isAuthPath, loginPath } from '@/lib/loginPath';
+import { isPlatformUser, canManageBar } from '@/lib/rbac';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Layout from '@/components/Layout';
@@ -23,6 +24,10 @@ import Asistencia from '@/pages/Asistencia';
 import Inventario from '@/pages/Inventario';
 import Reportes from '@/pages/Reportes';
 import Ajustes from '@/pages/Ajustes';
+import Permisos from '@/pages/Permisos';
+import Cuenta from '@/pages/Cuenta';
+import Soporte from '@/pages/Soporte';
+import About from '@/pages/About';
 import Impresion from '@/pages/Impresion';
 import Onboarding from '@/pages/Onboarding';
 import Login from '@/pages/Login';
@@ -39,7 +44,7 @@ import ResetPassword from '@/pages/ResetPassword';
 // registros").
 const RequireTenant = () => {
   const { user } = useAuth();
-  if (user && user.role !== 'admin' && !user.tenant_id) {
+  if (user && !isPlatformUser(user) && !user.tenant_id) {
     return <Navigate to="/onboarding" replace />;
   }
   return <Outlet />;
@@ -50,7 +55,7 @@ const RequireTenant = () => {
 // "create your bar" form again.
 const OnboardingRoute = () => {
   const { user } = useAuth();
-  if (user && (user.role === 'admin' || user.tenant_id)) {
+  if (user && (isPlatformUser(user) || user.tenant_id)) {
     return <Navigate to="/mesas" replace />;
   }
   return <Onboarding />;
@@ -75,6 +80,15 @@ const RequirePermission = ({ perm }) => {
 // Module 10: an unauthenticated visitor lands on Sommel's own /login, keeping
 // where they were going in ?returnTo=. Rendered inside the router so it can
 // read the location; never used on an auth route itself (no loop).
+// Screens only the bar administrator (or the platform) can open. The screen
+// guards itself too; this keeps the URL from rendering for anyone else.
+const RequireBarAdmin = () => {
+  const { user } = useAuth();
+  // The platform account only manages a bar it actually belongs to.
+  if (!canManageBar(user) || (isPlatformUser(user) && !user.tenant_id)) return <Navigate to="/mesas" replace />;
+  return <Outlet />;
+};
+
 const RedirectToLogin = () => {
   const location = useLocation();
   return <Navigate to={loginPath(location)} replace />;
@@ -166,6 +180,12 @@ const AuthenticatedApp = () => {
             <Route element={<RequirePermission perm="Ajustes:editar" />}>
               <Route path="/ajustes" element={<Ajustes />} />
             </Route>
+            <Route element={<RequireBarAdmin />}>
+              <Route path="/permisos" element={<Permisos />} />
+            </Route>
+            <Route path="/cuenta" element={<Cuenta />} />
+            <Route path="/soporte" element={<Soporte />} />
+            <Route path="/about" element={<About />} />
             <Route path="/staff" element={<Staff />} />
             <Route path="/super-admin" element={<SuperAdmin />} />
           </Route>

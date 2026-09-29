@@ -4,11 +4,18 @@ import { useAuth } from '@/lib/AuthContext';
 import {
   LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut,
   Clock, Package, BarChart3, Printer, Settings, Fingerprint, CalendarCheck,
+  ShieldCheck, LifeBuoy, Info, UserCircle,
 } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
 import LicenseBanner from '@/components/LicenseBanner';
 import { usePermission } from '@/lib/usePermission';
+import { isPlatformUser, isBarAdmin, barRoleOf } from '@/lib/rbac';
+import AppUpdateBanner from '@/components/AppUpdateBanner';
+import IdleWarningDialog from '@/components/IdleWarningDialog';
+import SessionExpiredDialog from '@/components/SessionExpiredDialog';
+import { useSessionManager } from '@/hooks/useSessionManager';
+import { useActivityTracker } from '@/hooks/useActivityTracker';
 
 const SOMMEL_LOGO = 'https://media.base44.com/images/public/6ab41c2a89f592a0eca074d2/068ca3173_Sommel_logo.png';
 
@@ -30,16 +37,23 @@ const NAV_ITEMS = [
   { label: 'Reportes', to: '/reportes', icon: BarChart3, perm: 'Reportes:ver' },
   { label: 'Impresión', to: '/estacion/impresion', icon: Printer, perm: 'Impresion:operar' },
   { label: 'Staff', to: '/staff', icon: Users, only: 'bar_admin' },
+  // Permisos is bar_admin/platform only; not gated with can('Ajustes:editar'),
+  // which is true for bar_admin only through the role shortcut.
+  { label: 'Permisos', to: '/permisos', icon: ShieldCheck, only: 'bar_admin_with_bar' },
   { label: 'Ajustes', to: '/ajustes', icon: Settings, perm: 'Ajustes:editar' },
+  { label: 'Cuenta', to: '/cuenta', icon: UserCircle },
+  { label: 'Soporte', to: '/soporte', icon: LifeBuoy },
+  { label: 'Acerca de', to: '/about', icon: Info },
 ];
 
 function navFor(user, can) {
-  const isPlatformAdmin = user?.role === 'admin';
-  const appRole = user?.app_role;
+  const isPlatformAdmin = isPlatformUser(user);
+  const appRole = barRoleOf(user);
   if (!isPlatformAdmin && !appRole) return [];
   return NAV_ITEMS.filter((it) => {
     if (it.only === 'platform') return isPlatformAdmin;
-    if (it.only === 'bar_admin') return isPlatformAdmin || appRole === 'bar_admin';
+    if (it.only === 'bar_admin_with_bar') return isBarAdmin(user) || (isPlatformAdmin && !!user?.tenant_id);
+    if (it.only === 'bar_admin') return isPlatformAdmin || isBarAdmin(user);
     return !it.perm || can(it.perm);
   });
 }
@@ -67,6 +81,9 @@ export default function Layout() {
   // local que podría desincronizarse de la URL real.
   const { can } = usePermission();
   const items = navFor(user, can);
+  // Module 20: idle warning / forced-logout dialogs and activity tracking.
+  const { idleState, sessionExpired, continueSession } = useSessionManager();
+  useActivityTracker(user?.tenant_id);
 
   const navRef = useRef(null);
   const savedScroll = useRef(readNavScroll());
@@ -146,8 +163,11 @@ export default function Layout() {
       </aside>
       <main className="flex-1 min-w-0 overflow-auto">
         <LicenseBanner />
+        <AppUpdateBanner />
         <Outlet />
       </main>
+      <IdleWarningDialog open={idleState === 'idle_warning'} onContinue={continueSession} />
+      <SessionExpiredDialog open={sessionExpired} />
     </div>
   );
 }
