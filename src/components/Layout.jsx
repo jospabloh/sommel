@@ -1,20 +1,14 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import {
-  LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut, Sun, Moon, Monitor,
+  LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut,
   Clock, Package, BarChart3, Printer, Settings, Fingerprint, CalendarCheck,
 } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
-import { useTheme } from '@/lib/useTheme';
+import LicenseBanner from '@/components/LicenseBanner';
 import { usePermission } from '@/lib/usePermission';
-
-// Módulo 12 (fixed 2026-09-28): Sun / Moon / Monitor, cycling light -> dark ->
-// system -> light. Existing tokens only, no new fixed colors.
-const THEME_CYCLE = { light: 'dark', dark: 'system', system: 'light' };
-const THEME_ICON = { light: Sun, dark: Moon, system: Monitor };
-const THEME_LABEL = { light: 'Claro', dark: 'Oscuro', system: 'Sistema' };
 
 const SOMMEL_LOGO = 'https://media.base44.com/images/public/6ab41c2a89f592a0eca074d2/068ca3173_Sommel_logo.png';
 
@@ -50,28 +44,67 @@ function navFor(user, can) {
   });
 }
 
+// Módulo 23: the sidebar's scroll position survives a full-page reload. The
+// active item is derived from the URL on every render (below), so it is right
+// from the first frame; the scroll offset is not route-derived, so it lives in
+// sessionStorage (per tab, gone when the tab closes).
+const NAV_SCROLL_KEY = 'sommel-nav-scroll';
+
+function readNavScroll() {
+  try {
+    const v = Number(sessionStorage.getItem(NAV_SCROLL_KEY));
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { preference, setPreference } = useTheme();
   // Derivado del pathname en cada render (módulo 23) — nunca de un estado
   // local que podría desincronizarse de la URL real.
   const { can } = usePermission();
   const items = navFor(user, can);
+
+  const navRef = useRef(null);
+  const savedScroll = useRef(readNavScroll());
+  const appliedScroll = useRef(null);
+
+  // Restore synchronously (before paint) once the entries exist, and again if
+  // the list changes length (permissions arriving late) so the clamped value
+  // is not the one that gets remembered.
+  useLayoutEffect(() => {
+    const el = navRef.current;
+    if (!el || items.length === 0 || savedScroll.current === 0) return;
+    el.scrollTop = savedScroll.current;
+    appliedScroll.current = el.scrollTop;
+  }, [items.length]);
+
+  const handleNavScroll = (e) => {
+    const top = e.currentTarget.scrollTop;
+    if (appliedScroll.current !== null && top === appliedScroll.current) {
+      appliedScroll.current = null;
+      return;
+    }
+    savedScroll.current = top;
+    try {
+      sessionStorage.setItem(NAV_SCROLL_KEY, String(top));
+    } catch {
+      // Best-effort: without storage the nav just starts at the top.
+    }
+  };
 
   const handleLogout = () => {
     logout(false);
     navigate('/login');
   };
 
-  const ThemeIcon = THEME_ICON[preference];
-
   return (
-    // Fixed 2026-09-28: this div used to hardcode `dark`, forcing every
-    // screen dark regardless of device or the person's own choice — the
-    // resolved theme now comes from useTheme()/index.html's pre-mount
-    // script, applied to <html>, not forced here.
+    // The resolved theme comes from ThemeContext / index.html's pre-mount
+    // script, applied to <html>; nothing here forces a mode. The theme control
+    // itself is the corner ThemeSwitcher mounted in main.jsx (module 12).
     <div className="min-h-screen bg-background text-foreground flex">
       <aside className="w-20 lg:w-60 shrink-0 border-r border-border bg-sidebar flex flex-col">
         <div className="h-16 flex items-center gap-2 px-4 lg:px-6 border-b border-sidebar-border">
@@ -80,7 +113,7 @@ export default function Layout() {
           </div>
           <span className="hidden lg:block font-display font-semibold text-lg tracking-tight">Sommel</span>
         </div>
-        <nav className="flex-1 min-h-0 overflow-y-auto p-2 lg:p-3 space-y-1">
+        <nav ref={navRef} onScroll={handleNavScroll} className="flex-1 min-h-0 overflow-y-auto p-2 lg:p-3 space-y-1">
           {items.map((it) => {
             const Icon = it.icon;
             const active = location.pathname === it.to || (it.to !== '/' && location.pathname.startsWith(it.to));
@@ -103,15 +136,6 @@ export default function Layout() {
         </nav>
         <div className="p-2 lg:p-3 border-t border-sidebar-border space-y-1">
           <button
-            type="button"
-            onClick={() => setPreference(THEME_CYCLE[preference])}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-            aria-label={`Tema: ${THEME_LABEL[preference]}. Toca para cambiar.`}
-          >
-            <ThemeIcon className="w-5 h-5 shrink-0" />
-            <span className="hidden lg:block">Tema: {THEME_LABEL[preference]}</span>
-          </button>
-          <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
           >
@@ -121,6 +145,7 @@ export default function Layout() {
         </div>
       </aside>
       <main className="flex-1 min-w-0 overflow-auto">
+        <LicenseBanner />
         <Outlet />
       </main>
     </div>

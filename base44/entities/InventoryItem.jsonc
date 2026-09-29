@@ -14,7 +14,7 @@
     "low_threshold": { "type": "number", "default": 0, "description": "Alerta cuando el stock cae por debajo de este valor" },
     "unit_cost": {
       "type": ["integer", "null"],
-      "description": "Costo por unidad en centavos MXN. Bloqueado a la plataforma como OrderItem.unit_cost: la función inventory lo entrega solo con Menú:ver_costos (D7)",
+      "description": "Costo por unidad en centavos MXN. La función inventory lo entrega solo con Menú:ver_costos (D7). Módulo 19, candado de LECTURA (rls.read solo role admin); no gobierna la escritura, que ya es solo de plataforma a nivel entidad. Lo lee y lo escribe solo el servidor (función inventory, asServiceRole). Si se quita el candado, cualquier miembro del bar lee el costo de los insumos sin Menú:ver_costos. Un costo que no aparece en pantalla no se arregla quitando este candado: se diagnostica en la función inventory.",
       "rls": {
         "read": { "user_condition": { "role": "admin" } }
       }

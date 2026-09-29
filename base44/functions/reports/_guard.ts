@@ -36,6 +36,8 @@ import {
   localHour,
   splitEqual,
   isRateLimitError,
+  tenantAccessDenied,
+  routeAllowsNoTenant,
   type AppRole,
   type PaymentMethodDef,
 } from './_guard_logic.ts';
@@ -61,6 +63,8 @@ export {
   localHour,
   splitEqual,
   isRateLimitError,
+  tenantAccessDenied,
+  routeAllowsNoTenant,
 };
 export type { PaymentMethodDef };
 
@@ -82,9 +86,12 @@ export interface Ctx {
  * and what keeps a stale/forged client-side user object from ever being
  * consulted for a permission decision.
  *
- * `allowNoTenant` is for platform-only actions (e.g. `catalog.importMenu`)
- * where the caller may be the platform admin with no `tenant_id` at all —
- * individual handlers still gate those with `ctx.isPlatform` explicitly.
+ * `allowNoTenant` (default false, module 14) is for platform-only actions
+ * (today only `catalog.importMenu`) where the caller is the platform admin
+ * with no `tenant_id` at all; individual handlers still gate those with
+ * `ctx.isPlatform` explicitly. Every other route answers 403 `no_tenant` to a
+ * caller with no bar, platform admin included. Routes opt in with
+ * `allowNoTenant(route)` (below), never through a global default.
  */
 export async function requireContext(
   req: Request,
@@ -124,7 +131,7 @@ export async function requireContext(
   // can't be the one field still read off the un-re-read object.
   const isPlatform = self.role === 'admin';
 
-  if (!tenantId && !isPlatform && !opts.allowNoTenant) {
+  if (tenantAccessDenied({ tenantId, isPlatform, routeAllowsNoTenant: !!opts.allowNoTenant })) {
     throw new HttpError(403, 'no_tenant', 'No perteneces a ningún bar');
   }
 
@@ -196,7 +203,18 @@ export function httpError(status: number, code: string, message: string, extra?:
   throw new HttpError(status, code, message, extra);
 }
 
-export type Route = (ctx: Ctx, body: any) => Promise<object>;
+export type Route = ((ctx: Ctx, body: any) => Promise<object>) & { allowNoTenant?: boolean };
+
+/**
+ * Marks ONE route as runnable by a platform admin who has no bar (module 14).
+ * Returns a wrapper carrying the mark, so the handler itself stays untouched.
+ * Use it in `entry.ts` and only for actions that are platform-only by design.
+ */
+export function allowNoTenant(route: (ctx: Ctx, body: any) => Promise<object>): Route {
+  const wrapped: Route = (ctx, body) => route(ctx, body);
+  wrapped.allowNoTenant = true;
+  return wrapped;
+}
 
 /**
  * Router: parses the body, builds the context once (module 22 re-read
@@ -218,13 +236,17 @@ export async function handle(req: Request, routes: Record<string, Route>): Promi
       throw new HttpError(400, 'invalid_body', 'Cuerpo inválido');
     }
     const action = body?.action;
-    const route = typeof action === 'string' ? routes[action] : undefined;
+    const route =
+      typeof action === 'string' && Object.prototype.hasOwnProperty.call(routes, action)
+        ? routes[action]
+        : undefined;
     if (!route) {
       throw new HttpError(400, 'unknown_action', 'Acción no válida');
     }
-    // allowNoTenant: platform-only actions (importMenu) run with no bar of
-    // their own; each such handler checks ctx.isPlatform itself.
-    const ctx = await requireContext(req, { allowNoTenant: true });
+    // Module 14: no tenant means 403 `no_tenant`, except on a route that
+    // opted in with `allowNoTenant(route)` (importMenu, platform-only; that
+    // handler also checks ctx.isPlatform itself).
+    const ctx = await requireContext(req, { allowNoTenant: routeAllowsNoTenant(route) });
     const result = await route(ctx, body);
     return Response.json({ ok: true, ...result });
   } catch (error) {

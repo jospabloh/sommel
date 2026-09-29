@@ -5,7 +5,7 @@
   "name": "StaffPin",
   "type": "object",
   "properties": {
-    "tenant_id": { "type": "string", "description": "WineBar al que pertenece el PIN" },
+    "tenant_id": { "type": "string", "description": "WineBar al que pertenece el PIN. Módulo 19, candado de LECTURA y ESCRITURA a nivel entidad: las cuatro operaciones son solo de plataforma (role admin). Ni el propio bar lee los hashes; solo el servidor (service role) los lee y escribe. Si se afloja la lectura, cualquier miembro del bar puede leer pin_hash y salt de sus compañeros y probar PINs sin el bloqueo por intentos; si se afloja la escritura, puede reiniciar failed_attempts o cambiar el PIN de otro. Un checador que no acepta el PIN no se arregla tocando este candado." },
     "user_id": { "type": "string", "description": "Usuario dueño del PIN; uno por usuario" },
     "pin_hash": { "type": "string", "description": "PBKDF2-SHA256, 100000 iteraciones, en hex" },
     "salt": { "type": "string", "description": "16 bytes aleatorios en hex, distinto por fila" },

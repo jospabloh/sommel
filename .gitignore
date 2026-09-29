@@ -35,3 +35,7 @@ dist-ssr
 .env
 .vite
 base44/.app.jsonc
+
+# Playwright smoke output
+test-results/
+playwright-report/

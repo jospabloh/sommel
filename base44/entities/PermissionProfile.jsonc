@@ -10,7 +10,7 @@
   "name": "PermissionProfile",
   "type": "object",
   "properties": {
-    "tenant_id": { "type": "string", "description": "WineBar al que pertenece este perfil" },
+    "tenant_id": { "type": "string", "description": "WineBar al que pertenece este perfil. Módulo 19, candado de ESCRITURA a nivel entidad: create, update y delete son solo de plataforma (role admin). Los escribe únicamente el servidor (funciones Safe con asServiceRole, que evalúa como admin); el cliente y el propio bar nunca escriben esta entidad directo. Los escribe la función permissions (upsertProfile) tras exigir bar_admin o plataforma. Si se afloja la escritura, un staff reescribe el perfil que decide lo que puede hacer un staff y anula el re-chequeo de permisos del servidor. Un síntoma de lectura o de pantalla vacía no se arregla tocando este candado, porque una regla de escritura no afecta lo que devuelve una lectura." },
     "role": { "type": "string", "enum": ["bar_admin", "staff"], "description": "Rol del bar al que aplica este perfil" },
     "overrides": {
       "type": "object",

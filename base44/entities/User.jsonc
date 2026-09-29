@@ -2,7 +2,7 @@
   "properties": {
     "role": {
       "type": "string",
-      "description": "Built-in platform role (admin = super admin of the SaaS platform)",
+      "description": "Rol integrado de la plataforma (admin = administrador de la plataforma SaaS; user = todos los demás). Módulo 19: este campo NO es el rol dentro del bar (ese es app_role) y se asigna desde la plataforma, nunca desde la app; todo el RLS de las demás entidades trata role admin como acceso a todos los inquilinos. Si se otorga role admin a un usuario de un bar, esa persona lee y escribe los datos de todos los bares. Un usuario que no puede entrar o ver su bar no se arregla cambiando su role: se diagnostica con tenant_id y app_role.",
       "enum": [
         "admin",
         "user"
@@ -10,7 +10,7 @@
     },
     "app_role": {
       "type": "string",
-      "description": "App-specific role within a wine bar. Server-authoritative: sólo lo escriben createWineBar y manageStaff (service role). write:false para que nadie se dé bar_admin con updateMe (módulo 24 del estándar).",
+      "description": "App-specific role within a wine bar. Server-authoritative: sólo lo escriben createWineBar y manageStaff (service role). Candado de ESCRITURA (rls.write false, módulo 24 del estándar; módulo 19 lo protege): no gobierna las lecturas. Si se quita, cualquier usuario se da bar_admin con updateMe y administra el bar, el equipo y los permisos. Un usuario que no ve las pantallas de admin no se arregla quitando este candado: se corrige el valor desde manageStaff.",
       "enum": [
         "super_admin",
         "bar_admin",
@@ -22,7 +22,7 @@
     },
     "tenant_id": {
       "type": "string",
-      "description": "ID of the WineBar this user belongs to. Server-authoritative: sólo lo escriben createWineBar y manageStaff (service role). write:false: con updateMe cualquiera podía apuntarse al bar de otro y leer sus datos (módulo 24 del estándar).",
+      "description": "ID of the WineBar this user belongs to. Server-authoritative: sólo lo escriben createWineBar y manageStaff (service role). Candado de ESCRITURA (rls.write false, módulo 24 del estándar; módulo 19 lo protege): no gobierna las lecturas. Si se quita, con updateMe cualquiera se apunta al bar de otro y lee sus datos, porque todo el RLS compara contra este campo. Un usuario sin bar o con pantalla vacía no se arregla quitando este candado: se diagnostica la fila del usuario y se corrige desde createWineBar o manageStaff.",
       "rls": {
         "write": false
       }

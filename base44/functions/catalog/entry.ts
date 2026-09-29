@@ -1,4 +1,4 @@
-import { handle } from './_guard.ts';
+import { handle, allowNoTenant } from './_guard.ts';
 import { listProducts } from './handlers/listProducts.ts';
 import { upsertCategory } from './handlers/upsertCategory.ts';
 import { deleteCategory } from './handlers/deleteCategory.ts';
@@ -18,6 +18,7 @@ export default function (req: Request): Promise<Response> {
     deleteCategory,
     upsertProduct,
     toggleProduct,
-    importMenu,
+    // Module 14: the only route a platform admin with no bar may call.
+    importMenu: allowNoTenant(importMenu),
   });
 }

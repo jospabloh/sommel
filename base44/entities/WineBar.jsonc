@@ -29,7 +29,7 @@
         "suspended"
       ],
       "default": "trial",
-      "description": "Módulo 19: solo lo escribe la plataforma (Mission Control / createWineBar como service role). Bloqueado a role:admin porque, sin este candado, cualquier miembro del bar podría reactivar su propio bar suspendido o convertirse en 'active' con una llamada cruda a Base44 — el $or de la entidad ({id: tenant_id} en update) por sí solo no distingue campos.",
+      "description": "Módulo 19: solo lo escribe la plataforma (Mission Control / createWineBar como service role). Candado de ESCRITURA (rls.write solo role admin); no afecta a las lecturas. Lo escriben la plataforma (Mission Control por acaciaControl, license.set) y createWineBar como service role. Si se quita el candado, cualquier bar_admin del bar, que sí puede actualizar WineBar, reactiva su propio bar suspendido o se pone en active con una llamada cruda a Base44: el $or de update de la entidad por sí solo no distingue campos. Un bar que aparece bloqueado por error no se arregla quitando este candado: se corrige el estado desde Mission Control.",
       "rls": {
         "write": {
           "user_condition": {
@@ -41,7 +41,7 @@
     "trial_end_at": {
       "type": "string",
       "format": "date-time",
-      "description": "Módulo 19: solo lo escribe la plataforma. Sin este candado, un bar en trial podría estirarse su propia fecha de fin de prueba indefinidamente.",
+      "description": "Módulo 19: candado de ESCRITURA (rls.write solo role admin); no afecta a las lecturas. Lo escriben la plataforma (license.set de acaciaControl) y createWineBar, que calcula el fin de la prueba de 30 días. Si se quita el candado, un bar en trial se estira su propia fecha de fin de prueba indefinidamente. Una prueba que venció antes de tiempo no se arregla quitando este candado: se corrige la fecha desde Mission Control.",
       "rls": {
         "write": {
           "user_condition": {
@@ -53,7 +53,7 @@
     "current_period_end": {
       "type": "string",
       "format": "date-time",
-      "description": "Módulo 19: solo lo escribe la plataforma. Sin este candado, un bar activo podría extenderse su propio periodo pagado sin pagar.",
+      "description": "Módulo 19: candado de ESCRITURA (rls.write solo role admin); no afecta a las lecturas. Lo escribe solo la plataforma (license.set de acaciaControl, tras confirmar un pago en Mission Control). Si se quita el candado, un bar activo se extiende su propio periodo pagado sin pagar. Un periodo que aparece vencido por error no se arregla quitando este candado: se corrige desde Mission Control.",
       "rls": {
         "write": {
           "user_condition": {
@@ -64,7 +64,7 @@
     },
     "plan": {
       "type": "string",
-      "description": "Módulo 19: solo lo escribe la plataforma. Sin este candado, un bar podría subirse de plan (y de límites) sin que la plataforma lo autorice.",
+      "description": "Módulo 19: candado de ESCRITURA (rls.write solo role admin); no afecta a las lecturas. Lo escribe solo la plataforma (license.set de acaciaControl) y createWineBar al crear el bar. Si se quita el candado, un bar se sube de plan, y de límites, sin que la plataforma lo autorice. Un límite de plan que estorba no se arregla quitando este candado: se cambia el plan desde Mission Control.",
       "rls": {
         "write": {
           "user_condition": {
@@ -75,7 +75,7 @@
     },
     "owner_id": {
       "type": "string",
-      "description": "User id of the bar owner",
+      "description": "User id del dueño del bar. Módulo 19, candado de ESCRITURA (rls.write solo role admin); no afecta a las lecturas. Lo escribe solo createWineBar (service role) al crear el bar, y lo lee manageStaff para proteger al dueño (owner_locked: no se le degrada ni se le quita). Si se quita el candado, cualquier bar_admin del bar, que sí puede actualizar WineBar, se pone a sí mismo como dueño y anula la protección owner_locked. Un dueño que no aparece en pantalla no se arregla quitando este candado.",
       "rls": {
         "write": {
           "user_condition": {

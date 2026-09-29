@@ -10,12 +10,15 @@ propuesta que Alby aceptó el 2026-09-27. Este plan dice **cómo** se cumple.
   lo que tiene `base44/` en el espacio de trabajo de Base44 (se comparó el
   tamaño de cada archivo el 2026-09-28).
 - **El esquema desplegado ya trae los bloqueos del módulo 24** (PR #1 a #4):
-  `User.tenant_id`/`app_role` con `write:false`, `WineBar.subscription_status`
-  y `owner_id` solo para la plataforma, alta de bar en `createWineBar`.
-- **Datos vivos:** 1 `User` (el dueño de la plataforma, `role: admin`), sin
-  bares ni clientes. Rediseñar las entidades no rompe a nadie hoy; a partir
-  de que Vindima tenga datos, todo cambio de esquema sigue la regla del
-  módulo 4 (ampliar primero, nunca estrechar a medias).
+  `User.tenant_id`/`app_role` con `write:false`, `WineBar.billing_status`
+  (antes `subscription_status`), `trial_end_at`, `current_period_end`, `plan` y
+  `owner_id` solo para la plataforma, alta de bar en `createWineBar`.
+- **Datos vivos (releídos el 2026-09-29):** **7 `User`**, de los cuales solo
+  el dueño de la plataforma tiene `role: admin` integrado; los otros 6 son
+  `role: user` (2 `bar_admin`, 4 `staff` y 1 sin bar) repartidos en **2
+  inquilinos reales**. La lectura de 1 solo usuario (2026-09-28) quedó
+  obsoleta. Ya no se puede rediseñar sin cuidado: todo cambio de esquema sigue
+  la regla del módulo 4 (ampliar primero, nunca estrechar a medias).
 - **Lo que hay es un prototipo genérico** ("POS SaaS para wine bars"): la
   venta se cobra de una vez (`processSale` crea la orden ya pagada), no hay
   comandas abiertas, estaciones, cobro con varias formas, turnos ni
@@ -84,10 +87,10 @@ regla la permitiría, la Safe function es la única que escribe.
 | `reports` | day, week, range (con comparativo) | Reportes |
 | `account` | exportData, deleteMyAccount, deleteBar | 7 |
 | `permissions` | getProfile, upsertProfile | 3 |
-| `acaciaControl` | ping (salud, módulo 5), license, tickets, usage | 5, 15 |
+| `acaciaControl` | ping (salud, módulo 5), licenses.list, license.get/set, tenants, tickets.list, usage, sessions.list/revoke. Falla cerrado (503) sin `INGEST_HMAC_SECRET`/`ACACIA_APP_SLUG` | 5, 15 |
 | `purgeStaleSessions` | cron 48 h | 20 |
 
-≈ 14 endpoints. `processSale` se retira cuando `orders` + `payments` lo cubran
+Hoy hay 15 de 40 (2026-09-29); la ola 2 suma `account`, `session` y `purgeStaleSessions` (≈ 18). Mapa de acciones: `docs/BACKEND_FUNCTION_LIMIT_REORG.md`. `processSale` se retira cuando `orders` + `payments` lo cubran
 (antes de retirarla: `npm run functions:audit`).
 
 Orden de validación en **cada** acción de escritura (el mismo de StockFlow):
@@ -163,9 +166,27 @@ acaciaco-site) y el 17 (Mission Control) se hacen en la fase 4.
 ## 8. Reglas internas de operación
 
 - **No se despliega nada en su horario de servicio.**
-- Deploy por los scripts del repo (`npm run deploy`, `deploy:site`,
-  `deploy:entities`), que leen el `appId` de `base44.app.json`. Mergear no
-  despliega. Se verifica por contenido, no por hash.
+- **Flujo de deploy (corregido 2026-09-29):** mergear a `main` -> Base44
+  sincroniza código y esquemas desde GitHub solo -> se publica por la API de
+  Base44 -> se verifica por contenido, no por hash ni por `unchanged`. El
+  operador no corre `npm run deploy` en un cambio normal; esos scripts
+  (`deploy`, `deploy:site`, `deploy:entities`, que leen el `appId` de
+  `base44.app.json` y rechazan `--app-id`) son el camino de excepción. Detalle
+  en `CLAUDE.md`.
 - Formato en papel de respaldo (PDF) entregado antes de la Entrega 2.
 - Cada cambio de entidad o función repite la auditoría del módulo 14 y se
-  anota en `CLAUDE.md`.
+  anota en `CLAUDE.md` (primera auditoría fechada: 2026-09-29).
+
+## 9. Correcciones del 2026-09-29
+
+Este plan se escribió el 2026-09-27/28 y quedó atrás en cuatro puntos:
+
+- **Usuarios y campo de licencia:** hay 7 usuarios en 2 inquilinos y el campo es
+  `billing_status`, no `subscription_status` (corregido en §0).
+- **Deploy:** ver §8. Mergear sincroniza; publica quien orquesta por la API.
+- **Módulo 24 y 14:** auditados y anotados en `CLAUDE.md` (sin sesión restringida
+  de un segundo inquilino, que sigue pendiente).
+- **Bloqueos (módulo 19):** inventario en `docs/locks-audit.md`, con guardia en
+  `scripts/validate-locks.mjs`.
+- **Secretos:** ninguno configurado a esta fecha; ver `docs/secrets.md`. El
+  correo sale por la integración `Core.SendEmail` de Base44, sin clave propia.

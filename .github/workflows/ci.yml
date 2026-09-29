@@ -9,6 +9,7 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      # lint chains validate:functions, validate:locks, check:bridge and check:auth-me
       - run: npm run lint
       - run: npm run build
       - run: npm run validate:rls
@@ -17,4 +18,4 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno test --allow-env base44/tests/
+      - run: deno test --allow-env --allow-read=base44/entities base44/tests/ base44/functions/acaciaSign.test.ts

@@ -38,11 +38,57 @@ export const PERMISSION_DEFAULTS = {
   'Impresion:operar': { bar_admin: true, staff: true },
   'Reportes:ver': { bar_admin: true, staff: false },
   'Ajustes:editar': { bar_admin: true, staff: false },
+  'Ajustes:exportar': { bar_admin: true, staff: false },
+  'Equipo:invitar': { bar_admin: true, staff: false },
+  'Equipo:cambiar_rol': { bar_admin: true, staff: false },
+  'Equipo:quitar': { bar_admin: true, staff: false },
   'Asistencia:checar': { bar_admin: true, staff: true },
   'Asistencia:ver_equipo': { bar_admin: true, staff: false },
   'Asistencia:corregir': { bar_admin: true, staff: false },
 };
 // AUTOGEN:PERMISSION_DEFAULTS:END
+
+/**
+ * Etiquetas en español de cada clave, para la pantalla de Permisos (módulo 3).
+ * Vive FUERA del bloque AUTOGEN: el servidor solo necesita los defaults, y
+ * `base44/tests/permissions_logic_test.ts` falla si una clave de arriba se
+ * queda sin etiqueta (o si aquí sobra una que ya no existe).
+ * Cada valor es { section, label }: `section` agrupa filas en la matriz.
+ */
+export const PERMISSION_LABELS = {
+  'Menú:ver': { section: 'Menú', label: 'Ver el menú' },
+  'Menú:editar': { section: 'Menú', label: 'Editar categorías y productos' },
+  'Menú:ver_costos': { section: 'Menú', label: 'Ver costos de los productos' },
+  'Mesas:editar': { section: 'Mesas', label: 'Crear, editar y borrar mesas' },
+  'Comandas:tomar': { section: 'Comandas', label: 'Tomar y enviar comandas' },
+  'Comandas:cancelar_enviado': { section: 'Comandas', label: 'Cancelar productos ya enviados' },
+  'Comandas:mover_mesas': { section: 'Comandas', label: 'Mover y unir mesas' },
+  'Comandas:cancelar_orden': { section: 'Comandas', label: 'Cancelar una orden completa' },
+  'Estaciones:operar': { section: 'Estaciones', label: 'Operar cocina y barra' },
+  'Cobro:cobrar': { section: 'Cobro', label: 'Cobrar cuentas' },
+  'Cobro:descuento': { section: 'Cobro', label: 'Aplicar descuentos' },
+  'Cobro:anular_pago': { section: 'Cobro', label: 'Anular pagos' },
+  'Turno:operar': { section: 'Turno', label: 'Abrir turno y registrar salidas de caja' },
+  'Turno:ver_corte': { section: 'Turno', label: 'Ver y cerrar el corte de caja' },
+  'Inventario:ver': { section: 'Inventario', label: 'Ver el inventario' },
+  'Inventario:merma': { section: 'Inventario', label: 'Registrar mermas' },
+  'Inventario:editar': { section: 'Inventario', label: 'Editar insumos, entradas y conteos' },
+  'Impresion:operar': { section: 'Impresión', label: 'Operar la cola de impresión' },
+  'Reportes:ver': { section: 'Reportes', label: 'Ver reportes' },
+  'Ajustes:editar': { section: 'Ajustes', label: 'Editar los ajustes del bar' },
+  'Ajustes:exportar': { section: 'Ajustes', label: 'Exportar los datos del bar' },
+  'Asistencia:checar': { section: 'Asistencia', label: 'Checar entrada y salida' },
+  'Asistencia:ver_equipo': { section: 'Asistencia', label: 'Ver la asistencia del equipo' },
+  'Asistencia:corregir': { section: 'Asistencia', label: 'Corregir marcas de asistencia' },
+  'Equipo:invitar': { section: 'Equipo', label: 'Invitar personas al equipo' },
+  'Equipo:cambiar_rol': { section: 'Equipo', label: 'Cambiar el rol de una persona' },
+  'Equipo:quitar': { section: 'Equipo', label: 'Quitar personas del equipo' },
+};
+
+/** Etiqueta legible de una clave; cae a la propia clave si no la conoce. */
+export function permissionLabel(key) {
+  return PERMISSION_LABELS[key]?.label ?? key;
+}
 
 /**
  * Misma precedencia que `_guard.ts`'s `hasPermission` en el servidor.

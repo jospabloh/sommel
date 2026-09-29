@@ -38,6 +38,10 @@ export const PERMISSION_DEFAULTS: Record<string, { bar_admin: boolean; staff: bo
   "Impresion:operar": { bar_admin: true, staff: true },
   "Reportes:ver": { bar_admin: true, staff: false },
   "Ajustes:editar": { bar_admin: true, staff: false },
+  "Ajustes:exportar": { bar_admin: true, staff: false },
+  "Equipo:invitar": { bar_admin: true, staff: false },
+  "Equipo:cambiar_rol": { bar_admin: true, staff: false },
+  "Equipo:quitar": { bar_admin: true, staff: false },
   "Asistencia:checar": { bar_admin: true, staff: true },
   "Asistencia:ver_equipo": { bar_admin: true, staff: false },
   "Asistencia:corregir": { bar_admin: true, staff: false },
@@ -66,6 +70,28 @@ export function resolvePermission(key: string, ctx: PermissionResolveCtx): boole
   if (!def) return false; // unknown key => deny
   if (ctx.appRole === 'staff') return !!def.staff;
   return false; // no app_role at all => deny
+}
+
+/**
+ * Module 14: a request with no tenant is refused (403 `no_tenant`) unless the
+ * caller is the platform admin AND the route explicitly opted in with
+ * `allowNoTenant(route)` (today only `catalog.importMenu`). Before 2026-09-29
+ * the router opted EVERY route in and a platform caller with no bar slipped
+ * past this check on all of them; the decision now lives here, pure, so the
+ * tests pin it. A tenant user always passes (the tenant is theirs).
+ */
+export function tenantAccessDenied(input: {
+  tenantId: string | null | undefined;
+  isPlatform: boolean;
+  routeAllowsNoTenant: boolean;
+}): boolean {
+  if (input.tenantId) return false;
+  return !(input.isPlatform && input.routeAllowsNoTenant);
+}
+
+/** True when a route function carries the opt-in mark set by `allowNoTenant()`. */
+export function routeAllowsNoTenant(route: unknown): boolean {
+  return typeof route === 'function' && (route as { allowNoTenant?: unknown }).allowNoTenant === true;
 }
 
 // WineBar.billing_status values that block writes (§ "requireWritable").

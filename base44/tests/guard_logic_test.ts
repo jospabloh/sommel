@@ -28,6 +28,8 @@ import {
   localHour,
   splitEqual,
   isRateLimitError,
+  tenantAccessDenied,
+  routeAllowsNoTenant,
 } from '../../scripts/templates/_guard_logic.ts';
 
 function assertEquals(actual: unknown, expected: unknown, msg?: string) {
@@ -383,4 +385,43 @@ Deno.test('isRateLimitError: SDK rate-limit shapes yes, real failures no', () =>
   assertEquals(isRateLimitError(new Error('Authentication required')), false);
   assertEquals(isRateLimitError({ status: 500 }), false);
   assertEquals(isRateLimitError(null), false);
+});
+
+// Module 14: allowNoTenant defaults to false. A platform admin with no bar is
+// refused everywhere except on a route that opted in explicitly.
+Deno.test('tenantAccessDenied: tenant user always passes', () => {
+  assertEquals(tenantAccessDenied({ tenantId: 'bar1', isPlatform: false, routeAllowsNoTenant: false }), false);
+  assertEquals(tenantAccessDenied({ tenantId: 'bar1', isPlatform: true, routeAllowsNoTenant: false }), false);
+});
+
+Deno.test('tenantAccessDenied: platform without a bar is refused on a normal route (403 no_tenant)', () => {
+  assertEquals(tenantAccessDenied({ tenantId: null, isPlatform: true, routeAllowsNoTenant: false }), true);
+  assertEquals(tenantAccessDenied({ tenantId: undefined, isPlatform: true, routeAllowsNoTenant: false }), true);
+  assertEquals(tenantAccessDenied({ tenantId: '', isPlatform: true, routeAllowsNoTenant: false }), true);
+});
+
+Deno.test('tenantAccessDenied: platform without a bar passes only on an opted-in route', () => {
+  assertEquals(tenantAccessDenied({ tenantId: null, isPlatform: true, routeAllowsNoTenant: true }), false);
+});
+
+Deno.test('tenantAccessDenied: a non-platform user without a bar is always refused', () => {
+  assertEquals(tenantAccessDenied({ tenantId: null, isPlatform: false, routeAllowsNoTenant: false }), true);
+  assertEquals(tenantAccessDenied({ tenantId: null, isPlatform: false, routeAllowsNoTenant: true }), true);
+});
+
+Deno.test('routeAllowsNoTenant: only a function carrying the exact mark opts in', () => {
+  const plain = () => Promise.resolve({});
+  const marked = Object.assign(() => Promise.resolve({}), { allowNoTenant: true });
+  const falsy = Object.assign(() => Promise.resolve({}), { allowNoTenant: 'yes' });
+  assertEquals(routeAllowsNoTenant(plain), false);
+  assertEquals(routeAllowsNoTenant(marked), true);
+  assertEquals(routeAllowsNoTenant(falsy), false);
+  assertEquals(routeAllowsNoTenant(undefined), false);
+  assertEquals(routeAllowsNoTenant({ allowNoTenant: true }), false);
+});
+
+Deno.test('PERMISSION_DEFAULTS: module 2/7 keys are admin-only by default', () => {
+  for (const k of ['Ajustes:exportar', 'Equipo:invitar', 'Equipo:cambiar_rol', 'Equipo:quitar']) {
+    assertEquals(PERMISSION_DEFAULTS[k], { bar_admin: true, staff: false }, k);
+  }
 });

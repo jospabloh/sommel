@@ -72,6 +72,19 @@ export function checkRemoveMember(input: {
   return null;
 }
 
+/**
+ * Module 14 recount: the pre-check (`checkSetRole` / `checkRemoveMember`) reads
+ * the team BEFORE the write, so two admins demoted or removed at the same
+ * moment can each pass it and leave the bar with none. After the write the
+ * handler re-reads the team and asks this (`targetWasAdmin` = the person
+ * changed held bar_admin before the write); true means "undo your write".
+ */
+export function barLostAllAdmins(membersAfter: MemberLike[], targetWasAdmin: boolean): boolean {
+  // Only a write that took an admin away can be blamed for having none: a bar
+  // that already had no admin before a staff removal must not start refusing.
+  return targetWasAdmin && countAdmins(membersAfter) === 0;
+}
+
 export const REMOVAL_EDIT_NOTE = 'Baja del equipo';
 
 /** Patch applied to an Attendance row still open when its member is removed. */

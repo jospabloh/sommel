@@ -7,31 +7,34 @@
     <link rel="manifest" href="/manifest.json" />
     <title>Sommel</title>
     <!--
-      Pre-mount theme script (module 12, fixed 2026-09-28). Runs synchronously
-      before React mounts (plain classic script, not type="module" — those are
-      deferred) so the FIRST frame already paints in the right color instead
-      of flashing the wrong theme. Shares its localStorage key/values with
-      src/lib/useTheme.js, which is what applies a theme change live after
-      mount — each file comments at the other so they don't drift apart.
+      Pre-mount theme script (module 12). Runs synchronously before React
+      mounts (plain classic script, not type="module", those are deferred) so
+      the FIRST frame already paints in the right color instead of flashing the
+      wrong theme. Shares its localStorage key and its three values
+      ('light' | 'dark' | 'system') with src/lib/ThemeContext.jsx, which
+      applies a change live after mount. Each file comments at the other so
+      they don't drift apart. Anything that is not 'light' or 'dark' (missing,
+      corrupt, storage blocked) resolves as 'system', exactly like the provider.
     -->
     <script>
       (function () {
+        var resolved = 'light';
         try {
-          var KEY = 'sommel-theme'; // 'light' | 'dark' | 'system'
-          var pref = localStorage.getItem(KEY) || 'system';
-          var resolved =
-            pref === 'system'
-              ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-              : pref;
-          var root = document.documentElement;
-          if (resolved === 'dark') root.classList.add('dark');
-          else root.classList.remove('dark');
-          root.style.colorScheme = resolved;
+          var KEY = 'sommel-theme'; // keep equal to STORAGE_KEY in src/lib/ThemeContext.jsx
+          var pref = null;
+          try { pref = localStorage.getItem(KEY); } catch (e) { /* blocked: follow the device */ }
+          if (pref !== 'light' && pref !== 'dark') pref = 'system';
+          resolved = pref;
+          if (pref === 'system') {
+            resolved = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
         } catch (e) {
-          // localStorage blocked (private mode, etc.) — fall back to dark,
-          // Sommel's original-and-only look, rather than an unstyled flash.
-          document.documentElement.classList.add('dark');
+          resolved = 'light';
         }
+        var root = document.documentElement;
+        if (resolved === 'dark') root.classList.add('dark');
+        else root.classList.remove('dark');
+        root.style.colorScheme = resolved;
       })();
     </script>
   </head>

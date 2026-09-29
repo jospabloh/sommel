@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
+import { loginPath, isAuthPath } from '@/lib/loginPath';
 
 const AuthContext = createContext();
 
@@ -116,8 +117,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const navigateToLogin = () => {
-    // Use the SDK's redirectToLogin method
-    base44.auth.redirectToLogin(window.location.href);
+    // Module 10: Sommel's own /login, never Base44's hosted page. Already on
+    // an auth route means nothing to do (that is what would loop).
+    if (isAuthPath(window.location.pathname)) return;
+    window.location.assign(loginPath());
   };
 
   return (
