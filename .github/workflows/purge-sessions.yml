@@ -1,0 +1,37 @@
+name: Purge stale sessions
+
+# Module 20, layer 3: calls purgeStaleSessions, which closes sessions whose
+# device never came back (48 h without a heartbeat). It runs here because the
+# function only answers to `Authorization: Bearer <CRON_SECRET>`, and a Base44
+# scheduled workflow cannot attach that header (putting the secret in the
+# workflow's args would land it in this repo, which Base44 syncs).
+#
+# Needs the repo secret CRON_SECRET, with the SAME value as the Base44 app
+# secret of that name. Without it the job fails loudly instead of skipping.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *" # 03:17 Aguascalientes (UTC-6), outside service hours
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call purgeStaleSessions
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          FN_URL: https://sommel.acaciaco.com.mx/api/apps/6ab41c2a89f592a0eca074d2/functions/purgeStaleSessions
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::Repo secret CRON_SECRET is not set"
+            exit 1
+          fi
+          status=$(curl -sS -o body.json -w '%{http_code}' -X POST "$FN_URL" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H 'content-type: application/json' -d '{}')
+          # The body holds only counts (scanned, revoked, failed, cutoff).
+          cat body.json; echo
+          if [ "$status" != "200" ]; then
+            echo "::error::purgeStaleSessions answered HTTP $status"
+            exit 1
+          fi
