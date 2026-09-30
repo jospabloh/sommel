@@ -178,3 +178,25 @@ Deno.test('a caller who already has a tenant must never reach chooseInviteToClai
   const alreadyAssigned = { tenant_id: 'bar_1' };
   assertEquals(!!alreadyAssigned.tenant_id, true);
 });
+
+// ---- 2026-09-30: role whitelist and dead-bar guard on claimInvite ----
+
+import { roleFromInvite, isBarClaimable } from '../functions/manageStaff/_invite_logic.ts';
+
+Deno.test('roleFromInvite: bar_admin only when the stored row says so, everything else is staff', () => {
+  assertEquals(roleFromInvite({ app_role: 'bar_admin' }), 'bar_admin');
+  assertEquals(roleFromInvite({ app_role: 'staff' }), 'staff');
+  assertEquals(roleFromInvite({}), 'staff');
+  assertEquals(roleFromInvite(null), 'staff');
+  // Never a platform role, whatever the row holds.
+  assertEquals(roleFromInvite({ app_role: 'super_admin' }), 'staff');
+  assertEquals(roleFromInvite({ app_role: 'admin' }), 'staff');
+});
+
+Deno.test('isBarClaimable: missing or archived bars cannot be joined', () => {
+  assertEquals(isBarClaimable({}), true);
+  assertEquals(isBarClaimable({ archived_at: null }), true);
+  assertEquals(isBarClaimable({ archived_at: '2026-09-01T00:00:00Z' }), false);
+  assertEquals(isBarClaimable(undefined), false);
+  assertEquals(isBarClaimable(null), false);
+});

@@ -3,8 +3,11 @@ import {
   normalizeEmail,
   expiryFrom,
   chooseInviteToClaim,
+  isLiveInvite,
   inviteIdsToRevoke,
   shouldRefreshExistingInvite,
+  roleFromInvite,
+  isBarClaimable,
 } from './_invite_logic.ts';
 import { buildInviteEmail } from './_invite_email.ts';
 import {
@@ -295,7 +298,10 @@ export default async function(req: Request): Promise<Response> {
  * re-reads `self` (already done by the caller with asServiceRole, module 22)
  * and only ever looks up StaffInvite rows by the caller's STORED email,
  * never anything from the request body — a forged `email` in the body can
- * never claim someone else's invite.
+ * never claim someone else's invite. The role comes from the stored invite
+ * through a whitelist (roleFromInvite). There is no join-by-code path in this
+ * app: the only way into an existing bar is an invite a bar_admin created,
+ * which counts as pre-approved (2026-09-30 audit).
  */
 async function claimInvite(svc: any, self: any): Promise<Response> {
   if (self.tenant_id) {
@@ -304,8 +310,17 @@ async function claimInvite(svc: any, self: any): Promise<Response> {
   const email = normalizeEmail(self.email);
   if (!email) return Response.json({ ok: true, claimed: false });
 
-  const candidates = await svc.entities.StaffInvite.filter({ email });
+  const allRows = await svc.entities.StaffInvite.filter({ email });
   const now = new Date();
+  // Drop invites to a bar that no longer exists or was archived (and close
+  // them), so nobody is attached to a dead bar.
+  const candidates: any[] = [];
+  for (const row of allRows) {
+    if (!isLiveInvite(row, now)) { candidates.push(row); continue; }
+    const [inviteBar] = await svc.entities.WineBar.filter({ id: row.tenant_id });
+    if (isBarClaimable(inviteBar)) candidates.push(row);
+    else await svc.entities.StaffInvite.update(row.id, { status: 'revoked' });
+  }
   const chosen = chooseInviteToClaim(candidates, now);
   if (!chosen) return Response.json({ ok: true, claimed: false });
 
@@ -318,7 +333,7 @@ async function claimInvite(svc: any, self: any): Promise<Response> {
   }
 
   await svc.entities.User.update(self.id, {
-    tenant_id: chosen.tenant_id, app_role: chosen.app_role || 'staff'
+    tenant_id: chosen.tenant_id, app_role: roleFromInvite(chosen)
   });
   await svc.entities.StaffInvite.update(chosen.id, {
     status: 'accepted', accepted_at: now.toISOString(), accepted_user_id: self.id

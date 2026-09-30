@@ -5,10 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus, Mail, Lock, Loader2 } from "lucide-react";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
-import { toast } from "@/components/ui/use-toast";
+import VerifyEmailStep from "@/components/VerifyEmailStep";
 import { safeReturnTo } from "@/lib/authReturnTo";
 import { friendlyAuthError } from "@/lib/authErrors";
 
@@ -26,7 +25,6 @@ export default function Register() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,93 +44,25 @@ export default function Register() {
     }
   };
 
-  const handleVerify = async () => {
-    setError("");
-    setLoading(true);
-    try {
-      const result = await base44.auth.verifyOtp({ email, otpCode });
-      if (result?.access_token) {
-        base44.auth.setToken(result.access_token);
-      }
-      window.location.href = safeReturnTo();
-    } catch (err) {
-      setError(friendlyAuthError(err, "No pudimos verificar el código. Inténtalo de nuevo.", "verify"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setError("");
-    try {
-      await base44.auth.resendOtp(email);
-      toast({
-        title: "Código enviado",
-        description: "Revisa tu correo para ver el código nuevo.",
-      });
-    } catch (err) {
-      setError(friendlyAuthError(err, "No pudimos reenviar el código. Inténtalo de nuevo.", "verify"));
-    }
-  };
-
   const handleGoogle = () => {
     base44.auth.loginWithProvider("google", safeReturnTo());
   };
 
   if (showOtp) {
     return (
-      <AuthLayout
-        icon={Mail}
-        title="Verifica tu correo"
-        subtitle={`Enviamos un código a ${email}`}
-      >
-        {error && (
-          <div role="alert" className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-            {error}
-          </div>
-        )}
-        <p className="text-center text-xs text-muted-foreground mb-4">
-          Te llega en inglés, de no-reply@base44-apps.com, con el asunto "Verify your email for Sommel". Revisa también en spam.
-        </p>
-        <div className="flex justify-center mb-6">
-          <InputOTP
-            maxLength={6}
-            value={otpCode}
-            onChange={setOtpCode}
-            autoFocus
-            autoComplete="one-time-code"
-          >
-            <InputOTPGroup>
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
-            </InputOTPGroup>
-          </InputOTP>
-        </div>
-        <Button
-          className="w-full h-12 font-medium"
-          onClick={handleVerify}
-          disabled={loading || otpCode.length < 6}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Verificando...
-            </>
-          ) : (
-            "Verificar"
-          )}
-        </Button>
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          ¿No recibiste el código?{" "}
-          <button onClick={handleResend} className="text-primary font-medium hover:underline">
-            Reenviar
-          </button>
-        </p>
-      </AuthLayout>
+      <VerifyEmailStep
+        email={email}
+        password={password}
+        onDone={(next) => {
+          const dest = safeReturnTo();
+          window.location.href = next === "app"
+            ? dest
+            : "/login" + (dest !== "/" ? "?returnTo=" + encodeURIComponent(dest) : "");
+        }}
+        onCancel={() => {
+          setShowOtp(false);
+                  }}
+      />
     );
   }
 

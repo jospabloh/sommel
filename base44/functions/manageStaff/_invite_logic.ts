@@ -98,3 +98,21 @@ export function shouldRefreshExistingInvite(
 ): existing is Pick<StaffInviteRow, 'tenant_id' | 'email' | 'status'> {
   return !!existing && existing.tenant_id === tenantId && existing.email === email && existing.status === 'pending';
 }
+
+/**
+ * Role a claimed invite grants. Read from the STORED row and checked against a
+ * whitelist here, so a row carrying anything else (a platform role, a typo, a
+ * hand-edited value) degrades to the least privileged bar role instead of being
+ * copied into User.app_role. Never a platform role.
+ */
+export function roleFromInvite(row: { app_role?: unknown } | null | undefined): AppRole {
+  return row?.app_role === 'bar_admin' ? 'bar_admin' : 'staff';
+}
+
+/**
+ * True when the bar an invite points at still exists and was not archived
+ * (account.deleteBar). An invite to a gone bar must not attach anyone to it.
+ */
+export function isBarClaimable(bar: { archived_at?: string | null } | null | undefined): boolean {
+  return !!bar && !bar.archived_at;
+}

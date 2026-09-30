@@ -3,6 +3,28 @@
 // on. Unknown messages fall back to `fallback` instead of leaking raw text.
 // context: "login" | "register" | "verify" | "reset"
 
+// True when a login failed only because the account's email was never
+// verified (Base44 answers with an English "verify your email" / "verification
+// code" message). Login uses it to open the code step instead of an error.
+export function needsEmailVerification(err) {
+  // Check EVERY candidate message field: the SDK, axios and the raw backend
+  // body each put the text in a different place, and an earlier non-empty
+  // generic message (e.g. axios' "Request failed with status code 401") must
+  // not hide the real one.
+  const candidates = [
+    err?.message,
+    err?.data?.message,
+    err?.data?.detail,
+    err?.response?.data?.message,
+    err?.response?.data?.detail,
+    err?.response?.data?.error,
+    typeof err?.response?.data === "string" ? err.response.data : "",
+    typeof err === "string" ? err : "",
+  ];
+  const re = /not verified|unverified|verify your email|verification code|email.*verif/i;
+  return candidates.some((c) => typeof c === "string" && re.test(c));
+}
+
 export function friendlyAuthError(err, fallback, context = "login") {
   const status = err?.status ?? err?.response?.status;
   const raw = String(err?.message || "").toLowerCase();
@@ -16,7 +38,7 @@ export function friendlyAuthError(err, fallback, context = "login") {
   if (status >= 500) {
     return "El servicio no responde en este momento. Inténtalo de nuevo en unos minutos.";
   }
-  if (/not verified|unverified|verify your email|email.*verif/.test(raw)) {
+  if (needsEmailVerification(err)) {
     return "Tu correo aún no está verificado. Revisa tu bandeja (y spam) por el código de verificación.";
   }
   if (context === "login" && (status === 400 || status === 401 || status === 403 || status === 404 ||
