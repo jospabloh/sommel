@@ -379,3 +379,60 @@ servicio; pantallas a 390/834/1440 en claro y oscuro; que `archived_at`,
 (releer con `list_entity_schemas`); `acaciaControl` aún no escribe `license_audit`
 ni `status:'revoked'`, ni oculta bares con `archived_at`, y sigue sin
 `tickets.update/thread`; el manual está sin revisión humana.
+
+## Verificación de correo por código y auditoría de unión a un bar (2026-09-30)
+
+**A. Verificación de correo (OTP), código en el repo.**
+- `src/components/VerifyEmailStep.jsx` es el único paso de código, compartido por
+  Registro y Login: `verifyOtp({email, otpCode})`, `resendOtp`, errores por
+  `friendlyAuthError(..., "verify")`. Tras un código bueno usa el token que
+  devuelve `verifyOtp`; si no llega token intenta `loginViaEmailPassword` con la
+  contraseña que ya tiene; si eso falla manda a `/login` con aviso. Antes, sin
+  token, Registro redirigía a la app y rebotaba al login sin explicación.
+- Login: si `loginViaEmailPassword` falla porque el correo nunca se verificó
+  (`needsEmailVerification` en `src/lib/authErrors.js`, regex sobre el mensaje de
+  Base44), reenvía el código y abre el paso de código. Cualquier otro error
+  conserva su mensaje. `friendlyAuthError` usa el mismo detector.
+- Pruebas: `base44/tests/auth_errors_test.ts`.
+
+**B. Auditoría del modelo de bar, roles y unión (sin cambios de esquema).**
+- **No existe código de unión en Sommel** (grep de `join_code`/`invite_code`/
+  código de bar en `src`, `base44`, `docs`: nada). La única forma de entrar a un
+  bar existente es la invitación que crea un `bar_admin` (`manageStaff.invite`),
+  que cuenta como pre aprobada. Por eso no se construyó flujo de solicitud
+  pendiente ni pantalla de aprobación: no hay acceso instantáneo por código que
+  cambiar. Si algún día se añade un código, debe nacer como solicitud pendiente
+  (sin datos, `bar_admin` aprueba y elige rol de una lista blanca desde Equipo).
+- Ya cumplían: `createWineBar` deja al creador `bar_admin` de su bar y responde
+  409 a quien ya tiene bar; `User.tenant_id`/`app_role` son `rls.write:false` y
+  solo los escriben `createWineBar` y `manageStaff` como servicio; ninguna
+  función escribe `role:'admin'` (`validate:tenant-roles`); `StaffInvite` es solo
+  servicio; `claimInvite` busca por el correo ALMACENADO del usuario releído con
+  `asServiceRole`, nunca por el cuerpo; el 409 `already_in_a_bar` de `invite`
+  impide mover a alguien de otro bar.
+- Endurecido en `manageStaff.claimInvite`: el rol sale de la invitación guardada
+  por lista blanca (`roleFromInvite`: `bar_admin` o `staff`, cualquier otra cosa
+  degrada a `staff`, nunca rol de plataforma) y una invitación a un bar inexistente
+  o archivado (`isBarClaimable`, `archived_at`) se revoca y no asigna a nadie.
+  Pruebas en `base44/tests/staff_invites_logic_test.ts`.
+- Un `WineBar` creado por `createWineBar` nace con `billing_status: trial`.
+
+**Comprobaciones corridas:** `npm run lint`, `build`, `validate:rls` (19/13),
+`validate:tenant-roles`, `check:guards`, `deno test` (427/0) y `deno lint`.
+
+**NO verificado:** un registro y un login reales con el código de Base44 (el
+texto exacto del error de "correo sin verificar" se detecta por regex y no se vio
+contra el backend); que `verifyOtp` devuelva `access_token` en producción (los
+dos caminos, con y sin token, están cubiertos por código, no ejercidos); el
+`claimInvite` endurecido contra Base44 real (`entry.ts` importa `npm:@base44/sdk`,
+no corre en el sandbox); pantallas a 390/834/1440.
+
+**Desplegar, en este orden** (sin cambio de esquema ni de entidades):
+1. Mergear a `main`.
+2. Publicar funciones (`manageStaff` cambió en `entry.ts` y `_invite_logic.ts`) y
+   el sitio.
+3. Verificar por contenido: en el bundle servido de `sommel.acaciaco.com.mx`
+   buscar "Reenviar código"; y registrar una cuenta de prueba con correo y
+   contraseña para ver el paso de código. No hay forma de comprobar `manageStaff`
+   por "unknown action", porque no se añadió acción: se comprueba invitando a una
+   cuenta de prueba y reclamándola.

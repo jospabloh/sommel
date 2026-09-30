@@ -3,6 +3,15 @@
 // on. Unknown messages fall back to `fallback` instead of leaking raw text.
 // context: "login" | "register" | "verify" | "reset"
 
+// True when a login failed only because the account's email was never
+// verified (Base44 answers with an English "verify your email" / "verification
+// code" message). Login uses it to open the code step instead of an error.
+export function needsEmailVerification(err) {
+  return /not verified|unverified|verify your email|verification code|email.*verif/i.test(
+    String(err?.message || err?.response?.data?.message || err?.response?.data?.detail || "")
+  );
+}
+
 export function friendlyAuthError(err, fallback, context = "login") {
   const status = err?.status ?? err?.response?.status;
   const raw = String(err?.message || "").toLowerCase();
@@ -16,7 +25,7 @@ export function friendlyAuthError(err, fallback, context = "login") {
   if (status >= 500) {
     return "El servicio no responde en este momento. Inténtalo de nuevo en unos minutos.";
   }
-  if (/not verified|unverified|verify your email|email.*verif/.test(raw)) {
+  if (needsEmailVerification(err)) {
     return "Tu correo aún no está verificado. Revisa tu bandeja (y spam) por el código de verificación.";
   }
   if (context === "login" && (status === 400 || status === 401 || status === 403 || status === 404 ||

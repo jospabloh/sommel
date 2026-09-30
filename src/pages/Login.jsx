@@ -8,13 +8,15 @@ import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 import { safeReturnTo } from "@/lib/authReturnTo";
-import { friendlyAuthError } from "@/lib/authErrors";
+import { friendlyAuthError, needsEmailVerification } from "@/lib/authErrors";
+import VerifyEmailStep from "@/components/VerifyEmailStep";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   // Post-login destination (e.g. the MCP OAuth consent page sends users here
   // with returnTo so the grant flow can resume). Same-origin paths only.
   const returnTo = safeReturnTo();
@@ -27,6 +29,16 @@ export default function Login() {
       await base44.auth.loginViaEmailPassword(email, password);
       window.location.href = returnTo;
     } catch (err) {
+      if (needsEmailVerification(err)) {
+        // Never verified: open the code step (resend included) instead of an error.
+        try {
+          await base44.auth.resendOtp(email);
+        } catch {
+          // The step has its own "Reenviar código" button.
+        }
+        setVerifying(true);
+        return;
+      }
       setError(friendlyAuthError(err, "No pudimos iniciar sesión. Inténtalo de nuevo.", "login"));
     } finally {
       setLoading(false);
@@ -36,6 +48,20 @@ export default function Login() {
   const handleGoogle = () => {
     base44.auth.loginWithProvider("google", returnTo);
   };
+
+  if (verifying) {
+    return (
+      <VerifyEmailStep
+        email={email}
+        password={password}
+        onDone={(next) => {
+          if (next === "app") window.location.href = returnTo;
+          else setVerifying(false);
+        }}
+        onCancel={() => setVerifying(false)}
+      />
+    );
+  }
 
   return (
     <AuthLayout
