@@ -36,9 +36,19 @@ export default async function(req: Request): Promise<Response> {
     if (!name) return Response.json({ error: 'El nombre del bar es obligatorio' }, { status: 400 });
 
     const bar = await svc.entities.WineBar.create(buildNewBar({ name, address, ownerId: user.id }));
-    await svc.entities.User.update(user.id, {
-      tenant_id: bar.id, app_role: 'bar_admin'
-    });
+    try {
+      await svc.entities.User.update(user.id, {
+        tenant_id: bar.id, app_role: 'bar_admin'
+      });
+    } catch (error) {
+      // The bar exists but nobody was attached to it (the creator would not be
+      // its bar_admin). Roll it back rather than leave an orphan tenant whose
+      // owner_id points at someone with no access; report the original failure.
+      try {
+        await svc.entities.WineBar.delete(bar.id);
+      } catch (_) { /* keep reporting the original failure */ }
+      throw error;
+    }
     return Response.json({ ok: true, bar_id: bar.id });
   } catch (error) {
     return Response.json({ error: (error as Error).message }, { status: 500 });
