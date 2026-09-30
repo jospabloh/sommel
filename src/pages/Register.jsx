@@ -54,7 +54,10 @@ export default function Register() {
         email={email}
         password={password}
         onDone={(next) => {
-          window.location.href = next === "app" ? safeReturnTo() : "/login";
+          const dest = safeReturnTo();
+          window.location.href = next === "app"
+            ? dest
+            : "/login" + (dest !== "/" ? "?returnTo=" + encodeURIComponent(dest) : "");
         }}
         onCancel={() => {
           setShowOtp(false);

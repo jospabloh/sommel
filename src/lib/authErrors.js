@@ -7,9 +7,22 @@
 // verified (Base44 answers with an English "verify your email" / "verification
 // code" message). Login uses it to open the code step instead of an error.
 export function needsEmailVerification(err) {
-  return /not verified|unverified|verify your email|verification code|email.*verif/i.test(
-    String(err?.message || err?.response?.data?.message || err?.response?.data?.detail || "")
-  );
+  // Check EVERY candidate message field: the SDK, axios and the raw backend
+  // body each put the text in a different place, and an earlier non-empty
+  // generic message (e.g. axios' "Request failed with status code 401") must
+  // not hide the real one.
+  const candidates = [
+    err?.message,
+    err?.data?.message,
+    err?.data?.detail,
+    err?.response?.data?.message,
+    err?.response?.data?.detail,
+    err?.response?.data?.error,
+    typeof err?.response?.data === "string" ? err.response.data : "",
+    typeof err === "string" ? err : "",
+  ];
+  const re = /not verified|unverified|verify your email|verification code|email.*verif/i;
+  return candidates.some((c) => typeof c === "string" && re.test(c));
 }
 
 export function friendlyAuthError(err, fallback, context = "login") {

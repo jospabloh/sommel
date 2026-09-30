@@ -436,3 +436,14 @@ no corre en el sandbox); pantallas a 390/834/1440.
    contraseña para ver el paso de código. No hay forma de comprobar `manageStaff`
    por "unknown action", porque no se añadió acción: se comprueba invitando a una
    cuenta de prueba y reclamándola.
+
+### Seguimiento de la revisión de Codex (2026-09-30)
+
+`needsEmailVerification` (`src/lib/authErrors.js`) ya no se detiene en el primer
+mensaje no vacío: revisa `message`, `data.message/detail`, `response.data.message/
+detail/error` y un cuerpo en texto, así que el "Request failed with status code 403"
+genérico de axios no oculta el texto real del backend (prueba nueva en
+`auth_errors_test.ts`). `Register.jsx` conserva el `returnTo` validado
+(`safeReturnTo`) al caer a `/login` tras verificar sin sesión. Verificado: `lint`,
+`build`, `validate:rls`, `validate:tenant-roles`, `check:guards` y `deno test` con el
+comando de CI (428/0). No verificado en vivo contra Base44.

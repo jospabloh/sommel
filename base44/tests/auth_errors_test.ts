@@ -32,3 +32,11 @@ Deno.test('friendlyAuthError: unverified account gets the Spanish verification s
   const msg = friendlyAuthError({ message: 'Please verify your email', status: 403 }, 'x', 'login');
   assertEquals(msg.includes('verificado'), true);
 });
+
+Deno.test('needsEmailVerification: inspects every candidate field, not just the first non-empty', () => {
+  // axios' generic message comes first and must not hide the real backend text.
+  assertEquals(needsEmailVerification({ message: 'Request failed with status code 403', response: { data: { detail: 'Please verify your email' } } }), true);
+  assertEquals(needsEmailVerification({ message: 'Request failed with status code 403', data: { message: 'Email not verified' } }), true);
+  assertEquals(needsEmailVerification({ message: 'Request failed', response: { data: { message: 'x', detail: 'Enter the verification code' } } }), true);
+  assertEquals(needsEmailVerification({ message: 'Request failed with status code 401', response: { data: { message: 'Invalid credentials' } } }), false);
+});
