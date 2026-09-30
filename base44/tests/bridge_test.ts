@@ -3,6 +3,8 @@
 import { signAs } from '../functions/acaciaControl/_acaciaSign.ts';
 import {
   authorizeBridge,
+  barContacts,
+  checkFollowup,
   cleanRevokeIds,
   countByField,
   entityError,
@@ -10,6 +12,7 @@ import {
   projectWineBar,
   revokePatch,
   sanitizeLicensePatch,
+  sanitizeTicketUpdate,
 } from '../functions/acaciaControl/_bridge_logic.ts';
 
 function assertEquals(actual: unknown, expected: unknown, msg?: string) {
@@ -128,4 +131,91 @@ Deno.test('sessions.revoke: ids cleaned, patch stamps revoked_at', () => {
   assertEquals(revokePatch('2026-09-29T00:00:00.000Z', 'op@acaciaco.com.mx'),
     { revoked_at: '2026-09-29T00:00:00.000Z', revoked_by: 'op@acaciaco.com.mx' });
   assertEquals(revokePatch('t', 5).revoked_by, null);
+});
+
+// ── tickets.update ──────────────────────────────────────────────────────────
+
+Deno.test('tickets.update: a status change in Sommel\'s own enum passes', () => {
+  // Mission Control's buildTicketStatus sends exactly this shape for sommel.
+  assertEquals(
+    sanitizeTicketUpdate({ entity: 'SupportTicket', id: 't1', patch: { status: 'cerrado' } }),
+    { id: 't1', patch: { status: 'cerrado' } },
+  );
+});
+
+Deno.test('tickets.update: anything but a valid status is refused', () => {
+  const base = { entity: 'SupportTicket', id: 't1' };
+  // English statuses belong to other apps; writing one would break the enum.
+  assertEquals('error' in sanitizeTicketUpdate({ ...base, patch: { status: 'resolved' } }), true);
+  // Only status: a signed body must not rewrite tenant_id, body or created_by_email.
+  assertEquals('error' in sanitizeTicketUpdate({ ...base, patch: { status: 'cerrado', tenant_id: 'x' } }), true);
+  assertEquals('error' in sanitizeTicketUpdate({ ...base, patch: {} }), true);
+  // Pinned to SupportTicket: not a way to patch WineBar.
+  assertEquals('error' in sanitizeTicketUpdate({ entity: 'WineBar', id: 't1', patch: { status: 'cerrado' } }), true);
+  assertEquals('error' in sanitizeTicketUpdate({ entity: 'SupportTicket', patch: { status: 'cerrado' } }), true);
+});
+
+Deno.test('tickets.update: a reply is refused, since the bar has no thread to read it in', () => {
+  const r = sanitizeTicketUpdate({
+    entity: 'SupportTicket', id: 't1', patch: { status: 'en_proceso' },
+    messageEntity: 'SupportTicketMessage', message: { body: 'hola' },
+  });
+  assertEquals('error' in r, true);
+});
+
+// ── tenants.contacts / emails.sendFollowup ──────────────────────────────────
+
+const BARS = [
+  { id: 'b1', name: 'Vindima', owner_id: 'u2' },
+  { id: 'b2', name: 'Sin admin' },
+  { id: 'b3', name: 'Archivado', archived_at: '2026-09-01T00:00:00Z' },
+];
+const USERS = [
+  { id: 'u1', tenant_id: 'b1', app_role: 'bar_admin', email: 'Primero@x.mx', created_date: '2026-01-01' },
+  { id: 'u2', tenant_id: 'b1', app_role: 'bar_admin', email: 'duena@x.mx', created_date: '2026-02-01' },
+  { id: 'u3', tenant_id: 'b1', app_role: 'staff', email: 'staff@x.mx', created_date: '2025-01-01' },
+  { id: 'u4', tenant_id: 'b3', app_role: 'bar_admin', email: 'fue@x.mx', created_date: '2026-01-01' },
+];
+
+Deno.test('contacts: the owner speaks for the bar; staff never does; archived bars are skipped', () => {
+  assertEquals(barContacts(BARS, USERS), [
+    { id: 'b1', name: 'Vindima', email: 'duena@x.mx' },
+    { id: 'b2', name: 'Sin admin', email: null },
+  ]);
+});
+
+Deno.test('contacts: without the owner among admins, the oldest bar_admin', () => {
+  const bars = [{ id: 'b1', name: 'Vindima', owner_id: 'gone' }];
+  assertEquals(barContacts(bars, USERS)[0].email, 'primero@x.mx');
+});
+
+const ALLOWED = { internal: ['h.josepablo@gmail.com'], contacts: ['duena@x.mx'] };
+const MAIL = { subject: 'Tu licencia', html: '<p>hola</p>' };
+
+Deno.test('followup: a bar contact may receive it, case-insensitive', () => {
+  const r = checkFollowup({ ...MAIL, to: 'Duena@X.mx' }, ALLOWED);
+  assertEquals('error' in r ? r : r.to, 'duena@x.mx');
+});
+
+Deno.test('followup: a signed body cannot email an arbitrary address', () => {
+  const r = checkFollowup({ ...MAIL, to: 'cualquiera@gmail.com' }, ALLOWED);
+  assertEquals('error' in r && r.status, 403);
+  // Staff are not contacts either.
+  assertEquals('error' in checkFollowup({ ...MAIL, to: 'staff@x.mx' }, ALLOWED), true);
+});
+
+Deno.test('followup: internal notices go only to ACACIA addresses', () => {
+  assertEquals('error' in checkFollowup({ ...MAIL, to: 'soporte@acaciaco.com.mx', internal: true }, ALLOWED), false);
+  assertEquals('error' in checkFollowup({ ...MAIL, to: 'h.josepablo@gmail.com', internal: true }, ALLOWED), false);
+  // "internal" is not a bypass: a bar contact or a stranger is still refused.
+  assertEquals('error' in checkFollowup({ ...MAIL, to: 'duena@x.mx', internal: true }, ALLOWED), true);
+  assertEquals('error' in checkFollowup({ ...MAIL, to: 'x@acaciaco.com.mx.evil.io', internal: true }, ALLOWED), true);
+});
+
+Deno.test('followup: malformed requests are 400', () => {
+  assertEquals((checkFollowup({ ...MAIL }, ALLOWED) as { status: number }).status, 400);
+  assertEquals((checkFollowup({ ...MAIL, to: 'a@b.mx, c@d.mx' }, ALLOWED) as { status: number }).status, 400);
+  // A newline in the subject is a header-injection attempt.
+  assertEquals((checkFollowup({ to: 'duena@x.mx', subject: 'a\nBcc: x@y.z', html: 'h' }, ALLOWED) as { status: number }).status, 400);
+  assertEquals((checkFollowup({ to: 'duena@x.mx', subject: 's', html: 'x'.repeat(200_001) }, ALLOWED) as { status: number }).status, 400);
 });

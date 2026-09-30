@@ -5,6 +5,8 @@ import {
   SESSION_ENTITY,
   TICKET_ENTITY,
   authorizeBridge,
+  barContacts,
+  checkFollowup,
   cleanRevokeIds,
   countByField,
   entityError,
@@ -12,6 +14,7 @@ import {
   projectWineBar,
   revokePatch,
   sanitizeLicensePatch,
+  sanitizeTicketUpdate,
   usageEntities,
 } from './_bridge_logic.ts';
 
@@ -28,9 +31,10 @@ import {
 // against the one this action may touch (see _bridge_logic.ts).
 //
 // Actions: ping, license.get, licenses.list, license.set, tenants, tickets.list,
+// tickets.update (status only), tenants.contacts, emails.sendFollowup,
 // usage.summary (alias usage), usage.byTenant, sessions.list, sessions.revoke.
-// Not implemented on purpose: tickets.update / tickets.thread (Sommel tickets
-// are one-way today), emails.*, tenants.contacts. They answer 400 unknown action.
+// Not implemented on purpose: tickets.thread (Sommel tickets have no thread),
+// emails.status (no email log entity). They answer 400 unknown action.
 export default async function(req: Request): Promise<Response> {
   try {
     const body = await req.json().catch(() => ({}));
@@ -94,6 +98,54 @@ export default async function(req: Request): Promise<Response> {
         if (bad) return Response.json({ error: bad }, { status: 400 });
         const records = await sr.entities.SupportTicket.list('-created_date', COUNT_CAP);
         return Response.json({ ok: true, records });
+      }
+
+      case 'tickets.update': {
+        // Status change only (abierto / en_proceso / cerrado). A reply is
+        // refused: there is no thread for the bar to read it in.
+        const checked = sanitizeTicketUpdate(params);
+        if ('error' in checked) return Response.json({ error: checked.error }, { status: 400 });
+        const [ticket] = await sr.entities.SupportTicket.filter({ id: checked.id });
+        if (!ticket) return Response.json({ error: 'not found' }, { status: 404 });
+        const updated = await sr.entities.SupportTicket.update(checked.id, checked.patch);
+        return Response.json({ ok: true, updated: updated ?? { ...ticket, ...checked.patch } });
+      }
+
+      case 'tenants.contacts': {
+        // One contact per live bar (owner, else oldest bar_admin). Read-only.
+        const bad = entityError(LICENSE_ENTITY, params.entity);
+        if (bad) return Response.json({ error: bad }, { status: 400 });
+        const [bars, admins] = await Promise.all([
+          sr.entities.WineBar.list('-created_date', COUNT_CAP),
+          sr.entities.User.filter({ app_role: 'bar_admin' }),
+        ]);
+        return Response.json({ ok: true, contacts: barContacts(bars, admins) });
+      }
+
+      case 'emails.sendFollowup': {
+        // Mission Control owns the content; this only sends it, and only to an
+        // allowed recipient (checkFollowup). The owner gets a copy of what goes
+        // to a bar; an internal notice is already addressed to ACACIA.
+        const owner = Deno.env.get('PLATFORM_OWNER_EMAIL') ?? '';
+        const support = Deno.env.get('APP_SUPPORT_EMAIL') ?? '';
+        let contacts: string[] = [];
+        if (params.internal !== true) {
+          const [bars, admins] = await Promise.all([
+            sr.entities.WineBar.list('-created_date', COUNT_CAP),
+            sr.entities.User.filter({ app_role: 'bar_admin' }),
+          ]);
+          contacts = barContacts(bars, admins).map((c) => c.email ?? '').filter(Boolean);
+        }
+        const checked = checkFollowup(params, { internal: [owner, support].filter(Boolean), contacts });
+        if ('error' in checked) return Response.json({ error: checked.error }, { status: checked.status });
+        await sr.integrations.Core.SendEmail({ to: checked.to, subject: checked.subject, body: checked.html, from_name: 'ACACIA' });
+        const sent_at = new Date().toISOString();
+        if (!checked.internal && owner && owner.toLowerCase() !== checked.to) {
+          try {
+            await sr.integrations.Core.SendEmail({ to: owner, subject: `[Copia → ${checked.to}] ${checked.subject}`, body: checked.html, from_name: 'ACACIA' });
+          } catch { /* the owner copy never fails the bar's send */ }
+        }
+        return Response.json({ ok: true, sent_at, recipient: checked.to });
       }
 
       case 'usage':
