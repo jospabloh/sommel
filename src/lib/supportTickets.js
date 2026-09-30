@@ -4,6 +4,7 @@
 // ni firma: solo {app, ticketId}; MC lee el registro auténtico por el puente
 // (acaciaControl tickets.list), así que un cuerpo falso no puede inyectar nada.
 import { base44 } from '@/api/base44Client';
+import { callFn } from '@/lib/api';
 
 export const TICKET_PULL_URL = 'https://control.acaciaco.com.mx/api/ingest/ticket-pull';
 export const APP_SLUG = 'sommel';
@@ -71,4 +72,30 @@ export async function listBarTickets(tenantId) {
   if (!tenantId) return [];
   const rows = await base44.entities.SupportTicket.filter({ tenant_id: tenantId }, '-created_date', 100);
   return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * The bar answers ACACIA on one of its tickets (support.replyTicket), then
+ * pings Mission Control so its inbox shows the new message. A reply to a
+ * closed ticket reopens it.
+ * @returns {Promise<object>} the updated SupportTicket record
+ */
+export async function replyToTicket(ticketId, body) {
+  const res = await callFn('support', 'replyTicket', { ticket_id: ticketId, body });
+  notifyMissionControl(ticketId);
+  return res.ticket;
+}
+
+/** Original message first, then the replies, as one list for the screen. */
+export function ticketConversation(ticket) {
+  const out = [];
+  if (ticket?.body) {
+    out.push({ fromAcacia: false, name: ticket.created_by_email || 'Tu bar', body: ticket.body, at: ticket.created_date });
+  }
+  for (const r of Array.isArray(ticket?.responses) ? ticket.responses : []) {
+    if (!r?.body) continue;
+    const fromAcacia = r.author_role === 'acacia';
+    out.push({ fromAcacia, name: fromAcacia ? 'ACACIA Soporte' : (r.author_name || 'Tu bar'), body: r.body, at: r.created_at });
+  }
+  return out;
 }

@@ -4,6 +4,7 @@ import {
   LICENSE_ENTITY,
   SESSION_ENTITY,
   TICKET_ENTITY,
+  appendResponse,
   authorizeBridge,
   barContacts,
   checkFollowup,
@@ -17,6 +18,7 @@ import {
   sanitizeTicketUpdate,
   usageEntities,
 } from './_bridge_logic.ts';
+import { buildReplyEmail } from './_reply_email.ts';
 
 // acaciaControl: the ACACIA Mission Control bridge for Sommel (standard modules
 // 5 and 15). Mission Control calls this over an HMAC-signed body, no user
@@ -31,9 +33,10 @@ import {
 // against the one this action may touch (see _bridge_logic.ts).
 //
 // Actions: ping, license.get, licenses.list, license.set, tenants, tickets.list,
-// tickets.update (status only), tenants.contacts, emails.sendFollowup,
+// tickets.update (status + ACACIA reply), tenants.contacts, emails.sendFollowup,
 // usage.summary (alias usage), usage.byTenant, sessions.list, sessions.revoke.
-// Not implemented on purpose: tickets.thread (Sommel tickets have no thread),
+// Not implemented on purpose: tickets.thread (the conversation is inline on
+// the ticket, `responses`, so Mission Control reads it from the synced row),
 // emails.status (no email log entity). They answer 400 unknown action.
 export default async function(req: Request): Promise<Response> {
   try {
@@ -101,14 +104,38 @@ export default async function(req: Request): Promise<Response> {
       }
 
       case 'tickets.update': {
-        // Status change only (abierto / en_proceso / cerrado). A reply is
-        // refused: there is no thread for the bar to read it in.
+        // Status / activity, plus at most one reply as ACACIA appended to
+        // `responses`. The bar gets an email when a reply lands (best effort:
+        // a failed email never fails the reply, which is already saved).
         const checked = sanitizeTicketUpdate(params);
         if ('error' in checked) return Response.json({ error: checked.error }, { status: 400 });
         const [ticket] = await sr.entities.SupportTicket.filter({ id: checked.id });
         if (!ticket) return Response.json({ error: 'not found' }, { status: 404 });
-        const updated = await sr.entities.SupportTicket.update(checked.id, checked.patch);
-        return Response.json({ ok: true, updated: updated ?? { ...ticket, ...checked.patch } });
+        const patch: Record<string, unknown> = { ...checked.patch };
+        if (checked.reply) {
+          const next = appendResponse(ticket.responses, checked.reply);
+          if ('error' in next) return Response.json({ error: next.error }, { status: 409 });
+          patch.responses = next;
+        }
+        const updated = await sr.entities.SupportTicket.update(checked.id, patch);
+        let email_sent = false;
+        if (checked.reply && ticket.tenant_id) {
+          try {
+            const [bars, admins] = await Promise.all([
+              sr.entities.WineBar.filter({ id: ticket.tenant_id }),
+              sr.entities.User.filter({ tenant_id: ticket.tenant_id, app_role: 'bar_admin' }),
+            ]);
+            const [contact] = barContacts(bars, admins);
+            if (contact?.email) {
+              const mail = buildReplyEmail({ barName: contact.name ?? '', ticketSubject: ticket.subject ?? '', replyBody: checked.reply.body });
+              await sr.integrations.Core.SendEmail({ to: contact.email, subject: mail.subject, body: mail.body });
+              email_sent = true;
+            }
+          } catch (e) {
+            console.error('acaciaControl tickets.update: reply email failed', (e as Error).message);
+          }
+        }
+        return Response.json({ ok: true, updated: updated ?? { ...ticket, ...patch }, email_sent });
       }
 
       case 'tenants.contacts': {
