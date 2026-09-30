@@ -144,3 +144,88 @@ export function cleanRevokeIds(ids: unknown): string[] {
 export function revokePatch(nowIso: string, actorEmail: unknown) {
   return { revoked_at: nowIso, revoked_by: typeof actorEmail === 'string' ? actorEmail : null };
 }
+
+// ── tickets.update ───────────────────────────────────────────────────────────
+
+/** SupportTicket.status enum (base44/entities/SupportTicket.jsonc). */
+export const TICKET_STATUSES = ['abierto', 'en_proceso', 'cerrado'] as const;
+
+/** Mission Control may only change a ticket's status. Sommel tickets carry a
+ *  single `body` and no thread entity, so a reply (message / appendItem) is
+ *  refused instead of being written somewhere the bar would never see it. */
+export function sanitizeTicketUpdate(
+  params: Record<string, unknown>,
+): { id: string; patch: { status: string } } | { error: string } {
+  const bad = entityError(TICKET_ENTITY, params.entity);
+  if (bad) return { error: bad };
+  if (typeof params.id !== 'string' || !params.id) return { error: 'params.id required' };
+  if (params.message || params.messageEntity || params.appendField || params.appendItem) {
+    return { error: 'replies not supported: Sommel tickets have no thread' };
+  }
+  const patch = params.patch;
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return { error: 'params.patch required' };
+  const keys = Object.keys(patch);
+  if (keys.length !== 1 || keys[0] !== 'status') return { error: 'only patch.status is allowed' };
+  const status = (patch as Record<string, unknown>).status;
+  if (!(TICKET_STATUSES as readonly string[]).includes(status as string)) {
+    return { error: `invalid status: ${String(status)}` };
+  }
+  return { id: params.id, patch: { status: status as string } };
+}
+
+// ── tenants.contacts / emails.sendFollowup ──────────────────────────────────
+
+const EMAIL_RE = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
+export const MAX_SUBJECT = 200;
+export const MAX_HTML = 200_000;
+
+export function normEmail(v: unknown): string {
+  return typeof v === 'string' ? v.trim().toLowerCase() : '';
+}
+
+type Row = Record<string, unknown>;
+
+/** One contact per live bar: its owner if still a bar_admin of it, else the
+ *  oldest bar_admin. Archived bars get no contact (they asked to leave). The
+ *  recipient spec Mission Control sends is ignored: who speaks for a bar is
+ *  Sommel's rule, not the caller's. */
+export function barContacts(bars: Row[], users: Row[]) {
+  const out: Array<{ id: string; name: string | null; email: string | null }> = [];
+  for (const bar of bars) {
+    if (!bar?.id || bar.archived_at) continue;
+    const admins = users
+      .filter((u) => u?.tenant_id === bar.id && u?.app_role === 'bar_admin' && normEmail(u.email))
+      .sort((a, b) => String(a.created_date ?? '').localeCompare(String(b.created_date ?? '')));
+    const pick = admins.find((u) => u.id === bar.owner_id) ?? admins[0] ?? null;
+    out.push({
+      id: String(bar.id),
+      name: typeof bar.name === 'string' ? bar.name : null,
+      email: pick ? normEmail(pick.email) : null,
+    });
+  }
+  return out;
+}
+
+/** Validates an emails.sendFollowup request and decides whether `to` may
+ *  receive it. A signed body alone must not turn this into "email anyone":
+ *  - internal (ops notices: new ticket, new bar) → only ACACIA's own
+ *    addresses: the acaciaco.com.mx domain or the owner/support secrets.
+ *  - otherwise → only a current bar contact (see barContacts). */
+export function checkFollowup(
+  params: Record<string, unknown>,
+  allowed: { internal: string[]; contacts: string[] },
+): { to: string; subject: string; html: string; internal: boolean } | { error: string; status: number } {
+  const to = normEmail(params.to);
+  const subject = typeof params.subject === 'string' ? params.subject.trim() : '';
+  const html = typeof params.html === 'string' ? params.html : '';
+  if (!to || !subject || !html) return { error: 'params.to/subject/html required', status: 400 };
+  if (!EMAIL_RE.test(to)) return { error: 'invalid params.to', status: 400 };
+  if (subject.length > MAX_SUBJECT || /[\r\n]/.test(subject)) return { error: 'invalid params.subject', status: 400 };
+  if (html.length > MAX_HTML) return { error: 'params.html too large', status: 400 };
+  const internal = params.internal === true;
+  const ok = internal
+    ? to.endsWith('@acaciaco.com.mx') || allowed.internal.map(normEmail).includes(to)
+    : allowed.contacts.map(normEmail).includes(to);
+  if (!ok) return { error: 'recipient not allowed', status: 403 };
+  return { to, subject, html, internal };
+}

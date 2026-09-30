@@ -447,3 +447,35 @@ genérico de axios no oculta el texto real del backend (prueba nueva en
 (`safeReturnTo`) al caer a `/login` tras verificar sin sesión. Verificado: `lint`,
 `build`, `validate:rls`, `validate:tenant-roles`, `check:guards` y `deno test` con el
 comando de CI (428/0). No verificado en vivo contra Base44.
+
+## Puente: `tickets.update`, `tenants.contacts` y `emails.sendFollowup` (2026-09-30)
+
+Tres acciones nuevas en `acaciaControl`. La lógica que decide vive en
+`_bridge_logic.ts` y la fijan pruebas en `base44/tests/bridge_test.ts`.
+
+- **`tickets.update`**: solo cambia `status`, y solo a `abierto`, `en_proceso` o
+  `cerrado`. Cualquier otro campo, un estado de otra app (`resolved`) o una
+  respuesta (`message`, `appendItem`) da 400: Sommel no tiene hilo donde el bar
+  la leería. Atada a `SupportTicket`; 404 si el ticket no existe.
+- **`tenants.contacts`**: un contacto por bar vivo, su dueño si sigue siendo
+  `bar_admin`, si no el `bar_admin` más antiguo. El staff nunca, y un bar con
+  `archived_at` no sale. Se ignora el `recipient` que manda Mission Control:
+  quién habla por un bar lo decide Sommel.
+- **`emails.sendFollowup`**: una firma válida no basta para mandar correo a
+  cualquiera. Con `internal: true` solo a direcciones de ACACIA (dominio
+  `acaciaco.com.mx`, `PLATFORM_OWNER_EMAIL`, `APP_SUPPORT_EMAIL`); sin él, solo a
+  un contacto de `tenants.contacts`. Lo demás es 403. Asunto sin saltos de línea
+  y HTML de 200 KB como máximo. El dueño recibe copia de lo que va a un bar.
+
+Siguen sin existir, a propósito: `tickets.thread` (no hay hilo) y `emails.status`
+(no hay entidad de bitácora de correos).
+
+**Efecto inmediato al publicar:** los avisos internos de Mission Control (ticket
+nuevo, bar nuevo) empiezan a llegar. Los correos a bares (renovación, uso, ciclo
+de vida) **no**: siguen apagados mientras `sommel` no esté en `messaging.js` de
+Mission Control, y encenderlos es una decisión aparte.
+
+**Verificado:** `lint`, `build`, `validate:rls` (19/13), `check:guards` y
+`deno test` con el comando de CI (437/0), `deno lint` limpio. **No verificado:**
+`entry.ts` contra Base44 real (importa `npm:@base44/sdk`), que `SendEmail` acepte
+`from_name` en esta app (StockFlow lo usa) y un envío real.
