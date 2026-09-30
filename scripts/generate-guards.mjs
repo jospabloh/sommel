@@ -42,6 +42,7 @@ export const TARGET_DIRS = [
   'attendance',
   'permissions',
   'account',
+  'support',
   // account and session (Ola 2, modules 7 and 20) are added here together with
   // their entry.ts: a function directory with no entry.ts must never reach
   // main, because Base44 syncs every directory under base44/functions.
@@ -49,9 +50,9 @@ export const TARGET_DIRS = [
 const COPIED_FILES = ['_guard_logic.ts', '_guard.ts'];
 
 // Function groups that send email get a copy of the shared email layout
-// (scripts/templates/_email.ts). manageStaff is standalone (no _guard.ts),
-// so it is listed here only.
-export const EMAIL_TARGET_DIRS = ['shifts', 'manageStaff'];
+// (scripts/templates/_email.ts). manageStaff and acaciaControl are standalone
+// (no _guard.ts), so they are listed here only.
+export const EMAIL_TARGET_DIRS = ['shifts', 'manageStaff', 'acaciaControl'];
 
 const BEGIN_MARK = '// AUTOGEN:PERMISSION_DEFAULTS:BEGIN';
 const END_MARK = '// AUTOGEN:PERMISSION_DEFAULTS:END';

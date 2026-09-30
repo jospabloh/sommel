@@ -56,7 +56,7 @@ actual y el destino del id, y nada comprueba que coincidan (incidente del
 
 **Presupuesto de funciones.** Base44 corta en 50; este repo se fija en
 `maxFunctions: 40` (`base44.app.json`). `npm run validate:functions` (dentro de
-`npm run lint`) cuenta un endpoint por cada `entry.ts`. Hoy: **18 de 40** (ola 2: `account`, `session`, `purgeStaleSessions`).
+`npm run lint`) cuenta un endpoint por cada `entry.ts`. Hoy: **19 de 40** (ola 2: `account`, `session`, `purgeStaleSessions`; 2026-09-30: `support`).
 Un directorio en `base44/functions` sin `entry.ts` **nunca** llega a `main`:
 Base44 sincroniza todos los directorios. Por eso `account` y `session` (ola 2)
 entran a `TARGET_DIRS` junto con su `entry.ts`, no antes. Cada router agrupa acciones en `handlers/`; el mapa está en
@@ -479,3 +479,43 @@ Mission Control, y encenderlos es una decisión aparte.
 `deno test` con el comando de CI (437/0), `deno lint` limpio. **No verificado:**
 `entry.ts` contra Base44 real (importa `npm:@base44/sdk`), que `SendEmail` acepte
 `from_name` en esta app (StockFlow lo usa) y un envío real.
+
+## Conversación en los tickets de soporte (2026-09-30)
+
+Decisión de José: ACACIA responde desde Mission Control, el bar contesta en el
+mismo ticket y al bar le llega un correo cuando ACACIA responde.
+
+- **`SupportTicket` gana `responses[]`** (`author_role` `acacia` | `bar`,
+  `author_name`, `author_email`, `body`, `created_at`) y `last_activity_at`. El
+  mensaje original sigue en `body`. Las reglas RLS no cambian: `update` ya era
+  solo servicio, así que nadie escribe la conversación desde el navegador.
+- **ACACIA responde por el puente**: `acaciaControl` `tickets.update` acepta
+  `appendField: 'responses'` con un `appendItem` de `author_role: 'acacia'`
+  (nunca `bar`), lo agrega a la lista **viva** que relee justo antes de escribir
+  y usa el reloj del servidor. Luego manda al contacto del bar (su dueño, o el
+  `bar_admin` más antiguo) el correo de `_reply_email.ts`, con el layout
+  compartido (`EMAIL_TARGET_DIRS` gana `acaciaControl`). Si el correo falla, la
+  respuesta ya quedó guardada y la acción responde `email_sent: false`.
+- **El bar contesta con la función nueva `support`** (`replyTicket`, 19 de 40
+  endpoints). `loadOwned` ata el ticket al bar del que llama (un id ajeno es
+  404). Sin freno de facturación ni clave de permiso, a propósito: un bar
+  suspendido tiene que poder hablar con soporte, y quien puede abrir un ticket
+  puede seguirlo. Contestar un ticket `cerrado` lo reabre. Después el cliente
+  avisa a Mission Control con `ticket-pull` para que su bandeja lo vea.
+- **Límites compartidos**: 200 mensajes por ticket y 5,000 caracteres por
+  mensaje en los dos lados; `support_reply_test.ts` falla si se separan.
+- **Pantalla**: en Soporte cada ticket se abre y muestra la conversación y la
+  caja para responder.
+
+**Orden de despliegue:** este PR primero (Base44 sincroniza el esquema al
+mergear; luego publicar), y después el de Mission Control que configura Sommel
+con conversación en línea. Con Mission Control primero, responder desde el panel
+daría 400 hasta que esto se publique; no rompe nada más.
+
+**Verificado:** `lint` (19/40), `build`, `validate:rls` (19/13),
+`validate:tenant-roles`, `check:guards` (31), `deno test` con el comando de CI
+(445/0) y `deno lint`. La pantalla de Soporte se vio a 390 px con el build local
+contra el backend real (sin errores de página ni scroll horizontal).
+**No verificado:** los `entry.ts` contra Base44 real (importan
+`npm:@base44/sdk`), una respuesta real en ninguno de los dos sentidos y el correo
+real al bar. Se prueban tras publicar, con el ticket de prueba de Sommel QA.

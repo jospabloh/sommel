@@ -2,6 +2,7 @@
 // Zero external imports: only the shared signer and the pure bridge logic.
 import { signAs } from '../functions/acaciaControl/_acaciaSign.ts';
 import {
+  appendResponse,
   authorizeBridge,
   barContacts,
   checkFollowup,
@@ -135,32 +136,59 @@ Deno.test('sessions.revoke: ids cleaned, patch stamps revoked_at', () => {
 
 // ── tickets.update ──────────────────────────────────────────────────────────
 
+const T_NOW = '2026-09-30T20:00:00.000Z';
+
 Deno.test('tickets.update: a status change in Sommel\'s own enum passes', () => {
   // Mission Control's buildTicketStatus sends exactly this shape for sommel.
   assertEquals(
-    sanitizeTicketUpdate({ entity: 'SupportTicket', id: 't1', patch: { status: 'cerrado' } }),
-    { id: 't1', patch: { status: 'cerrado' } },
+    sanitizeTicketUpdate({ entity: 'SupportTicket', id: 't1', patch: { status: 'cerrado' } }, T_NOW),
+    { id: 't1', patch: { status: 'cerrado' }, reply: null },
   );
 });
 
-Deno.test('tickets.update: anything but a valid status is refused', () => {
+Deno.test('tickets.update: anything but status / last_activity_at is refused', () => {
   const base = { entity: 'SupportTicket', id: 't1' };
   // English statuses belong to other apps; writing one would break the enum.
   assertEquals('error' in sanitizeTicketUpdate({ ...base, patch: { status: 'resolved' } }), true);
-  // Only status: a signed body must not rewrite tenant_id, body or created_by_email.
+  // A signed body must not rewrite tenant_id, body, created_by_email or responses.
   assertEquals('error' in sanitizeTicketUpdate({ ...base, patch: { status: 'cerrado', tenant_id: 'x' } }), true);
+  assertEquals('error' in sanitizeTicketUpdate({ ...base, patch: { responses: [] } }), true);
   assertEquals('error' in sanitizeTicketUpdate({ ...base, patch: {} }), true);
   // Pinned to SupportTicket: not a way to patch WineBar.
   assertEquals('error' in sanitizeTicketUpdate({ entity: 'WineBar', id: 't1', patch: { status: 'cerrado' } }), true);
   assertEquals('error' in sanitizeTicketUpdate({ entity: 'SupportTicket', patch: { status: 'cerrado' } }), true);
 });
 
-Deno.test('tickets.update: a reply is refused, since the bar has no thread to read it in', () => {
+Deno.test('tickets.update: an ACACIA reply is appended with the server clock', () => {
+  // Mission Control's buildTicketReply (inline mode) sends this shape.
   const r = sanitizeTicketUpdate({
-    entity: 'SupportTicket', id: 't1', patch: { status: 'en_proceso' },
-    messageEntity: 'SupportTicketMessage', message: { body: 'hola' },
-  });
-  assertEquals('error' in r, true);
+    entity: 'SupportTicket', id: 't1', patch: { status: 'en_proceso', last_activity_at: '2020-01-01T00:00:00Z' },
+    appendField: 'responses',
+    appendItem: { author_role: 'acacia', author_name: 'ACACIA Soporte', body: '  Ya quedó  ', created_at: '1999-01-01' },
+  }, T_NOW);
+  if ('error' in r) throw new Error(r.error);
+  assertEquals(r.reply, { author_role: 'acacia', author_name: 'ACACIA Soporte', body: 'Ya quedó', created_at: T_NOW });
+  // The reply's own time wins over the caller's clock for last_activity_at too.
+  assertEquals(r.patch, { status: 'en_proceso', last_activity_at: T_NOW });
+});
+
+Deno.test('tickets.update: the bridge cannot speak as the bar, nor write elsewhere', () => {
+  const base = { entity: 'SupportTicket', id: 't1', appendField: 'responses' };
+  assertEquals('error' in sanitizeTicketUpdate({ ...base, appendItem: { author_role: 'bar', body: 'x' } }), true);
+  assertEquals('error' in sanitizeTicketUpdate({ ...base, appendItem: { author_role: 'acacia', body: '   ' } }), true);
+  assertEquals('error' in sanitizeTicketUpdate({ ...base, appendItem: { author_role: 'acacia', body: 'x'.repeat(5001) } }), true);
+  assertEquals('error' in sanitizeTicketUpdate({ entity: 'SupportTicket', id: 't1', appendField: 'body', appendItem: { author_role: 'acacia', body: 'x' } }), true);
+  // There is no message entity here.
+  assertEquals('error' in sanitizeTicketUpdate({
+    entity: 'SupportTicket', id: 't1', messageEntity: 'SupportTicketMessage', message: { body: 'hola' },
+  }), true);
+});
+
+Deno.test('appendResponse adds to the live list and caps the conversation', () => {
+  const reply = { author_role: 'acacia' as const, author_name: 'A', body: 'b', created_at: T_NOW };
+  assertEquals(appendResponse(undefined, reply), [reply]);
+  const full = Array.from({ length: 200 }, () => reply);
+  assertEquals('error' in (appendResponse(full, reply) as object), true);
 });
 
 // ── tenants.contacts / emails.sendFollowup ──────────────────────────────────

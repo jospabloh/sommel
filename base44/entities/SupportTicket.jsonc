@@ -11,7 +11,22 @@
     "subject": { "type": "string", "description": "Asunto del ticket" },
     "body": { "type": "string", "description": "Descripción del problema, mejora o solicitud de baja" },
     "status": { "type": "string", "enum": ["abierto", "en_proceso", "cerrado"], "default": "abierto" },
-    "created_by_email": { "type": "string", "description": "Email de quien abrió el ticket" }
+    "created_by_email": { "type": "string", "description": "Email de quien abrió el ticket" },
+    "responses": {
+      "type": "array",
+      "description": "Conversación del ticket después del mensaje original, en orden. La escriben solo el servidor: ACACIA por acaciaControl tickets.update (author_role acacia) y el bar por support.replyTicket (author_role bar). Máximo 200 mensajes.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "author_role": { "type": "string", "enum": ["acacia", "bar"], "description": "Quién escribió: ACACIA Soporte o alguien del bar" },
+          "author_name": { "type": "string", "description": "Nombre para mostrar" },
+          "author_email": { "type": "string", "description": "Correo de quien escribió (solo mensajes del bar)" },
+          "body": { "type": "string", "description": "Texto del mensaje" },
+          "created_at": { "type": "string", "format": "date-time", "description": "Cuándo se escribió" }
+        }
+      }
+    },
+    "last_activity_at": { "type": "string", "format": "date-time", "description": "Último mensaje de cualquiera de los dos lados; Mission Control ordena su bandeja por esto" }
   },
   "required": ["tenant_id", "kind", "subject"],
   "rls": {

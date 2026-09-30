@@ -150,27 +150,66 @@ export function revokePatch(nowIso: string, actorEmail: unknown) {
 /** SupportTicket.status enum (base44/entities/SupportTicket.jsonc). */
 export const TICKET_STATUSES = ['abierto', 'en_proceso', 'cerrado'] as const;
 
-/** Mission Control may only change a ticket's status. Sommel tickets carry a
- *  single `body` and no thread entity, so a reply (message / appendItem) is
- *  refused instead of being written somewhere the bar would never see it. */
+/** Conversation limits, shared with support.replyTicket (a test pins both). */
+export const MAX_RESPONSES = 200;
+export const MAX_RESPONSE_BODY = 5000;
+
+type TicketUpdate = { id: string; patch: Record<string, string>; reply: TicketReply | null };
+export type TicketReply = { author_role: 'acacia'; author_name: string; body: string; created_at: string };
+
+/** What Mission Control may do to a Sommel ticket: change its status, touch
+ *  last_activity_at, and append ONE reply as ACACIA to `responses`. A separate
+ *  message entity (`message` / `messageEntity`) does not exist here and is
+ *  refused; so is any other field, and a reply that claims to be from the bar. */
 export function sanitizeTicketUpdate(
   params: Record<string, unknown>,
-): { id: string; patch: { status: string } } | { error: string } {
+  nowIso = new Date().toISOString(),
+): TicketUpdate | { error: string } {
   const bad = entityError(TICKET_ENTITY, params.entity);
   if (bad) return { error: bad };
   if (typeof params.id !== 'string' || !params.id) return { error: 'params.id required' };
-  if (params.message || params.messageEntity || params.appendField || params.appendItem) {
-    return { error: 'replies not supported: Sommel tickets have no thread' };
+  if (params.message || params.messageEntity) {
+    return { error: 'Sommel tickets have no message entity; send appendField: responses' };
   }
-  const patch = params.patch;
-  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return { error: 'params.patch required' };
-  const keys = Object.keys(patch);
-  if (keys.length !== 1 || keys[0] !== 'status') return { error: 'only patch.status is allowed' };
-  const status = (patch as Record<string, unknown>).status;
-  if (!(TICKET_STATUSES as readonly string[]).includes(status as string)) {
-    return { error: `invalid status: ${String(status)}` };
+  const raw = params.patch ?? {};
+  if (typeof raw !== 'object' || Array.isArray(raw)) return { error: 'params.patch must be an object' };
+  const patch: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (k === 'status') {
+      if (!(TICKET_STATUSES as readonly string[]).includes(v as string)) return { error: `invalid status: ${String(v)}` };
+      patch.status = v as string;
+    } else if (k === 'last_activity_at') {
+      const d = normalizeDate(v);
+      if (!d) return { error: 'invalid last_activity_at' };
+      patch.last_activity_at = d;
+    } else {
+      return { error: `field not allowed: ${k}` };
+    }
   }
-  return { id: params.id, patch: { status: status as string } };
+  let reply: TicketReply | null = null;
+  if (params.appendField !== undefined || params.appendItem !== undefined) {
+    if (params.appendField !== 'responses') return { error: 'appendField must be responses' };
+    const item = params.appendItem;
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return { error: 'params.appendItem required' };
+    const it = item as Record<string, unknown>;
+    if (it.author_role !== 'acacia') return { error: 'the bridge can only reply as acacia' };
+    const body = typeof it.body === 'string' ? it.body.trim() : '';
+    if (!body) return { error: 'reply body required' };
+    if (body.length > MAX_RESPONSE_BODY) return { error: 'reply body too long' };
+    const name = typeof it.author_name === 'string' && it.author_name.trim() ? it.author_name.trim().slice(0, 100) : 'ACACIA Soporte';
+    reply = { author_role: 'acacia', author_name: name, body, created_at: nowIso };
+    patch.last_activity_at = nowIso;
+  }
+  if (!reply && Object.keys(patch).length === 0) return { error: 'nothing to update' };
+  return { id: params.id, patch, reply };
+}
+
+/** Appends to the LIVE array (read just before writing), never to a snapshot
+ *  the caller sent, so a bar reply that landed a moment ago is not lost. */
+export function appendResponse(current: unknown, reply: TicketReply): TicketReply[] | { error: string } {
+  const list = Array.isArray(current) ? current : [];
+  if (list.length >= MAX_RESPONSES) return { error: 'conversation is full' };
+  return [...list, reply];
 }
 
 // ── tenants.contacts / emails.sendFollowup ──────────────────────────────────
