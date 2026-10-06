@@ -10,6 +10,7 @@ import {
   validatePaymentAmount,
   remainingOf,
   paidTotal,
+  hasCashPayment,
   shouldClose,
   canCloseWithoutPayment,
   planDiscount,
@@ -290,4 +291,18 @@ Deno.test('ticketMoney and local time helpers', () => {
   assertEquals(ticketMoney(123456789), '$1,234,567.89');
   assertEquals(ticketMoney(5), '$0.05');
   assertEquals(formatLocalDateTime('2026-09-29T03:00:00Z'), '28/09/2026 21:00');
+});
+
+Deno.test('hasCashPayment: a cash sale opens the drawer, a card sale never does', () => {
+  const methods = [
+    { key: 'efectivo', label: 'Efectivo', is_cash: true, active: true },
+    { key: 'tarjeta', label: 'Tarjeta', is_cash: false, active: true },
+  ];
+  assertEquals(hasCashPayment([{ method: 'tarjeta' }], methods), false);
+  assertEquals(hasCashPayment([{ method: 'tarjeta' }, { method: 'efectivo' }], methods), true);
+  // A voided cash payment put no money in the drawer.
+  assertEquals(hasCashPayment([{ method: 'efectivo', voided_at: '2026-10-06T00:00:00Z' }], methods), false);
+  // A bar-defined cash method counts; with no methods, efectivo is cash.
+  assertEquals(hasCashPayment([{ method: 'dolares' }], [{ key: 'dolares', label: 'USD', is_cash: true, active: true }]), true);
+  assertEquals(hasCashPayment([{ method: 'efectivo' }], null), true);
 });

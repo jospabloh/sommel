@@ -1,5 +1,6 @@
-// Visible setup steps for the cashier laptop (contract §6). Chrome only opens
-// the print dialog silently when started with --kiosk-printing.
+// Fallback setup steps, shown only while no USB printer is connected: the
+// print dialog path needs an installed printer, and Chrome only skips the
+// dialog when started with --kiosk-printing.
 import React from 'react';
 import { Info } from 'lucide-react';
 
@@ -13,10 +14,10 @@ const STEPS = [
 
 export default function KioskInstructions() {
   return (
-    <details className="group bg-card border border-border rounded-xl p-4 sm:p-5" open>
+    <details className="group bg-card border border-border rounded-xl p-4 sm:p-5">
       <summary className="flex items-center gap-2 cursor-pointer select-none list-none">
         <Info className="w-4 h-4 text-primary shrink-0" />
-        <span className="font-display text-base font-semibold">Cómo dejar lista la laptop de caja</span>
+        <span className="font-display text-base font-semibold">Si no puedes conectar por USB</span>
       </summary>
       <ol className="mt-3 space-y-2 text-sm text-muted-foreground list-decimal pl-5">
         {STEPS.map((step) => (

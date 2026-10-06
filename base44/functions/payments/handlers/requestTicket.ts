@@ -1,9 +1,9 @@
 // payments.requestTicket — entrega-2-contratos.md §5 (Ticket). Creates a
 // PrintJob of kind 'ticket'; the print station only paints its lines.
 import { loadOwned, requirePermission, requireWritable, pickSurvivor, type Ctx, type Route } from '../_guard.ts';
-import { paidTotal } from './_logic.ts';
+import { hasCashPayment, paidTotal } from './_logic.ts';
 import { buildTicketLines } from './_ticket.ts';
-import { loadItems, loadPayments, placeOf } from './_shared.ts';
+import { barMethods, loadItems, loadPayments, placeOf } from './_shared.ts';
 
 export const requestTicket: Route = async (ctx: Ctx, body: any) => {
   const order = await loadOwned(ctx, 'Order', body?.order_id);
@@ -45,6 +45,8 @@ export const requestTicket: Route = async (ctx: Ctx, body: any) => {
     lines,
     source_id: order.id,
     dedupe_key: dedupeKey,
+    // The station pulses the drawer only for a sale paid (partly) in cash.
+    open_drawer: hasCashPayment(payments, barMethods(ctx)),
     status: 'pendiente',
     attempts: 0,
   });

@@ -4,12 +4,18 @@
 //
 // Nothing here ever reprints by itself: only `pendiente` jobs are claimed
 // automatically, and only while auto print is on. Reprints are explicit.
+//
+// Two ways out to paper. With a USB printer connected (WebUSB) the job goes
+// straight to it as ESC/POS: no driver, no dialog, and a failure is a real
+// failure. Without one, the old path: paint the print area and window.print().
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { base44 } from '@/api/base44Client';
 import { callFn } from '@/lib/api';
 import { toast } from '@/components/ui/use-toast';
 import { eventRow, getDeviceId, readAutoPref, writeAutoPref } from './printingHelpers';
+import { buildDrawerPulse, buildEscPos, testLines } from './escpos';
+import { choosePrinter, findPaired, forget, printerName, sendBytes, usbSupported } from './usbPrinter';
 
 const POLL_MS = 10 * 1000;
 const EVENT_DEBOUNCE_MS = 300;
@@ -28,6 +34,29 @@ export default function usePrintStation(tenantId) {
   const [busy, setBusy] = useState(false);
   const [paperJob, setPaperJob] = useState(null);
   const busyRef = useRef(false);
+  const [usb, setUsb] = useState(null);
+  const usbRef = useRef(null);
+  const setPrinter = useCallback((device) => {
+    usbRef.current = device;
+    setUsb(device);
+  }, []);
+
+  // A printer allowed before reconnects by itself; unplugging drops it and
+  // plugging it back picks it up again.
+  useEffect(() => {
+    if (!usbSupported()) return undefined;
+    let alive = true;
+    findPaired().then((d) => { if (alive && d) setPrinter(d); });
+    const onConnect = (e) => { if (!usbRef.current) setPrinter(e.device); };
+    const onDisconnect = (e) => { if (usbRef.current === e.device) setPrinter(null); };
+    navigator.usb.addEventListener('connect', onConnect);
+    navigator.usb.addEventListener('disconnect', onDisconnect);
+    return () => {
+      alive = false;
+      navigator.usb.removeEventListener('connect', onConnect);
+      navigator.usb.removeEventListener('disconnect', onDisconnect);
+    };
+  }, [setPrinter]);
 
   const load = useCallback(async () => {
     try {
@@ -84,6 +113,23 @@ export default function usePrintStation(tenantId) {
   // Paints the claimed job into the print area, prints, then confirms.
   const paintAndPrint = useCallback(
     async (job) => {
+      const device = usbRef.current;
+      if (device) {
+        try {
+          // A reprint never opens the drawer: the money already went in.
+          await sendBytes(device, buildEscPos(job.lines, { openDrawer: !!job.open_drawer && !job.reprint_of }));
+        } catch (err) {
+          await fail(job, err?.message || 'No se pudo imprimir');
+          toast({ title: 'No se pudo imprimir', description: err?.message, variant: 'destructive' });
+          return;
+        }
+        try {
+          await callFn('printing', 'markPrinted', { job_id: job.id, device_id: deviceId });
+        } catch (err) {
+          toast({ title: 'Se imprimió, pero no se pudo confirmar', description: err.message, variant: 'destructive' });
+        }
+        return;
+      }
       flushSync(() => setPaperJob(job));
       await nextFrame();
       try {
@@ -157,7 +203,43 @@ export default function usePrintStation(tenantId) {
     [act, deviceId],
   );
 
+  const connectPrinter = useCallback(async () => {
+    try {
+      const device = await choosePrinter();
+      if (device) {
+        setPrinter(device);
+        toast({ title: 'Impresora conectada', description: printerName(device) });
+      }
+    } catch (err) {
+      toast({ title: 'No se pudo conectar la impresora', description: err.message, variant: 'destructive' });
+    }
+  }, [setPrinter]);
+
+  const disconnectPrinter = useCallback(async () => {
+    const device = usbRef.current;
+    setPrinter(null);
+    await forget(device);
+  }, [setPrinter]);
+
+  const sendDirect = useCallback(async (bytes, okTitle) => {
+    try {
+      await sendBytes(usbRef.current, bytes);
+      if (okTitle) toast({ title: okTitle });
+    } catch (err) {
+      toast({ title: 'No se pudo enviar a la impresora', description: err.message, variant: 'destructive' });
+    }
+  }, []);
+  const testPrint = useCallback(() => sendDirect(buildEscPos(testLines()), 'Prueba enviada'), [sendDirect]);
+  const openDrawer = useCallback(() => sendDirect(buildDrawerPulse()), [sendDirect]);
+
   return {
+    usbSupported: usbSupported(),
+    printer: usb,
+    printerName: printerName(usb),
+    connectPrinter,
+    disconnectPrinter,
+    testPrint,
+    openDrawer,
     deviceId,
     jobs,
     loading,

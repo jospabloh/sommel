@@ -39,7 +39,12 @@
     "claimed_at": { "type": "string", "format": "date-time" },
     "printed_at": { "type": "string", "format": "date-time" },
     "attempts": { "type": "number", "default": 0 },
-    "reprint_of": { "type": "string", "description": "PrintJob del que este es una reimpresión explícita" }
+    "reprint_of": { "type": "string", "description": "PrintJob del que este es una reimpresión explícita" },
+    "open_drawer": {
+      "type": "boolean",
+      "default": false,
+      "description": "La estación abre el cajón de dinero al imprimir este trabajo. Solo lo pone payments.requestTicket cuando la cuenta tiene un pago en efectivo; una reimpresión nunca lo copia"
+    }
   },
   "required": ["tenant_id", "kind", "dedupe_key"],
   "rls": {
