@@ -2,7 +2,7 @@
 // (from the canonical _guard.ts, nobody edits that copy) does
 // requireContext/dispatch/error-mapping; each action's own check order lives
 // in its handler.
-import { handle } from './_guard.ts';
+import { allowLockedTerminal, handle } from './_guard.ts';
 import { roster } from './handlers/roster.ts';
 import { punch } from './handlers/punch.ts';
 import { setMyPin } from './handlers/setMyPin.ts';
@@ -11,5 +11,14 @@ import { records } from './handlers/records.ts';
 import { correct } from './handlers/correct.ts';
 
 export default function (req: Request): Promise<Response> {
-  return handle(req, { roster, punch, setMyPin, resetPin, records, correct });
+  // Terminal mode: the checador works on a locked terminal too (each person
+  // punches with their own PIN); everything else needs someone unlocked.
+  return handle(req, {
+    roster: allowLockedTerminal(roster),
+    punch: allowLockedTerminal(punch),
+    setMyPin,
+    resetPin,
+    records,
+    correct,
+  });
 }

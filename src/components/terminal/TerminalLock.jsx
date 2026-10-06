@@ -2,13 +2,14 @@
 // nobody has unlocked it. Buttons for who is on shift and the admins, the rest
 // behind "Otra persona", then the person's PIN.
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Monitor, UserRound } from 'lucide-react';
+import { ArrowLeft, Fingerprint, Monitor, UserRound } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { setUnlocked } from '@/lib/terminal/terminalStore';
 import { Button } from '@/components/ui/button';
 import PinPad, { PIN_MIN } from '@/components/attendance/PinPad';
 import CameraPreview from '@/components/security/CameraPreview';
 import { usePhotoCapture } from '@/lib/camera/usePhotoCapture';
+import LockChecador from './LockChecador';
 
 function unlockError(err) {
   if (err.code === 'wrong_pin') return 'PIN incorrecto. Inténtalo de nuevo.';
@@ -40,6 +41,7 @@ export default function TerminalLock() {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [pinError, setPinError] = useState(null);
+  const [checador, setChecador] = useState(false);
   const camera = usePhotoCapture(!!person?.photo_check);
 
   const load = useCallback(async () => {
@@ -95,6 +97,8 @@ export default function TerminalLock() {
           <div className="flex justify-center py-16" role="status" aria-label="Cargando">
             <div className="w-8 h-8 border-4 border-border border-t-primary rounded-full animate-spin" />
           </div>
+        ) : checador ? (
+          <LockChecador onExit={() => { setChecador(false); load(); }} />
         ) : person ? (
           <div className="max-w-sm mx-auto space-y-5">
             <Button type="button" variant="ghost" className="h-11 -ml-2" onClick={() => { setPerson(null); setPin(''); setPinError(null); }}>
@@ -111,6 +115,11 @@ export default function TerminalLock() {
         ) : (
           <div className="space-y-6">
             <h1 className="font-display text-3xl font-semibold text-center">¿Quién eres?</h1>
+            <div className="text-center">
+              <Button type="button" variant="outline" className="h-12" onClick={() => setChecador(true)}>
+                <Fingerprint className="w-4 h-4" /> Checar entrada o salida
+              </Button>
+            </div>
             {people.length === 0 ? (
               <div className="rounded-xl border border-border bg-card p-6 text-center space-y-2">
                 <UserRound className="w-8 h-8 mx-auto text-muted-foreground" />

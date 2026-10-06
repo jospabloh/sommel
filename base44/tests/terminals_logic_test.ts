@@ -67,8 +67,8 @@ Deno.test('after the next unlock or a lock, the previous pass stops working', as
   assertEquals(passEpochOf({}), 0, 'rows from before the epoch existed');
 });
 
-Deno.test('a locked terminal may only run its print station', () => {
-  assertEquals([...LOCKED_TERMINAL_PERMISSIONS], ['Impresion:operar']);
+Deno.test('a locked terminal may only run its print station and its checador (each person uses their own PIN)', () => {
+  assertEquals([...LOCKED_TERMINAL_PERMISSIONS].sort(), ['Asistencia:checar', 'Impresion:operar']);
 });
 
 Deno.test('ten misses across people lock the terminal itself', () => {
