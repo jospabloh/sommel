@@ -663,3 +663,23 @@ Lo que cambia para quien toque el código:
   la prueba de provisión del 2026-10-06 y la pantalla con respuestas
   simuladas); que Base44 acepte `tenant_id: null` en la cuenta de terminal al
   revocar; que borrar la cuenta invalide la sesión ya emitida.
+
+### Un import roto no lo detecta `deno lint` (2026-10-06)
+
+El PR #32 se publicó con `terminals/handlers/whoAmI.ts` importando
+`terminalAllows` de un archivo que no lo exporta. `deno lint` y las pruebas
+pasaron; Base44 no pudo empaquetar la función y **siguió sirviendo la versión
+anterior sin avisar** en el Publish. Se descubrió al forzar
+`POST /coding/redeploy-function/terminals`, que sí devuelve el error del
+empaquetador.
+
+Antes de publicar una función nueva o con imports cambiados, compílala con el
+SDK sustituido por un stub (el sandbox no resuelve `npm:@base44/sdk`):
+
+    # deno.json: { "imports": { "npm:@base44/sdk@0.8.49": "./sdkstub.ts" } }
+    deno check --config <ese deno.json> base44/functions/<fn>/entry.ts
+
+Hoy `acaciaControl` (3), `shifts` (2), `inventory` (1) y `manageStaff` (1)
+tienen errores de tipos previos que no impiden empaquetar; un error
+`TS2305` (no exporta) sí lo impide. Y después de publicar, verifica cada
+función nueva por comportamiento, no por la salida del Publish.
