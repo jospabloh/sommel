@@ -1007,3 +1007,20 @@ sin desbordar, el aviso de PIN distinto, y el cuerpo de `addPerson` correcto.
 **No verificado:** `addPerson` contra Base44 publicado (que `provisionAccount`
 acepte el dominio `personal.` igual que `terminales.`) y desbloquear una
 terminal real con esa persona.
+
+## Base44 renombró `/embed-tokens` a `/embed-url` (2026-10-06)
+
+Al publicar la fase 2b, `terminals.addPerson` respondió 502: `/embed-tokens`
+daba **404**. El catálogo de la API de plataforma ya no lo lista; ahora está
+`POST /api/apps/{app_id}/embed-url`, con el mismo cuerpo (`email`, `target`) y
+la misma respuesta (`embed_url`). Las dos APIs son beta. Eso significa que
+**activar una terminal también estaba roto** desde ese cambio de Base44, no
+solo agregar personas: las dos pasan por `signInAs`.
+`terminals/_platform.ts` usa `/embed-url` y solo si responde 404 prueba el
+nombre viejo. La cuenta a medio crear del intento fallido se borró sola (el
+`deprovisionAccount` del manejo de errores); releído: ningún `User` con el
+dominio `personal.` quedó en la base.
+
+**Regla:** las APIs beta de Base44 cambian sin aviso. Cuando algo que pasa por
+`provisionAccount`/`signInAs` falle con 404, revisa primero el catálogo
+(`list_api_catalog`) antes de tocar la lógica.

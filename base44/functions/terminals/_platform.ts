@@ -1,5 +1,5 @@
 // Calls to the Base44 platform API for terminal accounts (both beta APIs:
-// users/provisions and embed-tokens). Authenticated with BASE44_SOMMEL_TOKEN,
+// users/provisions and embed-url). Authenticated with BASE44_SOMMEL_TOKEN,
 // the platform owner's personal access token scoped to Sommel (the account has no
 // workspace API keys). Proven by terminals.probeProvisioning on 2026-10-06:
 // host app.base44.com, `Authorization: Bearer`. The token never leaves here.
@@ -19,7 +19,7 @@ function token(): string {
 }
 
 export class PlatformError extends Error {
-  constructor(public code: string, message: string) {
+  constructor(public code: string, message: string, public status = 0) {
     super(message);
   }
 }
@@ -31,7 +31,7 @@ async function call(method: string, path: string, body: unknown): Promise<any> {
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new PlatformError('platform_error', `Base44 respondió ${res.status} en ${path}`);
+  if (!res.ok) throw new PlatformError('platform_error', `Base44 respondió ${res.status} en ${path}`, res.status);
   return data;
 }
 
@@ -49,9 +49,27 @@ export async function deprovisionAccount(email: string): Promise<boolean> {
   }
 }
 
+// Base44 renamed this beta endpoint: /embed-tokens answered 404 on 2026-10-06
+// and the catalog now lists /embed-url (same body and response). Try the
+// current name first and fall back to the old one only on a 404.
+const SIGN_IN_PATHS = ['/embed-url', '/embed-tokens'];
+
+async function mintSignIn(email: string): Promise<any> {
+  let last: unknown = null;
+  for (const path of SIGN_IN_PATHS) {
+    try {
+      return await call('POST', path, { email, target: 'live_site' });
+    } catch (err) {
+      if (!(err instanceof PlatformError) || err.status !== 404) throw err;
+      last = err;
+    }
+  }
+  throw last;
+}
+
 /** Mints the one-time sign-in and spends it server side; returns the session. */
 export async function signInAs(email: string): Promise<string> {
-  const minted = await call('POST', '/embed-tokens', { email, target: 'live_site' });
+  const minted = await mintSignIn(email);
   if (!minted?.embed_url) throw new PlatformError('platform_error', 'Base44 no devolvió el enlace de inicio de sesión');
   const landing = await fetch(minted.embed_url, { redirect: 'manual' });
   const session = accessTokenFromLocation(landing.headers.get('location'));
