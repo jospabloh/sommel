@@ -4,7 +4,7 @@
 // with allowNoTenant in entry.ts: the platform admin has no bar of their own.
 // Mission Control stays the primary owner of the license (module 1); this is
 // the manual adjustment, and every change leaves a WineBar.license_audit entry.
-import { httpError, type Ctx } from '../_guard.ts';
+import { httpError, type Ctx, forgetBar } from '../_guard.ts';
 import {
   appendAudit,
   cleanNote,
@@ -60,5 +60,6 @@ export async function platformSetLicense(ctx: Ctx, body: any) {
   };
   const patch = { ...diff.after, license_audit: appendAudit(bar.license_audit, entry) };
   const updated = await ctx.svc.entities.WineBar.update(barId, patch);
+  forgetBar(barId);
   return { bar: projectBar({ ...bar, ...patch, ...(updated ?? {}) }, { products: 0, orders: 0, revenue_cents: 0 }) };
 }

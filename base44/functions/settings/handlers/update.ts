@@ -1,6 +1,6 @@
 // settings.update — entrega-2-contratos.md §5. Order: loadOwned ->
 // permission -> requireWritable -> validate -> write with svc.
-import { requirePermission, requireWritable, httpError, HttpError, type Ctx, type Route } from '../_guard.ts';
+import { requirePermission, requireWritable, httpError, HttpError, type Ctx, type Route, forgetBar } from '../_guard.ts';
 import { LogicError, buildSettingsPatch } from './_logic.ts';
 import { effectiveMethods, settingsView } from './_shared.ts';
 
@@ -24,6 +24,7 @@ export const update: Route = async (ctx: Ctx, body: any) => {
   }
 
   await ctx.svc.entities.WineBar.update(bar.id, patch);
+  forgetBar(bar.id);
   const [fresh] = await ctx.svc.entities.WineBar.filter({ id: bar.id });
   return { bar: settingsView(fresh ?? { ...bar, ...patch }, ctx.self?.id) };
 };

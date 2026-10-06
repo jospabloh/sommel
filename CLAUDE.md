@@ -742,3 +742,41 @@ Para que nadie use el PIN de otra persona (el lector de huella se descartó).
   checador manda la foto). **No verificado:** nada contra Base44 publicado (las
   respuestas de `security` y del checador se simularon), una cámara real en
   Mac/iPad, y el permiso de cámara dentro de la app instalada.
+
+## Concurrencia: el límite de Base44 es por app (2026-10-06)
+
+El 2026-10-06 José vio "Hay muchas solicitudes seguidas" en Turno con un solo
+usuario de QA. Los logs de `printing` muestran `POST → 429` a las 04:57:44,
+04:58:07, 04:58:14 y 04:59:07 UTC, justo mientras corrían pruebas de navegador
+con esa misma cuenta. El 429 lo pone Base44 (la plataforma limita operaciones
+de entidades, ~150 por minuto según quien lo preguntó; no lo publica) y el
+guard solo lo traduce (`isRateLimitError`). Si el límite es por app, lo
+comparten **todos los bares**: cada llamada gastaba 3 a 6 operaciones y cada
+estación de impresión consultaba la cola cada 10 s, así que 5 o 6 equipos
+abiertos bastaban para topar.
+
+Lo que se cambió:
+- **Caché de 20 s en el guard** (`TtlCache` en `_guard_logic.ts`): el
+  `WineBar` y el `PermissionProfile` se leen una vez por instancia caliente y
+  sirven 20 s. **Decisión de José:** un cambio de permisos o una suspensión de
+  licencia puede tardar hasta 20 s en aplicar. **Nunca** se cachean el `User`
+  (quitar a alguien aplica en la siguiente llamada) ni el `TerminalDevice`
+  (revocar aplica en la siguiente llamada).
+- Las rutas que editan o deciden sobre esos datos leen fresco con
+  `freshReads(route)`: `settings.get/update/platform*`, todo `account`, todo
+  `permissions`. Tras escribir, `forgetBar` / `forgetProfiles` borran la
+  entrada de esa instancia. Otra función puede ver el valor viejo hasta 20 s.
+- **Cliente**: `callFn` reintenta solo **lecturas** (`READ_ACTIONS` en
+  `src/lib/retryPolicy.js`) ante un 429, a los ~1.5 s y ~4 s. Las escrituras
+  nunca se reintentan solas: un 429 puede llegar con la mitad de la escritura
+  hecha, y repetir un pago o una marca la haría dos veces. Una acción nueva de
+  solo lectura se agrega ahí a propósito.
+- **Impresión**: la cola se recarga por tiempo real; el sondeo es respaldo
+  cada 45 s (antes 10 s) y solo en la pestaña visible.
+- Pruebas: `base44/tests/concurrency_test.ts`.
+
+**No verificado:** que Base44 mantenga la instancia caliente entre llamadas
+(si no, el caché nunca acierta y no hace daño, pero tampoco ahorra); el límite
+real y si es por app o por usuario; una prueba de carga con varios equipos
+simulados. **Regla nueva:** las pruebas automáticas de navegador nunca usan la
+cuenta con la que José está probando; van contra un bar de prueba aparte.

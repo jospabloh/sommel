@@ -3,6 +3,7 @@
 // validate -> write with svc. Only real registry keys with boolean values are
 // accepted; the tenant is ctx.tenantId, never the body (module 14).
 import {
+  forgetProfiles,
   httpError,
   HttpError,
   requireWritable,
@@ -32,8 +33,10 @@ export const upsertProfile: Route = async (ctx: Ctx, body: any) => {
   const existing = pickSurvivor<any>(rows);
   if (existing) {
     await ctx.svc.entities.PermissionProfile.update(existing.id, { overrides });
+    forgetProfiles(ctx.tenantId);
   } else {
     await ctx.svc.entities.PermissionProfile.create({ tenant_id: ctx.tenantId, role, overrides });
+    forgetProfiles(ctx.tenantId);
   }
   return { profile: profileView({ overrides }, role) };
 };
