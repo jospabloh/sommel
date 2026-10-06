@@ -95,11 +95,20 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
     }
   }, []);
 
+  // Polls only while this tab is visible: every open Sommel tab on a device
+  // with a USB printer runs a station, and hidden ones only add requests
+  // against Base44's rate limit (realtime still wakes them when a job lands).
   useEffect(() => {
     if (!enabled) return undefined;
+    const visible = () => typeof document === 'undefined' || document.visibilityState === 'visible';
     load();
-    const t = setInterval(load, POLL_MS);
-    return () => clearInterval(t);
+    const t = setInterval(() => { if (visible()) load(); }, POLL_MS);
+    const onVisible = () => { if (visible()) load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [enabled, load]);
 
   // Realtime: subscribe() is not filtered by the server, so only events of

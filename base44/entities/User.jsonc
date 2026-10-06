@@ -28,6 +28,14 @@
         "write": false
       }
     },
+    "photo_check": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si es true, Sommel le toma una foto pequeña a esta persona al entrar a una terminal y al checar, contra el préstamo de PIN (se borra a los 30 días). Módulo 19, candado de ESCRITURA (rls.write false): solo lo escribe manageStaff (service role), y solo el bar_admin de su bar desde Staff. Si se quita, la persona a la que se le pide foto se la quita con updateMe y vuelve a prestar su PIN sin dejar rastro. Una cámara que no funciona no se arregla quitando este candado: el admin apaga la foto en Staff.",
+      "rls": {
+        "write": false
+      }
+    },
     "tenant_id": {
       "type": "string",
       "description": "ID of the WineBar this user belongs to. Server-authoritative: sólo lo escriben createWineBar, manageStaff y terminals (service role; terminal = cuenta de un equipo autorizado, sin permisos propios). Candado de ESCRITURA (rls.write false, módulo 24 del estándar; módulo 19 lo protege): no gobierna las lecturas. Si se quita, con updateMe cualquiera se apunta al bar de otro y lee sus datos, porque todo el RLS compara contra este campo. Un usuario sin bar o con pantalla vacía no se arregla quitando este candado: se diagnostica la fila del usuario y se corrige desde createWineBar o manageStaff.",

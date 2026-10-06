@@ -16,6 +16,24 @@ import {
 import { verifyPin } from './_pin.ts';
 import { canPunchFor, decidePunch, displayName, isForgotten, lockMinutesLeft, openRecords, validatePin } from './_logic.ts';
 import { guardLogic, personRecords, recordPinFailure, requireTenant } from './_shared.ts';
+import { photoRequired, punchAlerts, raiseAlerts, savePhoto, validatePhoto } from '../_security.ts';
+
+/** Photo and alerts (anti PIN-sharing). Never blocks the punch. */
+async function antiSharingChecks(ctx: Ctx, target: any, name: string, rawPhoto: unknown, action: string, attendanceId: string | null, nowMs: number): Promise<void> {
+  try {
+    const tenantId = ctx.tenantId as string;
+    const photo = validatePhoto(rawPhoto);
+    const device = ctx.terminal?.device ?? null;
+    const photoId = await savePhoto(ctx.svc, {
+      tenantId, person: target, personName: name, kind: 'punch', photo,
+      terminalId: device?.id ?? null, terminalName: device?.name ?? null, attendanceId, nowMs,
+    });
+    const drafts = punchAlerts({ photoRequired: photoRequired(target), photoGiven: !!photo, action });
+    await raiseAlerts(ctx.svc, { tenantId, userId: target.id, userName: name, drafts, terminalId: device?.id ?? null, photoId, nowMs });
+  } catch (err) {
+    console.error('punch anti-sharing checks failed', (err as Error).message);
+  }
+}
 
 export const punch: Route = async (ctx: Ctx, body: any) => {
   const userId = typeof body?.user_id === 'string' ? body.user_id : '';
@@ -59,6 +77,7 @@ export const punch: Route = async (ctx: Ctx, body: any) => {
     const record = await ctx.svc.entities.Attendance.update(decision.record.id, {
       clock_out: new Date(nowMs).toISOString(),
     });
+    await antiSharingChecks(ctx, target, name, body?.photo, 'salida', decision.record.id, nowMs);
     return { record, action: 'salida', name };
   }
 
@@ -82,5 +101,6 @@ export const punch: Route = async (ctx: Ctx, body: any) => {
     }
     if (survivor) record = survivor;
   }
+  await antiSharingChecks(ctx, target, name, body?.photo, 'entrada', record?.id ?? null, nowMs);
   return { record, action: 'entrada', name };
 };

@@ -108,6 +108,8 @@ export interface RosterPerson {
   on_shift: boolean;
   /** Shown as a button right away: on shift now, or an admin (always). */
   featured: boolean;
+  /** The bar admin asked for a photo when this person unlocks (anti PIN-sharing). */
+  photo_check: boolean;
 }
 
 /**
@@ -117,7 +119,7 @@ export interface RosterPerson {
  * so someone who forgot to punch in is never locked out.
  */
 export function buildRoster(
-  users: Array<{ id: string; display_name?: string | null; full_name?: string | null; email?: string | null; app_role?: string | null; tenant_id?: string | null }>,
+  users: Array<{ id: string; display_name?: string | null; full_name?: string | null; email?: string | null; app_role?: string | null; tenant_id?: string | null; photo_check?: boolean | null }>,
   opts: { tenantId: string; allows: (id: string) => boolean; withPin: Set<string>; onShift: Set<string> }
 ): RosterPerson[] {
   return users
@@ -132,6 +134,7 @@ export function buildRoster(
         app_role: u.app_role as string,
         on_shift: onShift,
         featured: onShift || u.app_role === 'bar_admin',
+        photo_check: u.photo_check === true,
       };
     })
     .sort((a, b) => Number(b.featured) - Number(a.featured) || a.name.localeCompare(b.name, 'es'));

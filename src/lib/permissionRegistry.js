@@ -45,6 +45,7 @@ export const PERMISSION_DEFAULTS = {
   'Asistencia:checar': { bar_admin: true, staff: true },
   'Asistencia:ver_equipo': { bar_admin: true, staff: false },
   'Asistencia:corregir': { bar_admin: true, staff: false },
+  'Seguridad:ver': { bar_admin: true, staff: false },
 };
 // AUTOGEN:PERMISSION_DEFAULTS:END
 
@@ -80,6 +81,7 @@ export const PERMISSION_LABELS = {
   'Asistencia:checar': { section: 'Asistencia', label: 'Checar entrada y salida' },
   'Asistencia:ver_equipo': { section: 'Asistencia', label: 'Ver la asistencia del equipo' },
   'Asistencia:corregir': { section: 'Asistencia', label: 'Corregir marcas de asistencia' },
+  'Seguridad:ver': { section: 'Seguridad', label: 'Ver fotos y alertas de préstamo de PIN' },
   'Equipo:invitar': { section: 'Equipo', label: 'Invitar personas al equipo' },
   'Equipo:cambiar_rol': { section: 'Equipo', label: 'Cambiar el rol de una persona' },
   'Equipo:quitar': { section: 'Equipo', label: 'Quitar personas del equipo' },

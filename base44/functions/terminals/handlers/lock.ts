@@ -6,6 +6,6 @@ import { requireTerminal } from './_shared.ts';
 
 export const lock = allowLockedTerminal(async (ctx: Ctx) => {
   const device = requireTerminal(ctx);
-  await ctx.svc.entities.TerminalDevice.update(device.id, { pass_epoch: passEpochOf(device) + 1 });
+  await ctx.svc.entities.TerminalDevice.update(device.id, { pass_epoch: passEpochOf(device) + 1, unlocked_user_id: null, unlocked_at: null });
   return {};
 });

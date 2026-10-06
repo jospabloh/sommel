@@ -711,3 +711,34 @@ persona salía con su correo en el checador, la terminal y los reportes.
   La regla vive en `personName`/`normalizeDisplayName` del guard y en copias
   de `manageStaff`, `createWineBar`, `attendance`, `terminals`, `support` y
   `src/lib/rbac.js`; `base44/tests/display_name_test.ts` las amarra.
+
+## Foto y alertas contra el préstamo de PIN (2026-10-06)
+
+Para que nadie use el PIN de otra persona (el lector de huella se descartó).
+- **Foto por persona**: el admin la enciende en Staff (ícono de cámara,
+  `manageStaff.setPhotoCheck`, campo con candado `User.photo_check`). Esa
+  persona ve su cámara al escribir el PIN en la terminal y en el checador, y la
+  foto (240 px, ~3-8 KB) viaja con `terminals.unlock` / `attendance.punch`. Sin
+  cámara o sin permiso **no se bloquea**: se levanta una alerta.
+- **La imagen vive en el renglón `PhotoCheck`, no en un archivo**: Base44 no
+  tiene forma de borrar archivos subidos (ni SDK ni API), así que con archivos la
+  caducidad no sería real. Se borra a los **30 días** y las alertas a los 90,
+  sin cron: cada foto o alerta nueva y cada lectura de Seguridad borran hasta 25
+  vencidas de ese bar (`purgeExpired`). Una foto que nadie pidió no se guarda
+  aunque llegue.
+- **Alertas** (`SecurityAlert`): entrar o checar sin foto cuando se pedía; la
+  misma persona en dos terminales en menos de 10 min
+  (`TerminalDevice.unlocked_user_id/unlocked_at`, se limpian al bloquear);
+  staff que entra a una terminal sin haber checado (solo si usó el checador en
+  los últimos 14 días). Una alerta igual sin ver de la última hora no se repite.
+- Pantalla **Seguridad** (`/seguridad`, permiso nuevo `Seguridad:ver`, solo
+  admins), función nueva `security` (21 de 40). La lista nunca trae imágenes;
+  se abre una a la vez.
+- Lógica en `scripts/templates/_security.ts`, copiada por `generate:guards` a
+  `attendance`, `terminals` y `security`. Pruebas en
+  `base44/tests/security_logic_test.ts`.
+- Verificado: pruebas (512/0), lint, build, check:functions y la pantalla con el
+  build local a 390/1440 en claro y oscuro, con cámara falsa de Chromium (el
+  checador manda la foto). **No verificado:** nada contra Base44 publicado (las
+  respuestas de `security` y del checador se simularon), una cámara real en
+  Mac/iPad, y el permiso de cámara dentro de la app instalada.

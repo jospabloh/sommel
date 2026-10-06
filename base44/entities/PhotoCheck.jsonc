@@ -1,0 +1,28 @@
+{
+  // Foto contra el préstamo de PIN: se toma al desbloquear una terminal o al
+  // checar, solo para las personas a las que el admin del bar se la pide.
+  // Se borra sola a los 30 días (_security.ts, PHOTO_RETENTION_DAYS): la imagen
+  // vive en el renglón, no en un archivo, porque Base44 no permite borrar
+  // archivos subidos y entonces la caducidad no sería real.
+  "name": "PhotoCheck",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar de la foto. Módulo 19, candado de LECTURA y ESCRITURA a nivel entidad: las cuatro operaciones son solo de plataforma (role admin). Solo las funciones attendance y terminals la crean como servicio, y la función security la muestra al admin del bar con el permiso Seguridad:ver. Si se afloja la lectura, cualquier compañero ve la cara de los demás; si se afloja la escritura, quien presta su PIN puede borrar su foto o subir la de otra persona." },
+    "user_id": { "type": "string", "description": "Persona que desbloqueó o checó" },
+    "user_name": { "type": "string", "description": "Nombre congelado de la persona" },
+    "kind": { "type": "string", "enum": ["unlock", "punch"], "description": "unlock = entrada a una terminal, punch = marca del checador" },
+    "image": { "type": "string", "description": "Data URL JPEG o WebP, unos 8 KB (240 px)" },
+    "terminal_id": { "type": ["string", "null"], "description": "Terminal donde se tomó, si fue en una" },
+    "terminal_name": { "type": ["string", "null"], "description": "Nombre congelado de la terminal" },
+    "attendance_id": { "type": ["string", "null"], "description": "Marca del checador a la que pertenece" },
+    "taken_at": { "type": "string", "format": "date-time", "description": "Cuándo se tomó" },
+    "expires_at": { "type": "string", "format": "date-time", "description": "Desde cuándo se puede borrar (30 días después)" }
+  },
+  "required": ["tenant_id", "user_id", "kind", "image", "taken_at", "expires_at"],
+  "rls": {
+    "read": { "user_condition": { "role": "admin" } },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}
