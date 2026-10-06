@@ -91,3 +91,20 @@ export function lineSubtitle(item) {
   if (mods.length) parts.push(mods.map((m) => m.label || m.key).join(', '));
   return parts.join(' · ');
 }
+
+/**
+ * Adds rows to a line list, or updates them in place when the id is already
+ * there. Two paths deliver a freshly added line: the addItems response and the
+ * OrderItem realtime event, in either order. A blind append showed the line
+ * twice whenever the event won the race (2026-10-06, Sommel QA "Mesa 1").
+ */
+export function upsertById(prev, rows) {
+  const next = Array.isArray(prev) ? prev.slice() : [];
+  for (const row of rows ?? []) {
+    if (!row?.id) continue;
+    const idx = next.findIndex((i) => i.id === row.id);
+    if (idx === -1) next.push(row);
+    else next[idx] = { ...next[idx], ...row };
+  }
+  return next;
+}

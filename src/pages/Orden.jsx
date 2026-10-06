@@ -30,7 +30,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatMXN } from '@/lib/money';
 import FixedBottomBar from '@/components/orders/FixedBottomBar';
 import { useOrderRealtime } from '@/components/orders/useOrderRealtime';
-import { flattenRow } from '@/components/orders/helpers';
+import { flattenRow, upsertById } from '@/components/orders/helpers';
 import ProductPicker from '@/components/orders/ProductPicker';
 import VariantModifierSheet from '@/components/orders/VariantModifierSheet';
 import OrderLineItem from '@/components/orders/OrderLineItem';
@@ -169,7 +169,7 @@ export default function Orden() {
         order_id: order.id,
         items: [payload],
       });
-      setItems((prev) => [...prev, ...(created || []).map(flattenRow).filter(Boolean)]);
+      setItems((prev) => upsertById(prev, (created || []).map(flattenRow).filter(Boolean)));
       setConfiguring(null);
       setAddOpen(false);
     } catch (err) {
