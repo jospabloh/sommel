@@ -609,3 +609,27 @@ la fase 3.
   local contra el backend real, a 390 y 1440 px, en claro y en oscuro.
 - Tiempo real con dos pantallas abiertas a la vez: verificado a mano por José
   en producción el 2026-10-06.
+
+## Pantalla completa e instalar como app (2026-10-06)
+
+Dos botones al pie de la barra lateral (`src/components/ScreenControls.jsx`)
+para que la caja no muestre pestañas ni barra de dirección:
+- **Pantalla completa** (API de Fullscreen): Chrome, Edge y Safari de escritorio.
+  Sigue al cambiar de pantalla dentro de Sommel; se pierde con Esc o al recargar.
+  No aparece donde el navegador no la permite (iPhone).
+- **Instalar Sommel**: Chrome y Edge disparan `beforeinstallprompt` una sola vez,
+  a veces en `/login`, así que `src/lib/screen/installPrompt.js` se importa desde
+  `main.jsx` y guarda el evento hasta que alguien pulse el botón. En iPad/iPhone
+  el botón abre las instrucciones de "Agregar a pantalla de inicio". Ya instalada
+  (`display-mode: standalone`), el botón no aparece.
+- El manifiesto **no** está en el repo: `/manifest.json` responde 302 a
+  `/api/apps/manifests/<appId>/manifest.json`, que genera Base44 con
+  `display: standalone`, el logo y la descripción de la app. Cambiarlo es desde
+  Base44, no desde aquí.
+- Las decisiones viven en `src/lib/screen/displayMode.js` (sin imports) y las
+  fija `base44/tests/display_mode_test.ts`.
+- Verificado con el build local contra el backend real: el botón se ve a 390 y
+  1440 px, y al pulsarlo la página entra a pantalla completa.
+  **No verificado:** el botón "Instalar Sommel" (Chromium sin interfaz nunca
+  dispara `beforeinstallprompt`), la app instalada con la impresora USB, y el
+  iPad.

@@ -9,6 +9,7 @@ import {
 import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
 import LicenseBanner from '@/components/LicenseBanner';
+import ScreenControls from '@/components/ScreenControls';
 import { usePermission } from '@/lib/usePermission';
 import { isPlatformUser, isBarAdmin, barRoleOf, roleLabel } from '@/lib/rbac';
 import AppUpdateBanner from '@/components/AppUpdateBanner';
@@ -172,6 +173,7 @@ export default function Layout() {
               <p className="text-xs text-muted-foreground truncate">{roleLabel(user)}</p>
             </div>
           </div>
+          <ScreenControls />
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
