@@ -3,6 +3,7 @@
 import { loadOwned, requirePermission, requireWritable, httpError, type Ctx, type Route } from '../_guard.ts';
 import { validateReason, paidTotal } from './_logic.ts';
 import { loadPayments, rethrow, setTablesStatus } from './_shared.ts';
+import { recordApproval, requireApproval } from '../_approval.ts';
 
 export const voidPayment: Route = async (ctx: Ctx, body: any) => {
   const payment = await loadOwned(ctx, 'Payment', body?.payment_id);
@@ -36,6 +37,9 @@ export const voidPayment: Route = async (ctx: Ctx, body: any) => {
     }
   }
 
+  // Manager approval, after every validation (see orders.cancelItem).
+  const approval = await requireApproval(ctx, body, 'void_payment');
+
   const now = new Date().toISOString();
   const voided = await ctx.svc.entities.Payment.update(payment.id, {
     voided_at: now,
@@ -57,5 +61,6 @@ export const voidPayment: Route = async (ctx: Ctx, body: any) => {
     updated = await ctx.svc.entities.Order.update(order.id, { paid });
   }
 
+  await recordApproval(ctx, approval, { targetId: payment.id, detail: reason });
   return { payment: voided, order: updated };
 };

@@ -60,6 +60,14 @@ export const EMAIL_TARGET_DIRS = ['shifts', 'manageStaff', 'acaciaControl'];
 // get a copy of scripts/templates/_security.ts.
 export const SECURITY_TARGET_DIRS = ['attendance', 'terminals', 'security'];
 
+// Function groups with actions that need a manager's approval (and `security`,
+// which lists the approvers) get scripts/templates/_approval.ts,
+// _approval_logic.ts and a copy of the checador's PIN hashing. The PIN code's
+// canonical source stays base44/functions/attendance/handlers/_pin.ts, so a
+// PIN made at the checador always verifies here.
+export const APPROVAL_TARGET_DIRS = ['orders', 'payments', 'shifts', 'security'];
+const PIN_SOURCE = join(FUNCTIONS_DIR, 'attendance', 'handlers', '_pin.ts');
+
 const BEGIN_MARK = '// AUTOGEN:PERMISSION_DEFAULTS:BEGIN';
 const END_MARK = '// AUTOGEN:PERMISSION_DEFAULTS:END';
 
@@ -110,6 +118,9 @@ export async function buildExpectedFiles() {
   const guard = readFileSync(join(TEMPLATES_DIR, '_guard.ts'), 'utf8');
   const email = readFileSync(join(TEMPLATES_DIR, '_email.ts'), 'utf8');
   const security = readFileSync(join(TEMPLATES_DIR, '_security.ts'), 'utf8');
+  const approval = readFileSync(join(TEMPLATES_DIR, '_approval.ts'), 'utf8');
+  const approvalLogic = readFileSync(join(TEMPLATES_DIR, '_approval_logic.ts'), 'utf8');
+  const pin = readFileSync(PIN_SOURCE, 'utf8');
 
   const files = new Map();
   files.set(join(TEMPLATES_DIR, '_guard_logic.ts'), guardLogic);
@@ -124,6 +135,11 @@ export async function buildExpectedFiles() {
   }
   for (const dir of SECURITY_TARGET_DIRS) {
     files.set(join(FUNCTIONS_DIR, dir, '_security.ts'), security);
+  }
+  for (const dir of APPROVAL_TARGET_DIRS) {
+    files.set(join(FUNCTIONS_DIR, dir, '_approval.ts'), approval);
+    files.set(join(FUNCTIONS_DIR, dir, '_approval_logic.ts'), approvalLogic);
+    files.set(join(FUNCTIONS_DIR, dir, '_pin.ts'), pin);
   }
   return files;
 }

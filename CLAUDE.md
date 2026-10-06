@@ -780,3 +780,38 @@ Lo que se cambió:
 real y si es por app o por usuario; una prueba de carga con varios equipos
 simulados. **Regla nueva:** las pruebas automáticas de navegador nunca usan la
 cuenta con la que José está probando; van contra un bar de prueba aparte.
+
+## Aprobación del encargado (2026-10-06)
+
+Decisión de José: **cuatro acciones** de personal necesitan que un
+**administrador del bar** las apruebe con su PIN: cancelar un platillo ya
+enviado (`orders.cancelItem`), anular un pago (`payments.voidPayment`), retiro
+de efectivo (`shifts.addCashOut`) y cerrar el turno (`shifts.close`). Un admin
+que actúa no pide nada a nadie.
+
+- El servidor decide (`requireApproval` en `scripts/templates/_approval.ts`,
+  copiado por `generate:guards` a `orders`, `payments`, `shifts` y `security`).
+  Se revisa **después** de todas las demás validaciones y **antes** de escribir:
+  una petición mala no gasta intentos del PIN, y la primera respuesta
+  (`403 approval_required`) no escribió nada, así que repetir es seguro.
+- El PIN es el mismo del checador y la terminal (`_pin.ts` se copia desde
+  `attendance/handlers/_pin.ts`, que sigue siendo el original) y comparte su
+  bloqueo: 5 errores lo bloquean 15 minutos. Ojo: un mesero que adivina el PIN
+  de un admin también le bloquea el checador a ese admin.
+- Aprueba solo un `bar_admin` de **ese** bar, nunca una terminal ni quien pide.
+  No se exige que el admin esté en turno: la lista pone primero a los que sí.
+- Cada aprobación deja una fila `ApprovalLog` (solo servicio, en el manifiesto
+  de candados) y se ve en **Seguridad → Aprobaciones**.
+- Cliente: `callFn` ve `approval_required`, pregunta por `approvalBroker`
+  (`src/lib/approval/`), y `ApprovalProvider` (en `Layout`) abre el teclado.
+  Tras un PIN equivocado vuelve a preguntar con el mismo admin elegido; si se
+  cancela, la llamada falla con `approval_cancelled`. Ninguna pantalla cambió.
+- **Pendiente (segundo PR):** aprobar con QR y Face ID/huella del celular,
+  como opción que el admin enciende o apaga; el PIN sigue siendo el método
+  por defecto.
+- Pruebas: `base44/tests/approval_test.ts`. Verificado con el build local en
+  Turno (retiro de efectivo) a 390/1440 en claro y oscuro con la cuenta de
+  staff y **todas** las funciones simuladas: pide aprobación, rechaza el PIN
+  malo con el mismo admin elegido y pasa con el bueno. **No verificado:** contra
+  Base44 publicado, y las otras tres pantallas (cancelar platillo, anular pago,
+  cerrar turno), que usan el mismo `callFn` y no cambiaron.

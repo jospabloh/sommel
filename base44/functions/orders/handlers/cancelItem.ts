@@ -9,6 +9,7 @@
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCost, type Ctx, type Route } from '../_guard.ts';
 import { LogicError, validateReason, isOrderOpen, canCancelItem } from './_logic.ts';
 import { recomputeOrderTotals, assertTotalCoversPayments } from './_shared.ts';
+import { recordApproval, requireApproval } from '../_approval.ts';
 
 export const cancelItem: Route = async (ctx: Ctx, body: any) => {
   const item = await loadOwned(ctx, 'OrderItem', body?.item_id);
@@ -35,6 +36,10 @@ export const cancelItem: Route = async (ctx: Ctx, body: any) => {
 
   await assertTotalCoversPayments(ctx, order, item.id);
 
+  // Manager approval: staff needs an admin's PIN; checked after every other
+  // validation so a bad request never spends an attempt of that PIN.
+  const approval = await requireApproval(ctx, body, 'cancel_sent_item');
+
   const updated = await ctx.svc.entities.OrderItem.update(item.id, {
     status: 'cancelado',
     cancel_reason: reason,
@@ -43,6 +48,7 @@ export const cancelItem: Route = async (ctx: Ctx, body: any) => {
   });
 
   await recomputeOrderTotals(ctx, item.order_id);
+  await recordApproval(ctx, approval, { targetId: item.id, detail: `${item.name ?? 'Renglón'}: ${reason}` });
 
   const canSeeCosts = await hasPermission(ctx, 'Menú:ver_costos');
   return { item: redactItemCost(updated, canSeeCosts) };

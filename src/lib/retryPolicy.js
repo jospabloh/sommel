@@ -14,7 +14,7 @@ export const READ_ACTIONS = {
   terminals: ['whoAmI', 'list', 'renew'],
   stations: ['getConfig'],
   shifts: ['list', 'current'],
-  security: ['listAlerts', 'listPhotos', 'getPhoto'],
+  security: ['listAlerts', 'listPhotos', 'getPhoto', 'approvers', 'listApprovals'],
   printing: ['queue'],
   permissions: ['getProfile'],
   inventory: ['list', 'movements'],
