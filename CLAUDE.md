@@ -946,11 +946,13 @@ en el primer 429, con ~90 s de reposo entre corridas.
 | 1 cuenta, 3.5/s, 120 s | 420 | sin 429 |
 | 2 cuentas, 3.5/s cada una (7/s), 120 s | 407 en ~58 s | **429 a las dos a la vez** |
 
-**Conclusión:** no es un tope por segundo, es una **cuota por ventana**
-(alrededor de 400 peticiones por minuto con esta mezcla), y **la comparten
-todos los usuarios y todos los bares**: la misma carga que una cuenta aguantó
-en 2 minutos, repartida en dos cuentas en 1 minuto, topó a las dos al mismo
-tiempo. Latencia con carga: p50 ~1 s, p95 ~4-6 s.
+**Conclusión:** no es un tope por segundo, es una **cuota por ventana**, y
+**la comparten todos los usuarios y todos los bares**: dos cuentas a la vez
+recibieron el 429 en el mismo instante. Topa alrededor de **400 peticiones en
+una ventana de 1 a 2 minutos**; la ventana exacta no se pudo aislar (una cuenta
+sola pasó 420 en 120 s, pero la primera corrida topó con 405 en 130 s, y
+cualquier otro uso de Sommel en ese momento gasta de la misma cuota). Latencia
+con carga: p50 ~1 s, p95 ~4-6 s.
 
 **Lo que implica:** el techo es de toda la plataforma, no de un bar. ~400 por
 minuto alcanza de sobra para pocos bares con el tiempo real y el sondeo de 45 s

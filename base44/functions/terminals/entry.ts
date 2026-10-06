@@ -10,6 +10,7 @@ import { whoAmI } from './handlers/whoAmI.ts';
 import { unlock } from './handlers/unlock.ts';
 import { renew } from './handlers/renew.ts';
 import { lock } from './handlers/lock.ts';
+import { addPerson, setPersonPin } from './handlers/people.ts';
 
 export default function (req: Request): Promise<Response> {
   return handle(req, {
@@ -20,5 +21,8 @@ export default function (req: Request): Promise<Response> {
     unlock,
     renew,
     lock,
+    // People without email (phase 2b): managed by the admin from Staff.
+    addPerson: remoteOnly(addPerson),
+    setPersonPin: remoteOnly(setPersonPin),
   });
 }
