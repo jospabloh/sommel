@@ -61,7 +61,7 @@ export default function LicenseBanner() {
         <span className="font-semibold">{notice.title}.</span> {notice.text}{' '}
         <a
           href={`mailto:${SUPPORT_EMAIL}`}
-          className="font-medium underline underline-offset-2 whitespace-nowrap"
+          className="font-medium underline underline-offset-2 [overflow-wrap:anywhere]"
         >
           {SUPPORT_EMAIL}
         </a>

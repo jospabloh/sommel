@@ -93,7 +93,7 @@ export default function LicenseCard({ bar }) {
       </p>
       <a
         href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Licencia de Sommel')}`}
-        className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline min-h-11"
+        className="inline-flex max-w-full items-center gap-2 text-sm font-medium text-primary hover:underline min-h-11 [overflow-wrap:anywhere]"
       >
         <Mail className="w-4 h-4" /> {SUPPORT_EMAIL}
       </a>

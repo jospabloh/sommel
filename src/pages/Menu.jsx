@@ -110,7 +110,7 @@ export default function Menu() {
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-4xl">
+    <div className="p-4 sm:p-6 lg:p-10 max-w-4xl">
       <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
@@ -122,7 +122,7 @@ export default function Menu() {
           </div>
         </div>
         {canEdit && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setCategoryManagerOpen(true)}>
               <Settings2 className="w-4 h-4" /> Categorías
             </Button>

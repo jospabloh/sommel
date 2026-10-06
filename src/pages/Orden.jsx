@@ -413,7 +413,7 @@ export default function Orden() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-2.5 pb-32">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2.5 pb-[calc(var(--bottom-bar-h,8rem)+1rem)]">
         {closed && (
           <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
             Esta comanda ya no está abierta.
@@ -446,9 +446,9 @@ export default function Orden() {
 
       {!closed && (
         <FixedBottomBar>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <span className="text-sm text-muted-foreground">Total</span>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
               <span className="text-xl font-display font-semibold">{formatMXN(total)}</span>
               {canCobrar && visibleItems.length > 0 && (
                 <Button className="h-10" onClick={() => setCobroOpen(true)}>
@@ -459,7 +459,7 @@ export default function Orden() {
           </div>
           <div className="flex gap-2.5">
             {canEdit && (
-              <Button variant="outline" className="flex-1 h-12" onClick={() => setAddOpen(true)}>
+              <Button variant="outline" className="h-12 min-w-0 flex-1 px-3" onClick={() => setAddOpen(true)}>
                 <Plus className="w-4 h-4 mr-1.5" /> Agregar
               </Button>
             )}
@@ -468,7 +468,7 @@ export default function Orden() {
               // barra" con su ícono no cabía en el botón flex-1 a 390px de
               // ancho (el sidebar de w-20 siempre visible deja ~310px para
               // los dos botones) y se recortaba o se encimaba con "Agregar".
-              <Button className="flex-1 h-12" onClick={handleSend} disabled={sending || unsentCount === 0}>
+              <Button className="h-12 min-w-0 flex-1 px-3" onClick={handleSend} disabled={sending || unsentCount === 0}>
                 <Send className="w-4 h-4 mr-1.5" /> {sending ? 'Enviando…' : 'Enviar'}
               </Button>
             )}

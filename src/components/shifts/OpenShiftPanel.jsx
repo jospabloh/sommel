@@ -53,7 +53,7 @@ export default function OpenShiftPanel({ data, canCorte, onCashOut, onClose }) {
       </div>
 
       <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-3">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <h2 className="font-display text-lg font-semibold">Salidas de efectivo</h2>
           <Button type="button" variant="outline" className="h-10" onClick={onCashOut}>
             <Banknote className="w-4 h-4 mr-2" /> Registrar salida

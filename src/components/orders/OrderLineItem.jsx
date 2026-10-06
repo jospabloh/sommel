@@ -36,7 +36,7 @@ export default function OrderLineItem({ item, canEdit, canCancel, onQtyChange, o
         <div className="text-xs text-destructive">Motivo: {item.cancel_reason}</div>
       )}
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         {unsent && canEdit ? (
           <div className="flex items-center gap-2">
             <button
