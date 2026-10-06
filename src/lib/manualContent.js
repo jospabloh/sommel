@@ -260,6 +260,10 @@ export const MANUAL_SECTIONS = [
         a: 'El administrador ajusta los permisos del rol staff en la pantalla de Permisos. Cada cambio se guarda al momento; el personal lo ve la próxima vez que abra la app, y el servidor lo comprueba en cada acción.',
       },
       {
+        q: 'Alguien de mi equipo no tiene correo, ¿cómo lo agrego?',
+        a: 'En Staff toca «Agregar a alguien sin correo». Escribe su nombre, elige su rol y deja que la persona escriba su PIN. Entra solo en las terminales del bar con ese PIN; no puede abrir Sommel desde su celular. Si olvida el PIN, cámbialo con el ícono de llave junto a su nombre.',
+      },
+      {
         q: '¿Puedo darle o quitarle un permiso a una sola persona?',
         a: 'Sí. En Staff toca el ícono de ajustes junto a la persona y elige, para cada permiso, Como su rol, Sí o No. Lo que elijas ahí gana sobre la pantalla de Permisos solo para esa persona. Por ejemplo: que un cocinero atienda cocina pero no barra.',
       },

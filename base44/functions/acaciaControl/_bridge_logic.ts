@@ -224,6 +224,14 @@ export function normEmail(v: unknown): string {
 
 type Row = Record<string, unknown>;
 
+/** Addresses Sommel made with no mailbox: people without email (phase 2b) and
+ *  terminals. Nobody reads mail there, so they never become a bar's contact. */
+const NO_MAILBOX_DOMAINS = ['personal.acaciaco.com.mx', 'terminales.acaciaco.com.mx'];
+export function isNoMailboxEmail(v: unknown): boolean {
+  const e = normEmail(v);
+  return NO_MAILBOX_DOMAINS.some((d) => e.endsWith(`@${d}`));
+}
+
 /** One contact per live bar: its owner if still a bar_admin of it, else the
  *  oldest bar_admin. Archived bars get no contact (they asked to leave). The
  *  recipient spec Mission Control sends is ignored: who speaks for a bar is
@@ -233,7 +241,7 @@ export function barContacts(bars: Row[], users: Row[]) {
   for (const bar of bars) {
     if (!bar?.id || bar.archived_at) continue;
     const admins = users
-      .filter((u) => u?.tenant_id === bar.id && u?.app_role === 'bar_admin' && normEmail(u.email))
+      .filter((u) => u?.tenant_id === bar.id && u?.app_role === 'bar_admin' && normEmail(u.email) && !isNoMailboxEmail(u.email))
       .sort((a, b) => String(a.created_date ?? '').localeCompare(String(b.created_date ?? '')));
     const pick = admins.find((u) => u.id === bar.owner_id) ?? admins[0] ?? null;
     out.push({

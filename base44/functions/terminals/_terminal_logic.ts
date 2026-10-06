@@ -171,3 +171,39 @@ export function shouldTouchLastSeen(lastSeenAt: string | null | undefined, nowMs
   const t = Date.parse(lastSeenAt);
   return Number.isNaN(t) || nowMs - t > 5 * MIN_MS;
 }
+
+// ---- People without email (phase 2b, 2026-10-06) ----
+// A waiter or cook with no email of their own gets an account with no mailbox,
+// like a terminal: nobody can sign in with it, they only exist to unlock a
+// terminal with their PIN. Being a regular User row, their PIN, punches,
+// permissions and every "who did what" work exactly like everyone else's.
+
+/** Domain with no mailbox for people without email. */
+export const PERSON_EMAIL_DOMAIN = 'personal.acaciaco.com.mx';
+
+export function personEmail(randomPart: string): string {
+  return `p-${randomPart}@${PERSON_EMAIL_DOMAIN}`;
+}
+
+/** True for an account made by addPerson (no mailbox, terminal only). */
+export function isInternalPersonEmail(email: unknown): boolean {
+  return typeof email === 'string' && email.toLowerCase().endsWith(`@${PERSON_EMAIL_DOMAIN}`);
+}
+
+export function validatePersonName(name: unknown): string {
+  const v = typeof name === 'string' ? name.trim().replace(/\s+/g, ' ') : '';
+  if (v.length < 1 || v.length > 40) throw new LogicError('invalid_name', 'Escribe su nombre (de 1 a 40 letras)');
+  return v;
+}
+
+/** Bar roles only; anything else (terminal, platform, garbage) is refused. */
+export function validatePersonRole(role: unknown): 'staff' | 'bar_admin' {
+  if (role === undefined || role === null || role === 'staff') return 'staff';
+  if (role === 'bar_admin') return 'bar_admin';
+  throw new LogicError('invalid_role', 'Rol no válido');
+}
+
+export function validateNewPin(pin: unknown): string {
+  if (!isValidPin(pin)) throw new LogicError('invalid_pin', 'El PIN debe tener de 4 a 6 números');
+  return pin;
+}

@@ -3,14 +3,16 @@ import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, UserPlus, Mail, Clock, X, Pencil, Camera, CameraOff, SlidersHorizontal } from 'lucide-react';
+import { Users, UserPlus, Mail, Clock, X, Pencil, Camera, CameraOff, SlidersHorizontal, KeyRound, UserRoundPlus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import MemberActions from '@/components/staff/MemberActions';
 import RemoveMemberDialog from '@/components/staff/RemoveMemberDialog';
 import RenameMemberDialog from '@/components/staff/RenameMemberDialog';
 import PersonPermissionsDialog from '@/components/staff/PersonPermissionsDialog';
+import AddPersonDialog from '@/components/staff/AddPersonDialog';
+import PersonPinDialog from '@/components/staff/PersonPinDialog';
 import { memberErrorMessage } from '@/components/staff/memberErrors';
-import { BAR_ADMIN, personName } from '@/lib/rbac';
+import { BAR_ADMIN, isWithoutEmail, personName } from '@/lib/rbac';
 
 export default function Staff() {
   const { user } = useAuth();
@@ -25,6 +27,8 @@ export default function Staff() {
   const [toRemove, setToRemove] = useState(null);
   const [toRename, setToRename] = useState(null);
   const [toPermissions, setToPermissions] = useState(null);
+  const [addingPerson, setAddingPerson] = useState(false);
+  const [toPin, setToPin] = useState(null);
 
   const load = async () => {
     try {
@@ -135,6 +139,11 @@ export default function Staff() {
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@mesero.com" className="flex-1 h-11" required />
         <Button type="submit" disabled={busy} className="h-11"><UserPlus className="w-4 h-4 mr-1" /> Invitar</Button>
       </form>
+      <div className="-mt-5 mb-8">
+        <Button type="button" variant="ghost" className="h-11 px-2" onClick={() => setAddingPerson(true)}>
+          <UserRoundPlus className="w-4 h-4 mr-1" /> Agregar a alguien sin correo
+        </Button>
+      </div>
 
       {!staff ? (
         <div className="flex justify-center py-10"><div className="w-8 h-8 border-4 border-border border-t-primary rounded-full animate-spin" /></div>
@@ -148,62 +157,77 @@ export default function Staff() {
           {staff.length > 0 && (
             <div className="space-y-2">
               {staff.map((s) => (
-                <div key={s.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
+                <div key={s.id} className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <div className="w-10 h-10 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
                     {(personName(s) || '?').charAt(0).toUpperCase()}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 basis-[calc(100%-3.25rem)] sm:basis-0">
                     <div className="font-medium truncate">{personName(s)}</div>
-                    <div className="text-xs text-muted-foreground truncate">{s.email}</div>
+                    <div className="text-xs text-muted-foreground truncate">{isWithoutEmail(s) ? 'Sin correo · entra solo en terminales' : s.email}</div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-11 w-11 shrink-0"
-                    aria-label={`Cambiar el nombre de ${personName(s)}`}
-                    title="Cambiar nombre"
-                    onClick={() => setToRename(s)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={s.photo_check ? 'secondary' : 'ghost'}
-                    size="icon"
-                    className="h-11 w-11 shrink-0"
-                    aria-pressed={!!s.photo_check}
-                    aria-label={s.photo_check ? `Dejar de pedir foto a ${personName(s)}` : `Pedir foto a ${personName(s)} al entrar y al checar`}
-                    title={s.photo_check ? 'Se le pide foto. Toca para quitarla' : 'Pedir foto al entrar y al checar'}
-                    disabled={memberBusyId === s.id}
-                    onClick={() => togglePhoto(s)}
-                  >
-                    {s.photo_check ? <Camera className="w-4 h-4 text-primary" /> : <CameraOff className="w-4 h-4 text-muted-foreground" />}
-                  </Button>
-                  {s.app_role !== BAR_ADMIN && (
+                  <div className="flex items-center gap-1 flex-wrap justify-end ml-auto">
                     <Button
                       type="button"
-                      variant={s.permission_overrides_count > 0 ? 'secondary' : 'ghost'}
+                      variant="ghost"
                       size="icon"
                       className="h-11 w-11 shrink-0"
-                      aria-label={`Permisos de ${personName(s)}`}
-                      title={s.permission_overrides_count > 0 ? 'Tiene permisos propios. Toca para verlos' : 'Permisos de esta persona'}
-                      onClick={() => setToPermissions(s)}
+                      aria-label={`Cambiar el nombre de ${personName(s)}`}
+                      title="Cambiar nombre"
+                      onClick={() => setToRename(s)}
                     >
-                      <SlidersHorizontal className={s.permission_overrides_count > 0 ? 'w-4 h-4 text-primary' : 'w-4 h-4 text-muted-foreground'} />
+                      <Pencil className="w-4 h-4" />
                     </Button>
-                  )}
-                  {s.is_owner && <span className="text-xs bg-primary/15 text-primary px-2.5 py-1 rounded-full font-medium">Dueño</span>}
-                  <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize">{s.app_role === BAR_ADMIN ? 'Admin' : 'Mesero'}</span>
-                  {!s.is_owner && (
-                    <MemberActions
-                      member={s}
-                      isSelf={s.id === user?.id}
-                      busy={memberBusyId === s.id}
-                      onSetRole={changeRole}
-                      onRemove={setToRemove}
-                    />
-                  )}
+                    <Button
+                      type="button"
+                      variant={s.photo_check ? 'secondary' : 'ghost'}
+                      size="icon"
+                      className="h-11 w-11 shrink-0"
+                      aria-pressed={!!s.photo_check}
+                      aria-label={s.photo_check ? `Dejar de pedir foto a ${personName(s)}` : `Pedir foto a ${personName(s)} al entrar y al checar`}
+                      title={s.photo_check ? 'Se le pide foto. Toca para quitarla' : 'Pedir foto al entrar y al checar'}
+                      disabled={memberBusyId === s.id}
+                      onClick={() => togglePhoto(s)}
+                    >
+                      {s.photo_check ? <Camera className="w-4 h-4 text-primary" /> : <CameraOff className="w-4 h-4 text-muted-foreground" />}
+                    </Button>
+                    {isWithoutEmail(s) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11 shrink-0"
+                        aria-label={`Cambiar el PIN de ${personName(s)}`}
+                        title="Cambiar PIN"
+                        onClick={() => setToPin(s)}
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {s.app_role !== BAR_ADMIN && (
+                      <Button
+                        type="button"
+                        variant={s.permission_overrides_count > 0 ? 'secondary' : 'ghost'}
+                        size="icon"
+                        className="h-11 w-11 shrink-0"
+                        aria-label={`Permisos de ${personName(s)}`}
+                        title={s.permission_overrides_count > 0 ? 'Tiene permisos propios. Toca para verlos' : 'Permisos de esta persona'}
+                        onClick={() => setToPermissions(s)}
+                      >
+                        <SlidersHorizontal className={s.permission_overrides_count > 0 ? 'w-4 h-4 text-primary' : 'w-4 h-4 text-muted-foreground'} />
+                      </Button>
+                    )}
+                    {s.is_owner && <span className="text-xs bg-primary/15 text-primary px-2.5 py-1 rounded-full font-medium">Dueño</span>}
+                    <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize">{s.app_role === BAR_ADMIN ? 'Admin' : 'Mesero'}</span>
+                    {!s.is_owner && (
+                      <MemberActions
+                        member={s}
+                        isSelf={s.id === user?.id}
+                        busy={memberBusyId === s.id}
+                        onSetRole={changeRole}
+                        onRemove={setToRemove}
+                      />
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -248,6 +272,23 @@ export default function Staff() {
           setToRename(null);
           toast({ title: 'Nombre guardado' });
           await load();
+        }}
+      />
+      <AddPersonDialog
+        open={addingPerson}
+        onClose={() => setAddingPerson(false)}
+        onSaved={async (person) => {
+          setAddingPerson(false);
+          toast({ title: `${person?.name ?? 'Listo'} ya puede entrar en las terminales con su PIN.` });
+          await load();
+        }}
+      />
+      <PersonPinDialog
+        member={toPin}
+        onClose={() => setToPin(null)}
+        onSaved={() => {
+          setToPin(null);
+          toast({ title: 'PIN guardado' });
         }}
       />
       <PersonPermissionsDialog

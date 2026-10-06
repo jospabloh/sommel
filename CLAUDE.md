@@ -903,9 +903,14 @@ PIN del admin sigue funcionando siempre.
 
 **Verificado:** pruebas (555/0), lint, build, `check:functions`,
 `check:guards`, `validate:rls`, `validate:tenant-roles`, `deno lint`.
-**No verificado:** nada contra Base44 publicado; el diálogo y la fila de Staff
-a 390 px; que `auth.me()` devuelva `permission_overrides` (debería, igual que
-`tenant_id`).
+**Publicado y verificado en producción el 2026-10-06** (PR #41): el esquema
+desplegado de `User` tiene `permission_overrides` con su candado; el admin de
+Sommel QA le negó `Estaciones:barra` a Cocina Prueba, `auth.me()` de Cocina lo
+devolvió, `stations.getConfig` respondió `bar: false`, `getPerson` sobre el
+admin de otro bar dio 404, y al restablecer (`{}`) volvió `bar: true`.
+`manageStaff.list` trae `permission_overrides_count`; `terminals` se
+redesplegó sin error de empaquetado; el bundle servido contiene "Todo como su
+rol". **No verificado:** el diálogo y la fila de Staff a 390 px.
 
 ## Impresora por tipo de trabajo (2026-10-06)
 
@@ -921,5 +926,84 @@ Cierra el "Pendiente: no hay ruteo por tipo" de la sección de impresión.
   una comanda pendiente haría que la caja pidiera `claimNext` sin parar.
 - Si ningún equipo tiene un tipo activado, ese trabajo se queda en la cola; el
   botón de imprimir sale desactivado y su título dice dónde activarlo.
-- Pruebas: `base44/tests/print_kinds_test.ts`. **No verificado:** dos
-  impresoras reales, ni la pantalla a 390/1440.
+- Pruebas: `base44/tests/print_kinds_test.ts`. **Publicado el 2026-10-06:**
+  `claimNext` con `kinds: []` responde 400 `kinds_invalid` y el bundle servido
+  contiene "Qué imprime este equipo". **No verificado:** dos impresoras reales,
+  ni la pantalla a 390/1440.
+
+## Prueba de carga: el límite de Base44 es de TODA la app (2026-10-06)
+
+Medido contra producción con `scripts/load-test.mjs` (solo lecturas: alterna
+`stations.getConfig` y `OrderItem.filter`), con Cocina Prueba y Barra Prueba,
+cuentas con las que José no prueba, en el bar Sommel QA. Cada corrida se detuvo
+en el primer 429, con ~90 s de reposo entre corridas.
+
+| Corrida | Peticiones | Resultado |
+|---|---|---|
+| 1 cuenta, escalones 0.5 a 8 por s (20 s cada uno) | 405 en ~130 s | 429 a los 9 s del escalón de 8/s |
+| 1 cuenta, 8/s desde reposo, 30 s | 239 | sin 429 |
+| 2 cuentas, 4/s cada una, 30 s | 240 | sin 429 |
+| 1 cuenta, 3.5/s, 120 s | 420 | sin 429 |
+| 2 cuentas, 3.5/s cada una (7/s), 120 s | 407 en ~58 s | **429 a las dos a la vez** |
+
+**Conclusión:** no es un tope por segundo, es una **cuota por ventana**, y
+**la comparten todos los usuarios y todos los bares**: dos cuentas a la vez
+recibieron el 429 en el mismo instante. Topa alrededor de **400 peticiones en
+una ventana de 1 a 2 minutos**; la ventana exacta no se pudo aislar (una cuenta
+sola pasó 420 en 120 s, pero la primera corrida topó con 405 en 130 s, y
+cualquier otro uso de Sommel en ese momento gasta de la misma cuota). Latencia
+con carga: p50 ~1 s, p95 ~4-6 s.
+
+**Lo que implica:** el techo es de toda la plataforma, no de un bar. ~400 por
+minuto alcanza de sobra para pocos bares con el tiempo real y el sondeo de 45 s
+de hoy, pero no escala con el número de bares: cada bar nuevo resta de la misma
+bolsa. Antes de vender a muchos bares hay que (a) preguntarle a Base44 el
+límite real y si se puede subir por plan, y (b) seguir bajando operaciones por
+acción (el caché de 20 s del guard ya va en esa dirección). Nada de esto lo
+publica Base44: son números medidos, no una garantía.
+
+**Efecto de la prueba:** las dos corridas que toparon dejaron 429 durante unos
+segundos a cualquiera que usara Sommel en ese momento, en cualquier bar. No se
+escribió nada. Las corridas que no toparon no afectaron a nadie.
+
+## Fase 2b: personas sin correo (2026-10-06)
+
+**Se cambió el diseño, a propósito.** `docs/modo-terminal-diseno.md` proponía
+una entidad `StaffMember` y mover PINs, checador, firmas y permisos de
+`user_id` a `staff_member_id`, con migración. No hizo falta: la fase 2a ya crea
+cuentas sin buzón desde el servidor (`provisionAccount` + `signInAs`), y una
+persona sin correo es eso mismo, un `User` normal con dirección
+`p-…@personal.acaciaco.com.mx` con la que **nadie puede entrar**. Como es un
+`User`, su PIN, su checado, sus permisos por persona y la firma de todo lo que
+hace funcionan sin tocar nada más.
+
+- `terminals.addPerson` (bar_admin, `remoteOnly`): nombre, rol (`staff` o
+  `bar_admin`, lista blanca) y PIN. Crea la cuenta, inicia sesión una vez del
+  lado del servidor solo para que exista la fila `User` (la sesión se tira ahí
+  mismo), la apunta al bar con `display_name` y guarda el PIN con hash. Si algo
+  falla a la mitad, borra la cuenta.
+- `terminals.setPersonPin` (bar_admin, `remoteOnly`): cambia el PIN y lo
+  desbloquea. **Solo** para personas sin correo: quien tiene correo pone su
+  propio PIN y el admin nunca lo conoce (400 `has_own_login`).
+- El PIN lo escribe la persona en la pantalla del admin (dos veces); el admin
+  no necesita verlo. Una persona sin correo puede cambiar su PIN después desde
+  una terminal, desbloqueada como ella, igual que cualquiera.
+- **Dónde no pueden aparecer:** delegar el bar (`account.delegateBar` las
+  filtra; nunca podrían entrar a administrarlo) y el contacto del bar para
+  Mission Control (`barContacts` salta las direcciones sin buzón, también las
+  de terminales).
+- Staff: "Agregar a alguien sin correo", "Sin correo · entra solo en
+  terminales" en lugar del correo, y la llave para cambiar el PIN. La fila de
+  Staff se rehizo para envolver en celular: a 390 px el nombre quedaba en cero
+  y los distintivos se cortaban (ya pasaba antes de esto, con el admin).
+- Al quitar a una persona sin correo del equipo, su cuenta queda sin bar y sin
+  forma de entrar; no se borra (igual que con cualquier persona).
+- Pruebas: `base44/tests/people_without_email_test.ts`.
+
+**Verificado:** pruebas (564/0), lint, build, `check:functions`,
+`check:guards`, `validate:tenant-roles`, `deno lint`; la pantalla de Staff con
+el build local a 390/1440, claro y oscuro, con todas las funciones simuladas:
+sin desbordar, el aviso de PIN distinto, y el cuerpo de `addPerson` correcto.
+**No verificado:** `addPerson` contra Base44 publicado (que `provisionAccount`
+acepte el dominio `personal.` igual que `terminales.`) y desbloquear una
+terminal real con esa persona.

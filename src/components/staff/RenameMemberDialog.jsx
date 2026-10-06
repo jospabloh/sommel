@@ -6,7 +6,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { personName } from '@/lib/rbac';
+import { isWithoutEmail, personName } from '@/lib/rbac';
 
 export default function RenameMemberDialog({ member, onClose, onSaved }) {
   const [name, setName] = useState('');
@@ -41,7 +41,7 @@ export default function RenameMemberDialog({ member, onClose, onSaved }) {
           <DialogHeader>
             <DialogTitle>Nombre en Sommel</DialogTitle>
             <DialogDescription>
-              Así aparece {member?.email} en el checador, la terminal, los reportes y en lo que haga.
+              Así aparece {member && isWithoutEmail(member) ? 'esta persona' : member?.email} en el checador, la terminal, los reportes y en lo que haga.
             </DialogDescription>
           </DialogHeader>
           <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="Nombre y apellido" aria-label="Nombre" autoFocus />

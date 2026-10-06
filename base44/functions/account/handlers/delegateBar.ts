@@ -13,8 +13,11 @@ export const delegateBar: Route = async (ctx: Ctx, body: any) => {
 
   const svc = ctx.svc;
   const targetId = typeof body?.user_id === 'string' ? body.user_id : '';
-  // A terminal account (terminal mode) can never own the bar.
-  const members = (await svc.entities.User.filter({ tenant_id: ctx.tenantId })).filter((u: any) => u.app_role !== 'terminal');
+  // A terminal account (terminal mode) can never own the bar, and neither can
+  // someone without email (phase 2b): they can never sign in to run it.
+  const members = (await svc.entities.User.filter({ tenant_id: ctx.tenantId })).filter(
+    (u: any) => u.app_role !== 'terminal' && !String(u.email ?? '').toLowerCase().endsWith('@personal.acaciaco.com.mx')
+  );
   const denial = checkDelegate({
     members,
     callerId: ctx.self.id,
