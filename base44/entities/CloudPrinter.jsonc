@@ -1,0 +1,27 @@
+{
+  // Impresora Star CloudPRNT de un bar: la impresora misma le pregunta a
+  // Sommel por trabajos (función cloudprnt), sin computadora al lado.
+  "name": "CloudPrinter",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar de la impresora. Módulo 19, candado de LECTURA y ESCRITURA a nivel entidad: las cuatro operaciones son solo de plataforma (role admin). Solo la escriben las acciones de impresoras en la nube de printing (el bar_admin da de alta, cambia o quita) y la lee la función cloudprnt al autenticar a la impresora. Si se afloja la lectura, cualquiera del bar ve el hash de la contraseña de la impresora; si se afloja la escritura, un mesero cambia de bar o de tipos una impresora ajena o se crea una para llevarse los tickets." },
+    "name": { "type": "string", "description": "Nombre que el admin le dio, p. ej. Cocina" },
+    "secret_hash": { "type": "string", "description": "SHA-256 de la contraseña que se escribe en la impresora. La contraseña solo se muestra una vez, al darla de alta" },
+    "kinds": { "type": "array", "items": { "type": "string", "enum": ["cocina", "barra", "cambio", "ticket", "corte"] }, "description": "Tipos de trabajo que imprime; vacío = todos" },
+    "format": { "type": "string", "enum": ["starprnt", "text"], "default": "starprnt", "description": "starprnt (negritas, corte) o text (texto simple, si StarPRNT sale mal)" },
+    "mac": { "type": "string", "description": "MAC que reportó la impresora en su último sondeo (solo para mostrar)" },
+    "last_seen_at": { "type": ["string", "null"], "format": "date-time", "description": "Último sondeo (se escribe a lo mucho una vez por minuto)" },
+    "last_status": { "type": "string", "description": "statusCode del último sondeo, p. ej. 200 OK" },
+    "created_by_id": { "type": "string", "description": "Admin que la dio de alta" },
+    "created_by_name": { "type": "string", "description": "Nombre congelado de quien la dio de alta" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "revoked_at": { "type": ["string", "null"], "format": "date-time", "description": "Si tiene fecha, la impresora ya no puede entrar" }
+  },
+  "required": ["tenant_id", "name", "secret_hash", "created_at"],
+  "rls": {
+    "read": { "user_condition": { "role": "admin" } },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

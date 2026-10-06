@@ -10,6 +10,10 @@ import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import JobRow from '@/components/printing/JobRow';
 import KioskInstructions from '@/components/printing/KioskInstructions';
+import CloudPrinters from '@/components/printing/CloudPrinters';
+import { usePermission } from '@/lib/usePermission';
+import { BAR_ADMIN } from '@/lib/rbac';
+import { useAuth } from '@/lib/AuthContext';
 import usePrintStationContext from '@/components/printing/usePrintStationContext';
 import { CHOOSABLE_KINDS, KIND_LABELS, formatTime, jobMatchesKinds, shortDevice } from '@/components/printing/printingHelpers';
 
@@ -70,6 +74,8 @@ function PrinterCard({ station }) {
 
 export default function Impresion() {
   const station = usePrintStationContext();
+  const { appRole } = usePermission();
+  const { user } = useAuth();
   const { deviceId, jobs, loading, loadError, lastSync, auto, setAuto, kinds, setKinds, busy, setPageOpen } = station;
 
   // While this page is open the station also works without a USB printer
@@ -174,6 +180,9 @@ export default function Impresion() {
       <PrinterCard station={station} />
 
       {!station.printer && <KioskInstructions />}
+
+      {/* Network printers are managed by the bar admin, never from a terminal. */}
+      {appRole === BAR_ADMIN && !user?.terminal && <CloudPrinters />}
 
       {loading ? (
         <div className="space-y-2">
