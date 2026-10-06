@@ -4,6 +4,7 @@
 
 const DEVICE_KEY = 'sommel.print.deviceId';
 const AUTO_KEY = 'sommel.print.auto';
+const KINDS_KEY = 'sommel.print.kinds';
 
 let memoryDeviceId = null;
 
@@ -47,6 +48,54 @@ export function writeAutoPref(on) {
   } catch {
     // preference simply does not persist
   }
+}
+
+// ---- What this device prints (2026-10-06). With two printers, the kitchen one
+// takes comandas and the caja one tickets and cortes. Stored per browser, like
+// the auto switch; null = everything (the default, as before).
+
+/** Kinds a person chooses from. 'cambio' (a comanda change) rides with cocina/barra. */
+export const CHOOSABLE_KINDS = ['cocina', 'barra', 'ticket', 'corte'];
+
+/** The saved choice, or null for "todo". Unknown or empty values read as null. */
+export function readKinds() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KINDS_KEY) || 'null');
+    return normalizeKinds(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function writeKinds(kinds) {
+  try {
+    const clean = normalizeKinds(kinds);
+    if (clean === null) localStorage.removeItem(KINDS_KEY);
+    else localStorage.setItem(KINDS_KEY, JSON.stringify(clean));
+  } catch {
+    // preference simply does not persist
+  }
+}
+
+/** Known choosable kinds; all of them (or none, or garbage) = null ("todo"). */
+export function normalizeKinds(raw) {
+  if (!Array.isArray(raw)) return null;
+  const set = CHOOSABLE_KINDS.filter((k) => raw.includes(k));
+  if (set.length === 0 || set.length === CHOOSABLE_KINDS.length) return null;
+  return set;
+}
+
+/** What claimNext gets: null (every kind) or the choice plus 'cambio' with cocina/barra. */
+export function kindsForClaim(kinds) {
+  const clean = normalizeKinds(kinds);
+  if (clean === null) return null;
+  return clean.includes('cocina') || clean.includes('barra') ? [...clean, 'cambio'] : clean;
+}
+
+/** Whether this device takes the job (auto print only waits on its own kinds). */
+export function jobMatchesKinds(job, kinds) {
+  const claim = kindsForClaim(kinds);
+  return claim === null || claim.includes(job?.kind);
 }
 
 export const KIND_LABELS = {

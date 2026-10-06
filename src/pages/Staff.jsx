@@ -3,11 +3,12 @@ import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, UserPlus, Mail, Clock, X, Pencil, Camera, CameraOff } from 'lucide-react';
+import { Users, UserPlus, Mail, Clock, X, Pencil, Camera, CameraOff, SlidersHorizontal } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import MemberActions from '@/components/staff/MemberActions';
 import RemoveMemberDialog from '@/components/staff/RemoveMemberDialog';
 import RenameMemberDialog from '@/components/staff/RenameMemberDialog';
+import PersonPermissionsDialog from '@/components/staff/PersonPermissionsDialog';
 import { memberErrorMessage } from '@/components/staff/memberErrors';
 import { BAR_ADMIN, personName } from '@/lib/rbac';
 
@@ -23,6 +24,7 @@ export default function Staff() {
   const [memberBusyId, setMemberBusyId] = useState(null);
   const [toRemove, setToRemove] = useState(null);
   const [toRename, setToRename] = useState(null);
+  const [toPermissions, setToPermissions] = useState(null);
 
   const load = async () => {
     try {
@@ -178,6 +180,19 @@ export default function Staff() {
                   >
                     {s.photo_check ? <Camera className="w-4 h-4 text-primary" /> : <CameraOff className="w-4 h-4 text-muted-foreground" />}
                   </Button>
+                  {s.app_role !== BAR_ADMIN && (
+                    <Button
+                      type="button"
+                      variant={s.permission_overrides_count > 0 ? 'secondary' : 'ghost'}
+                      size="icon"
+                      className="h-11 w-11 shrink-0"
+                      aria-label={`Permisos de ${personName(s)}`}
+                      title={s.permission_overrides_count > 0 ? 'Tiene permisos propios. Toca para verlos' : 'Permisos de esta persona'}
+                      onClick={() => setToPermissions(s)}
+                    >
+                      <SlidersHorizontal className={s.permission_overrides_count > 0 ? 'w-4 h-4 text-primary' : 'w-4 h-4 text-muted-foreground'} />
+                    </Button>
+                  )}
                   {s.is_owner && <span className="text-xs bg-primary/15 text-primary px-2.5 py-1 rounded-full font-medium">Dueño</span>}
                   <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize">{s.app_role === BAR_ADMIN ? 'Admin' : 'Mesero'}</span>
                   {!s.is_owner && (
@@ -232,6 +247,15 @@ export default function Staff() {
         onSaved={async () => {
           setToRename(null);
           toast({ title: 'Nombre guardado' });
+          await load();
+        }}
+      />
+      <PersonPermissionsDialog
+        member={toPermissions}
+        onClose={() => setToPermissions(null)}
+        onSaved={async () => {
+          setToPermissions(null);
+          toast({ title: 'Permisos guardados', description: 'Aplican en su siguiente acción; su pantalla se actualiza al recargar.' });
           await load();
         }}
       />

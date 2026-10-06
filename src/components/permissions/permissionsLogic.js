@@ -3,7 +3,7 @@
 // endpoint) is the authority; this only shapes what the screen shows and what
 // it sends. `upsertProfile` REPLACES the whole override map, so every save
 // sends the full map built here.
-import { PERMISSION_DEFAULTS, PERMISSION_LABELS } from '../../lib/permissionRegistry.js';
+import { PERMISSION_DEFAULTS, PERMISSION_LABELS, upgradeLegacyKeys } from '../../lib/permissionRegistry.js';
 
 /** Default for the configurable role (staff) of a key. */
 export function defaultFor(key) {
@@ -29,7 +29,8 @@ export function isChanged(key, overrides) {
  */
 export function cleanOverrides(raw) {
   const out = {};
-  for (const [k, v] of Object.entries(raw || {})) {
+  // Old keys become their replacements first (Estaciones:operar → cocina, barra).
+  for (const [k, v] of Object.entries(upgradeLegacyKeys(raw))) {
     if (!Object.prototype.hasOwnProperty.call(PERMISSION_DEFAULTS, k)) continue;
     if (typeof v !== 'boolean') continue;
     if (v === defaultFor(k)) continue;
@@ -82,4 +83,35 @@ export function groupSections() {
 /** How many keys of the map are changed from their default. */
 export function changedCount(overrides) {
   return Object.keys(cleanOverrides(overrides)).length;
+}
+
+// ---- Per-person overrides (2026-10-06): Staff → "Permisos de esta persona".
+// Unlike the role map, an explicit choice equal to what the role says is KEPT:
+// "Sí para Ana" must survive the admin later turning the key off for the role.
+
+/** Known keys with boolean values, old keys translated; nothing else. */
+export function cleanPersonOverrides(raw) {
+  const out = {};
+  for (const [k, v] of Object.entries(upgradeLegacyKeys(raw))) {
+    if (!Object.prototype.hasOwnProperty.call(PERMISSION_DEFAULTS, k)) continue;
+    if (typeof v !== 'boolean') continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+/** 'role' (follows the role), 'yes' or 'no' for one key of a person. */
+export function personChoice(key, personMap) {
+  const m = personMap || {};
+  if (!Object.prototype.hasOwnProperty.call(m, key)) return 'role';
+  return m[key] === true ? 'yes' : 'no';
+}
+
+/** Next person map after choosing 'role' | 'yes' | 'no' for `key`. */
+export function withPersonChoice(personMap, key, choice) {
+  const next = { ...(personMap || {}) };
+  if (choice === 'yes') next[key] = true;
+  else if (choice === 'no') next[key] = false;
+  else delete next[key];
+  return cleanPersonOverrides(next);
 }

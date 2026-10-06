@@ -32,6 +32,7 @@ export interface JobLike {
   error?: string | null;
   attempts?: number | null;
   dedupe_key?: string | null;
+  kind?: string | null;
 }
 
 function ms(iso: string | null | undefined): number {
@@ -69,8 +70,8 @@ export function compareOldestFirst(a: JobLike, b: JobLike): number {
 }
 
 /** The next job to claim: the oldest claimable one, or null. */
-export function pickNextClaimable<T extends JobLike>(jobs: T[], nowMs: number): T | null {
-  const claimable = jobs.filter((j) => isClaimable(j, nowMs));
+export function pickNextClaimable<T extends JobLike>(jobs: T[], nowMs: number, kinds: string[] | null = null): T | null {
+  const claimable = jobs.filter((j) => isClaimable(j, nowMs) && (kinds === null || kinds.includes(String(j.kind))));
   if (claimable.length === 0) return null;
   return claimable.slice().sort(compareOldestFirst)[0];
 }
@@ -166,4 +167,27 @@ export function isVisibleFailure(job: JobLike): boolean {
 export function orderQueue<T extends JobLike>(jobs: T[]): T[] {
   const rank = (j: JobLike) => (j.status === 'fallido' ? 1 : 0);
   return jobs.slice().sort((a, b) => rank(a) - rank(b) || compareOldestFirst(a, b));
+}
+
+// ---- Printer per job type (2026-10-06) ----
+// Each device chooses which kinds it prints (stored in that browser). With two
+// printers, the kitchen one takes comandas de cocina and the caja one tickets
+// and cortes; before this, any device with auto print took any job.
+
+export const PRINT_KINDS = ['cocina', 'barra', 'cambio', 'ticket', 'corte'] as const;
+
+/** `kinds` from claimNext: missing/null = every kind; otherwise known kinds only, at least one. */
+export function validateKinds(raw: unknown): string[] | null {
+  if (raw === undefined || raw === null) return null;
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > PRINT_KINDS.length) {
+    throw new LogicError(400, 'kinds_invalid', 'Elige al menos un tipo de trabajo para este equipo');
+  }
+  const out = new Set<string>();
+  for (const k of raw) {
+    if (typeof k !== 'string' || !(PRINT_KINDS as readonly string[]).includes(k)) {
+      throw new LogicError(400, 'kinds_invalid', 'Tipo de trabajo no válido');
+    }
+    out.add(k);
+  }
+  return [...out];
 }

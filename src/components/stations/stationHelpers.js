@@ -20,6 +20,13 @@ export const STATION_TITLES = {
 
 export const STATIONS = ['kitchen', 'bar'];
 
+/** The permission each station's buttons need. Mirror of STATION_PERMISSION in
+ *  base44/functions/stations/handlers/_logic.ts (station_view_test pins both). */
+export const STATION_PERMISSION = {
+  kitchen: 'Estaciones:cocina',
+  bar: 'Estaciones:barra',
+};
+
 /** `/estacion/todo`: kitchen and bar on one screen, for bars where the same
  *  counter prepares both (docs/modo-terminal-diseno.md, "Cocina y barra"). */
 export const COMBINED_VIEW = 'todo';

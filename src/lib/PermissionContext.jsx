@@ -55,9 +55,17 @@ export function PermissionProvider({ children }) {
     };
   }, [isPlatform, appRole, tenantId]);
 
+  // Per-person overrides (2026-10-06) live on the person's own User row, which
+  // auth.me() already returns; on a terminal, effectiveUser copies them from
+  // the unlocked person. They beat the role profile, same as the server.
+  const personOverrides =
+    user?.permission_overrides && typeof user.permission_overrides === 'object' && !Array.isArray(user.permission_overrides)
+      ? user.permission_overrides
+      : null;
+
   const can = useCallback(
-    (key) => resolvePermission(key, { isPlatform, appRole, overrides }),
-    [isPlatform, appRole, overrides]
+    (key) => resolvePermission(key, { isPlatform, appRole, overrides, personOverrides }),
+    [isPlatform, appRole, overrides, personOverrides]
   );
 
   const value = useMemo(

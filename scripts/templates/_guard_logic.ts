@@ -26,7 +26,8 @@ export const PERMISSION_DEFAULTS: Record<string, { bar_admin: boolean; staff: bo
   "Comandas:cancelar_enviado": { bar_admin: true, staff: true },
   "Comandas:mover_mesas": { bar_admin: true, staff: true },
   "Comandas:cancelar_orden": { bar_admin: true, staff: false },
-  "Estaciones:operar": { bar_admin: true, staff: true },
+  "Estaciones:cocina": { bar_admin: true, staff: true },
+  "Estaciones:barra": { bar_admin: true, staff: true },
   "Cobro:cobrar": { bar_admin: true, staff: true },
   "Cobro:descuento": { bar_admin: true, staff: false },
   "Cobro:anular_pago": { bar_admin: true, staff: false },
@@ -54,7 +55,34 @@ export type AppRole = 'bar_admin' | 'staff';
 export interface PermissionResolveCtx {
   isPlatform: boolean;
   appRole: AppRole | null | undefined;
+  /** The role's PermissionProfile overrides. */
   overrides?: Record<string, boolean> | null;
+  /** What the bar admin decided for THIS person (User.permission_overrides). */
+  personOverrides?: Record<string, boolean> | null;
+}
+
+/**
+ * Keys that replaced an older one: a profile or a person saved with the old
+ * key keeps applying to the new ones (2026-10-06: `Estaciones:operar` split
+ * into cocina and barra). Same map in src/lib/permissionRegistry.js.
+ */
+export const LEGACY_PERMISSION_ALIASES: Record<string, string> = {
+  'Estaciones:cocina': 'Estaciones:operar',
+  'Estaciones:barra': 'Estaciones:operar',
+};
+
+/** A User row's per-person overrides, or null when absent or not a plain map. */
+export function personOverridesOf(row: { permission_overrides?: unknown } | null | undefined): Record<string, boolean> | null {
+  const raw = row?.permission_overrides;
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, boolean>) : null;
+}
+
+function overrideFor(map: Record<string, boolean> | null | undefined, key: string): boolean | undefined {
+  if (!map || typeof map !== 'object') return undefined;
+  if (Object.prototype.hasOwnProperty.call(map, key)) return !!map[key];
+  const legacy = LEGACY_PERMISSION_ALIASES[key];
+  if (legacy && Object.prototype.hasOwnProperty.call(map, legacy)) return !!map[legacy];
+  return undefined;
 }
 
 /**
@@ -65,8 +93,10 @@ export interface PermissionResolveCtx {
  */
 export function resolvePermission(key: string, ctx: PermissionResolveCtx): boolean {
   if (ctx.isPlatform || ctx.appRole === 'bar_admin') return true;
-  const overrides = ctx.overrides || {};
-  if (Object.prototype.hasOwnProperty.call(overrides, key)) return !!overrides[key];
+  const person = overrideFor(ctx.personOverrides, key);
+  if (person !== undefined) return person;
+  const role = overrideFor(ctx.overrides, key);
+  if (role !== undefined) return role;
   const def = PERMISSION_DEFAULTS[key];
   if (!def) return false; // unknown key => deny
   if (ctx.appRole === 'staff') return !!def.staff;

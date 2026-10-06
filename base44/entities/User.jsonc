@@ -36,6 +36,13 @@
         "write": false
       }
     },
+    "permission_overrides": {
+      "type": "object",
+      "description": "Permisos que el admin del bar decidió solo para esta persona (clave 'Sección:accion' -> true/false); ganan sobre el perfil de su rol. Módulo 19, candado de ESCRITURA (rls.write false): solo lo escribe permissions.setPersonOverrides (service role), y solo el bar_admin de su bar desde Staff. Si se quita, cualquier mesero se da con updateMe los permisos que su admin le negó (anular pagos, ver costos, retirar efectivo) y el servidor le da la razón. Un permiso que no aplica no se arregla quitando este candado: se cambia en Staff.",
+      "rls": {
+        "write": false
+      }
+    },
     "tenant_id": {
       "type": "string",
       "description": "ID of the WineBar this user belongs to. Server-authoritative: sólo lo escriben createWineBar, manageStaff y terminals (service role; terminal = cuenta de un equipo autorizado, sin permisos propios). Candado de ESCRITURA (rls.write false, módulo 24 del estándar; módulo 19 lo protege): no gobierna las lecturas. Si se quita, con updateMe cualquiera se apunta al bar de otro y lee sus datos, porque todo el RLS compara contra este campo. Un usuario sin bar o con pantalla vacía no se arregla quitando este candado: se diagnostica la fila del usuario y se corrige desde createWineBar o manageStaff.",

@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import JobRow from '@/components/printing/JobRow';
 import KioskInstructions from '@/components/printing/KioskInstructions';
 import usePrintStationContext from '@/components/printing/usePrintStationContext';
-import { formatTime, shortDevice } from '@/components/printing/printingHelpers';
+import { CHOOSABLE_KINDS, KIND_LABELS, formatTime, jobMatchesKinds, shortDevice } from '@/components/printing/printingHelpers';
 
 function Section({ title, hint, count, children }) {
   return (
@@ -70,7 +70,7 @@ function PrinterCard({ station }) {
 
 export default function Impresion() {
   const station = usePrintStationContext();
-  const { deviceId, jobs, loading, loadError, lastSync, auto, setAuto, busy, setPageOpen } = station;
+  const { deviceId, jobs, loading, loadError, lastSync, auto, setAuto, kinds, setKinds, busy, setPageOpen } = station;
 
   // While this page is open the station also works without a USB printer
   // (print dialog) and keeps the queue live.
@@ -82,8 +82,16 @@ export default function Impresion() {
   const waiting = jobs.filter((j) => j.status === 'pendiente' || j.status === 'reclamado');
   const failed = jobs.filter((j) => j.status === 'fallido');
   const done = jobs.filter((j) => j.status === 'impreso');
-  const nextId = jobs.find((j) => j.status === 'pendiente')?.id;
-  const pendingCount = jobs.filter((j) => j.status === 'pendiente').length;
+  // Only the kinds this device prints (claimNext is filtered the same way).
+  const mine = jobs.filter((j) => j.status === 'pendiente' && jobMatchesKinds(j, kinds));
+  const nextId = mine[0]?.id;
+  const pendingCount = mine.length;
+  const toggleKind = (kind) => {
+    const current = kinds ?? CHOOSABLE_KINDS;
+    const next = current.includes(kind) ? current.filter((k) => k !== kind) : [...current, kind];
+    if (next.length === 0) return; // at least one; "todo" is all four
+    setKinds(next);
+  };
 
   const rowProps = {
     deviceId,
@@ -121,6 +129,31 @@ export default function Impresion() {
           </div>
           <Switch id="auto-print" checked={auto} onCheckedChange={setAuto} />
         </div>
+        <div className="space-y-2 pt-1">
+          <p className="font-medium" id="print-kinds">Qué imprime este equipo</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="print-kinds">
+            {CHOOSABLE_KINDS.map((kind) => {
+              const on = !kinds || kinds.includes(kind);
+              return (
+                <Button
+                  key={kind}
+                  type="button"
+                  className="h-11 px-4"
+                  variant={on ? 'default' : 'outline'}
+                  aria-pressed={on}
+                  onClick={() => toggleKind(kind)}
+                >
+                  {KIND_LABELS[kind]}
+                </Button>
+              );
+            })}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {kinds
+              ? 'Lo que no elijas se queda en la cola para la impresora de otro equipo. Si ningún equipo lo imprime, actívalo aquí.'
+              : 'Todo. Con dos impresoras, apaga aquí lo que imprime la otra (por ejemplo: cocina en la de cocina, tickets y cortes en la de caja).'}
+          </p>
+        </div>
         {!auto && pendingCount > 0 && (
           <p className="text-sm text-muted-foreground">
             Si la enciendes ahora, los {pendingCount} trabajos en cola se imprimirán de inmediato.
@@ -155,7 +188,7 @@ export default function Impresion() {
             ) : (
               <ul className="space-y-2">
                 {waiting.map((job) => (
-                  <JobRow key={job.id} job={job} isNext={job.id === nextId} {...rowProps} />
+                  <JobRow key={job.id} job={job} isNext={job.id === nextId} otherDevice={!jobMatchesKinds(job, kinds)} {...rowProps} />
                 ))}
               </ul>
             )}

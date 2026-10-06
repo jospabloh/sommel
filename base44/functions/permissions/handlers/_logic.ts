@@ -73,3 +73,23 @@ export function profileView(
   }
   return { role, overrides };
 }
+
+/**
+ * Per-person overrides (2026-10-06): the bar admin decides a permission for ONE
+ * staff member, beating the role profile. Only a staff member of the caller's
+ * own bar can carry them: a bar_admin is always allowed (an override would
+ * change nothing) and a terminal is a device, not a person. Missing, another
+ * bar's and a terminal answer the same 404 (no existence oracle).
+ */
+export function personTargetProblem(
+  target: { tenant_id?: unknown; app_role?: unknown } | null | undefined,
+  tenantId: string
+): { status: number; code: string; message: string } | null {
+  if (!target || target.tenant_id !== tenantId || target.app_role === 'terminal') {
+    return { status: 404, code: 'not_found', message: 'No se encontró a esa persona en tu bar' };
+  }
+  if (target.app_role !== CONFIGURABLE_ROLE) {
+    return { status: 400, code: 'invalid_role', message: 'El administrador siempre tiene todos los permisos' };
+  }
+  return null;
+}

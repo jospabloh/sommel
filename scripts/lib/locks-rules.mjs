@@ -34,6 +34,7 @@ export const FIELD_LOCKS = [
   { entity: "User", field: "app_role", op: "write", rule: false, words: ["escritura"], module: "Módulo 24" },
   { entity: "User", field: "display_name", op: "write", rule: false, words: ["escritura"] },
   { entity: "User", field: "photo_check", op: "write", rule: false, words: ["escritura"] },
+  { entity: "User", field: "permission_overrides", op: "write", rule: false, words: ["escritura"] },
   ...["billing_status", "trial_end_at", "current_period_end", "plan", "owner_id", "archived_at", "license_audit"].map((field) => ({
     entity: "WineBar", field, op: "write", rule: ADMIN_ONLY, words: ["escritura"],
   })),

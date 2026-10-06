@@ -80,6 +80,8 @@ export default async function(req: Request): Promise<Response> {
         staff: users.map((u: any) => ({
           id: u.id, email: u.email, full_name: u.full_name, display_name: u.display_name ?? null,
           name: personName(u), app_role: u.app_role, photo_check: u.photo_check === true,
+          // Only the count: the Staff screen marks people with their own permissions.
+          permission_overrides_count: u.permission_overrides && typeof u.permission_overrides === 'object' && !Array.isArray(u.permission_overrides) ? Object.keys(u.permission_overrides).length : 0,
           is_owner: isOwner(listBar, u.id)
         })),
         invites

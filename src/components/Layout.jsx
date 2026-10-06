@@ -34,7 +34,7 @@ const NAV_ITEMS = [
   { label: 'Menú', to: '/menu', icon: GlassWater, perm: 'Menú:ver' },
   // One entry: /estacion/todo filters Todo / Cocina / Barra itself (José,
   // 2026-10-06). /estacion/kitchen and /estacion/bar still open directly.
-  { label: 'Cocina y barra', to: '/estacion/todo', icon: Layers, perm: 'Estaciones:operar' },
+  { label: 'Cocina y barra', to: '/estacion/todo', icon: Layers, perm: ['Estaciones:cocina', 'Estaciones:barra'] },
   { label: 'Turno', to: '/turno', icon: Clock, perm: 'Turno:operar' },
   { label: 'Checador', to: '/checador', icon: Fingerprint, perm: 'Asistencia:checar' },
   { label: 'Asistencia', to: '/asistencia', icon: CalendarCheck, perm: 'Asistencia:checar' },
@@ -65,6 +65,8 @@ function navFor(user, can) {
     if (it.only === 'platform') return isPlatformAdmin;
     if (it.only === 'bar_admin_with_bar') return isBarAdmin(user) || (isPlatformAdmin && !!user?.tenant_id);
     if (it.only === 'bar_admin') return isPlatformAdmin || isBarAdmin(user);
+    // An array is any-of: "Cocina y barra" shows with either station.
+    if (Array.isArray(it.perm)) return it.perm.some((k) => can(k));
     return !it.perm || can(it.perm);
   });
 }

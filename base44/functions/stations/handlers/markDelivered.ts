@@ -4,8 +4,9 @@
 // `entregado`. Idempotent: an item already `entregado` is returned as-is
 // with no re-write; an item that hasn't reached `listo` yet (`nuevo`,
 // `enviado`) or is `cancelado` is skipped rather than failing the batch.
-import { loadOwned, requirePermission, requireWritable, hasPermission, redactItemCosts, type Ctx, type Route, HttpError } from '../_guard.ts';
+import { loadOwned, requireWritable, hasPermission, redactItemCosts, type Ctx, type Route, HttpError } from '../_guard.ts';
 import { LogicError, validateItemIds, canMarkDelivered, isAlreadyDelivered } from './_logic.ts';
+import { requireStationsFor } from './_access.ts';
 
 export const markDelivered: Route = async (ctx: Ctx, body: any) => {
   let ids: string[];
@@ -21,7 +22,7 @@ export const markDelivered: Route = async (ctx: Ctx, body: any) => {
     items.push(await loadOwned(ctx, 'OrderItem', id));
   }
 
-  await requirePermission(ctx, 'Estaciones:operar');
+  await requireStationsFor(ctx, items);
   requireWritable(ctx);
 
   const result: any[] = [];

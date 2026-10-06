@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import StationTicket from '@/components/stations/StationTicket';
 import {
   COMBINED_VIEW,
+  STATION_PERMISSION,
   STATION_TITLES,
   VIEW_TITLES,
   flattenRow,
@@ -53,7 +54,10 @@ export default function Estacion() {
   const { user } = useAuth();
   const { can } = usePermission();
   const tenantId = user?.tenant_id ?? null;
-  const canOperate = can('Estaciones:operar');
+  // Cocina and barra are separate permissions (2026-10-06, phase 3). Anyone in
+  // the bar may look at either queue; only the station's key gets the buttons.
+  // The server checks the same key per line (stations/handlers/_access.ts).
+  const canOperate = useCallback((st) => can(STATION_PERMISSION[st]), [can]);
 
   const [bar, setBar] = useState(null);
   const [orders, setOrders] = useState([]);
