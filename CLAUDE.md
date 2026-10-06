@@ -154,10 +154,8 @@ Inventario completo en `docs/locks-audit.md`. Resumen:
   resuelve en otra parte (la lectura redactada, la función, la UI). Si el
   síntoma persiste tras devolver el bloqueo, era otra cosa. Comprueba las dos
   superficies: el `.jsonc` del repo y el esquema desplegado.
-- `super_admin` **sigue** en el enum de `User.app_role`. No se quitó porque no
-  se pudo confirmar desde aquí que ningún usuario vivo lo tenga (la lectura viva
-  del 2026-09-29 no mostró ninguno). Un operador puede quitarlo tras releer las
-  filas.
+- `super_admin` se quitó del enum de `User.app_role` el 2026-10-06, tras releer
+  los 12 `User` vivos: ninguno lo tenía.
 - No hay script que compare el esquema desplegado con el repo (`check-lock-drift`
   no existe). Esa comparación se hizo a mano el 2026-09-29 y se repite con
   `list_entity_schemas` tras cualquier cambio de entidad.
@@ -1089,3 +1087,38 @@ para "jamón" y el corte `ESC d 3`); un id inventado dio 404; el DELETE lo dejó
 La impresora quedó con `mac`, `last_seen_at` y `last_status`. Después se marcó
 `revoked_at` y la misma contraseña responde 401. El bundle servido contiene
 "Impresoras en red". **Sigue sin verificar con una impresora Star física.**
+
+## Pendientes cerrados contra producción (2026-10-06)
+
+**Aislamiento entre bares (módulo 14), ejercido y no solo leído.** Con la
+cuenta admin de "Bar Onboarding QA" (`+sommelnew`) contra datos de "Sommel QA"
+(los dos bares son de prueba): `list` de las 26 entidades no trajo ni una fila
+ajena; `get` de ids ajenos dio 404, `update` 403 y `create` con el `tenant_id`
+ajeno 403 en todas, `User` incluido. 26 acciones de funciones con ids ajenos
+(orders, payments, shifts, printing, support, catalog, inventory, stations,
+manageStaff, permissions, terminals) respondieron 404 o rechazaron antes de
+tocar nada.
+
+**`unit_cost` no llega al staff**, ni por `filter` ni por tiempo real: con
+`+sommelstaff` suscrito a `OrderItem`, dos cambios reales del renglón
+(listo y regresar) llegaron como eventos **sin** el campo. El candado de
+lectura del campo aplica también al tiempo real.
+
+**Puente y cron ya estaban hechos** (la lista de pendientes estaba vieja): los
+secretos `INGEST_HMAC_SECRET`, `ACACIA_APP_SLUG` y `CRON_SECRET` existen en
+Base44; `acaciaControl` responde 400 a un cuerpo sin firma (no 503); Mission
+Control tiene la fila `sommel` desde el 2026-09-30, 2 bares, 2 licencias, 1
+ticket y un health diario `ok` por el puente. `purge-sessions.yml` y
+`smoke.yml` corren a diario en verde.
+
+**Pantallas con sesión, a 390/834/1440 en claro y oscuro**, contra producción:
+16 rutas como admin (bar vacío) y 11 como staff (bar con datos), 162
+combinaciones. Ninguna con scroll horizontal, error de página ni tema
+equivocado. El selector de tema tapa un control solo mientras no se hace
+scroll: "Listo" del checador a 390, una tarjeta de mesa a 390 y "Reimprimir" a
+834; al bajar quedan libres. Lo más molesto es el checador en celular: hay que
+bajar un poco para tocar "Listo".
+
+**Sigue sin verificar:** impresora Star física, impresora USB en Windows con
+driver, cámara real, el botón "Instalar Sommel" y un registro real con el
+código de correo.

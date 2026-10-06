@@ -63,8 +63,8 @@ puede ser el propio `staff`.
   Base44 acepte descripciones largas y las conserve al sincronizar.
 - `User.role` lleva una nota de Módulo 19 (es el rol de la plataforma, distinto
   de `app_role`), pero **no** tiene bloqueo propio.
-- `super_admin` sigue en el enum de `User.app_role` (no se pudo confirmar que
-  ningún usuario vivo lo tenga).
+- `super_admin` se quitó del enum de `User.app_role` el 2026-10-06, tras releer
+  los 12 `User` vivos: ninguno lo tenía.
 - Repo y esquema desplegado coincidían en todos los bloqueos el 2026-09-29
   (lectura a mano con `list_entity_schemas`, no byte a byte en descripciones).
   Las descripciones nuevas de esta pasada **aún no están desplegadas**: llegan

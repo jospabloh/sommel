@@ -85,7 +85,7 @@ Las reglas son tres. Dentro de una ola, ningún archivo aparece en dos paquetes.
 - **Cambios:**
   - Reescribir las descripciones de `WineBar.owner_id`, de `unit_cost` en `OrderItem`, `InventoryItem` e `InventoryMovement`, y de `User.role`. Cada una debe decir qué operación gobierna, quién la usa y qué se rompe si se quita.
   - La razón de los bloqueos a nivel entidad (`Product.read`, `Attendance.read` y las escrituras solo-admin) pasa a descripciones que sí se despliegan.
-  - Quitar `super_admin` del enum de `User.app_role`.
+  - ~~Quitar `super_admin` del enum de `User.app_role`.~~ Hecho el 2026-10-06.
   - `scripts/validate-locks.mjs` con su manifiesto, más `base44/tests/locks_test.ts`, que corre solo en el paso de deno que ya existe en CI.
 - **Archivos:** `base44/entities/{WineBar,OrderItem,InventoryItem,InventoryMovement,User,Product,Attendance,Order,Payment,Shift,CashMovement,StaffInvite,PermissionProfile,StaffPin}.jsonc`, `scripts/validate-locks.mjs`, `base44/tests/locks_test.ts`.
 - **Verificación:** `validate:rls`, el locks test y `validate:tenant-roles`.
