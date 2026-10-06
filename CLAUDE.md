@@ -519,3 +519,49 @@ contra el backend real (sin errores de página ni scroll horizontal).
 **No verificado:** los `entry.ts` contra Base44 real (importan
 `npm:@base44/sdk`), una respuesta real en ninguno de los dos sentidos y el correo
 real al bar. Se prueban tras publicar, con el ticket de prueba de Sommel QA.
+
+## Impresión directa por USB, cajón y checador por usuario (2026-10-06)
+
+**Impresión (PR #23).** La estación ya no depende de `window.print()` ni de
+`--kiosk-printing`: Chrome y Edge hablan con la impresora de tickets por
+WebUSB y le mandan ESC/POS (`src/components/printing/usbPrinter.js` y
+`escpos.js`). Se elige la impresora una vez en Impresión ("Conectar
+impresora"); Chrome guarda el permiso y se reconecta sola al recargar o al
+volver a enchufar. Sin impresora USB, o en Safari/iPad (no tienen WebUSB),
+sigue el cuadro de impresión del navegador como respaldo.
+- Código de página 850 (`ESC t 2`) para acentos y ñ; UTF-8 sale como basura.
+- El área de impresión queda fija en 384 puntos: las líneas del servidor son
+  de 32 columnas (58 mm) y así salen iguales en 58 y en 80 mm. "Grande" es
+  solo doble alto, para no partir las 32 columnas.
+- Una falla por USB deja el trabajo `fallido`. Con `window.print()` quedaba
+  `impreso` aunque no saliera papel.
+- **Cajón:** `PrintJob.open_drawer` lo pone `payments.requestTicket` solo si
+  la cuenta tiene un pago vivo con método `is_cash`. Una reimpresión nunca lo
+  abre (la estación lo ignora si hay `reprint_of`). "Abrir cajón" lo abre a
+  mano y **no deja registro**: si algún día hace falta auditarlo, eso es una
+  acción del servidor, no un botón.
+- Verificado en hardware: EC Line EC-PM-80330 (80 mm, ESC/POS) en macOS,
+  sin driver: imprime, corta y abre el cajón; tarjeta no lo abre;
+  reimpresión no lo abre.
+- **No verificado:** Windows con un driver del fabricante instalado (puede
+  retener la impresora; el error lo dice) y la impresora de Alby.
+
+**Renglón duplicado en Orden (PR #24).** Un producto recién agregado llega por
+dos caminos: la respuesta de `orders.addItems` y el evento en vivo de
+`OrderItem.subscribe`. `handleAddConfirm` agregaba la respuesta a ciegas y,
+si el evento llegaba antes, el renglón salía dos veces (el total del servidor
+siempre estuvo bien). Regla: **todo lo que llegue por dos caminos se agrega
+por id** (`upsertById` en `orders/helpers.js`). Las demás pantallas en vivo
+(Mesas, Estación, Inventario, Impresión) ya lo hacían; se revisó todo `src/`.
+
+**Quién inició sesión.** La barra lateral muestra siempre nombre (o correo) y
+rol (`roleLabel` en `src/lib/rbac.js`) arriba de "Cerrar sesión", y la barra
+mide la pantalla (`sticky h-screen`): lo que hace scroll es el menú, no el
+bloque de sesión.
+
+**Checador por usuario.** Con `Asistencia:ver_equipo` (admins por defecto) es
+la tablet compartida: se ve todo el equipo y se checa a cualquiera con su PIN.
+Sin ese permiso `attendance.roster` solo devuelve a quien inició sesión, la
+pantalla abre directo su teclado, y `attendance.punch` responde 403
+`not_self` si se intenta checar a otra persona aunque se sepa su PIN. Antes
+cualquier sesión de personal veía y podía checar a todos.

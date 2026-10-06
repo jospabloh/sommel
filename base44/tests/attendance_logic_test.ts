@@ -2,6 +2,8 @@
 // (zero external imports; localDayRange comes from the guard's pure logic).
 //   deno test --allow-env base44/tests/attendance_logic_test.ts
 import {
+  rosterFor,
+  canPunchFor,
   LogicError,
   buildCorrection,
   decidePunch,
@@ -244,4 +246,19 @@ Deno.test('correction: out before in, future dates, no changes, garbage', () => 
   assertCode(() => buildCorrection(OPEN, { clock_in: '2026-09-28T14:00:00Z', note: 'x' }, 'a', NOW), 'nothing_to_correct');
   assertCode(() => buildCorrection(OPEN, { clock_out: 'nope', note: 'x' }, 'a', NOW), 'invalid_clock_out');
   assertCode(() => buildCorrection(OPEN, { clock_out: null, note: 'x' }, 'a', NOW), 'invalid_clock_out');
+});
+
+Deno.test('checador: without the team permission only the signed-in person is listed', () => {
+  // A staff session on the checador used to list the whole team.
+  const people = [{ user_id: 'u1', name: 'Ana' }, { user_id: 'u2', name: 'Beto' }];
+  assertEquals(rosterFor(people, 'u2', false), [{ user_id: 'u2', name: 'Beto' }]);
+  assertEquals(rosterFor(people, 'u2', true).length, 2, 'an admin sees the team');
+  assertEquals(rosterFor(people, null, false), [], 'no session, nobody');
+});
+
+Deno.test('checador: punching for someone else needs the team permission, even with their PIN', () => {
+  assertEquals(canPunchFor('u2', 'u2', false), true);
+  assertEquals(canPunchFor('u1', 'u2', false), false);
+  assertEquals(canPunchFor('u1', 'u2', true), true);
+  assertEquals(canPunchFor('u1', null, false), false);
 });

@@ -1,7 +1,8 @@
-// attendance.roster: every member of the bar with PIN and inside/outside
-// state, for the shared-tablet grid. Read-only.
-import { requirePermission, type Ctx, type Route } from '../_guard.ts';
-import { displayName, isForgotten, openRecords } from './_logic.ts';
+// attendance.roster: members of the bar with PIN and inside/outside state.
+// With Asistencia:ver_equipo the whole team (shared-tablet grid); without it
+// only the caller, so a staff session never sees the team. Read-only.
+import { hasPermission, requirePermission, type Ctx, type Route } from '../_guard.ts';
+import { displayName, isForgotten, openRecords, rosterFor } from './_logic.ts';
 import { requireTenant, tenantRecentRecords } from './_shared.ts';
 
 export const roster: Route = async (ctx: Ctx) => {
@@ -38,5 +39,6 @@ export const roster: Route = async (ctx: Ctx) => {
     })
     .sort((a: any, b: any) => a.name.localeCompare(b.name, 'es'));
 
-  return { people };
+  const seeTeam = await hasPermission(ctx, 'Asistencia:ver_equipo');
+  return { people: rosterFor(people, ctx.user?.id, seeTeam), see_team: seeTeam };
 };

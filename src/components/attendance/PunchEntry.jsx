@@ -36,9 +36,11 @@ export default function PunchEntry({ person, onBack, onDone, onNeedPin, isSelf }
 
   return (
     <div className="space-y-5">
-      <Button type="button" variant="ghost" onClick={onBack} className="h-11 -ml-2">
-        <ArrowLeft className="w-4 h-4" /> Volver
-      </Button>
+      {onBack ? (
+        <Button type="button" variant="ghost" onClick={onBack} className="h-11 -ml-2">
+          <ArrowLeft className="w-4 h-4" /> Volver
+        </Button>
+      ) : null}
       <div className="text-center space-y-1">
         <h2 className="font-display text-2xl font-semibold">{person.name}</h2>
         <p className="text-muted-foreground">

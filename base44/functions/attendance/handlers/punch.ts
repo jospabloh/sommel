@@ -1,8 +1,10 @@
 // attendance.punch: entrada / salida with the person's own PIN.
-// Guard order: loadOwned (member of THIS bar) -> permission -> billing gate ->
-// validate -> PIN checks -> write. The bar always comes from ctx.
+// Guard order: loadOwned (member of THIS bar) -> permission -> self or team
+// -> billing gate -> validate -> PIN checks -> write. The bar always comes
+// from ctx.
 import {
   HttpError,
+  hasPermission,
   httpError,
   loadOwned,
   pickSurvivor,
@@ -12,13 +14,17 @@ import {
   type Route,
 } from '../_guard.ts';
 import { verifyPin } from './_pin.ts';
-import { decidePunch, displayName, isForgotten, lockMinutesLeft, openRecords, validatePin } from './_logic.ts';
+import { canPunchFor, decidePunch, displayName, isForgotten, lockMinutesLeft, openRecords, validatePin } from './_logic.ts';
 import { guardLogic, personRecords, recordPinFailure, requireTenant } from './_shared.ts';
 
 export const punch: Route = async (ctx: Ctx, body: any) => {
   const userId = typeof body?.user_id === 'string' ? body.user_id : '';
   const target = await loadOwned(ctx, 'User', userId);
   await requirePermission(ctx, 'Asistencia:checar');
+  // Punching for someone else is a team action, not just knowing their PIN.
+  if (!canPunchFor(target.id, ctx.user?.id, await hasPermission(ctx, 'Asistencia:ver_equipo'))) {
+    httpError(403, 'not_self', 'Solo puedes checar con tu propio usuario');
+  }
   requireWritable(ctx);
   const tenantId = requireTenant(ctx);
   const pin = guardLogic(() => validatePin(body?.pin));

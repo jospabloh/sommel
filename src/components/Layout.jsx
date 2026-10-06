@@ -10,7 +10,7 @@ import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
 import LicenseBanner from '@/components/LicenseBanner';
 import { usePermission } from '@/lib/usePermission';
-import { isPlatformUser, isBarAdmin, barRoleOf } from '@/lib/rbac';
+import { isPlatformUser, isBarAdmin, barRoleOf, roleLabel } from '@/lib/rbac';
 import AppUpdateBanner from '@/components/AppUpdateBanner';
 import IdleWarningDialog from '@/components/IdleWarningDialog';
 import SessionExpiredDialog from '@/components/SessionExpiredDialog';
@@ -113,6 +113,9 @@ export default function Layout() {
     }
   };
 
+  const displayName = user?.full_name || user?.email || 'Sesión iniciada';
+  const initial = (displayName.trim().charAt(0) || '?').toUpperCase();
+
   const handleLogout = () => {
     logout(false);
     navigate('/login');
@@ -123,7 +126,7 @@ export default function Layout() {
     // script, applied to <html>; nothing here forces a mode. The theme control
     // itself is the corner ThemeSwitcher mounted in main.jsx (module 12).
     <div className="min-h-screen bg-background text-foreground flex">
-      <aside className="w-20 lg:w-60 shrink-0 border-r border-border bg-sidebar flex flex-col">
+      <aside className="sticky top-0 h-screen w-20 lg:w-60 shrink-0 border-r border-border bg-sidebar flex flex-col">
         <div className="h-16 flex items-center gap-2 px-4 lg:px-6 border-b border-sidebar-border">
           <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 ring-1 ring-border">
             <Image src={SOMMEL_LOGO} alt="Sommel" className="w-full h-full" fittingType="fill" />
@@ -152,6 +155,20 @@ export default function Layout() {
           })}
         </nav>
         <div className="p-2 lg:p-3 border-t border-sidebar-border space-y-1">
+          {/* Who is signed in, always visible: a shared caja laptop must show
+              whose session it is before anyone cobra with it. */}
+          <div
+            className="flex items-center gap-3 px-2 lg:px-3 py-2"
+            title={`${displayName}${user?.email && user.email !== displayName ? ` (${user.email})` : ''} · ${roleLabel(user)}`}
+          >
+            <div className="w-9 h-9 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-semibold shrink-0">
+              {initial}
+            </div>
+            <div className="hidden lg:block min-w-0">
+              <p className="text-sm font-medium truncate">{displayName}</p>
+              <p className="text-xs text-muted-foreground truncate">{roleLabel(user)}</p>
+            </div>
+          </div>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
