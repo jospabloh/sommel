@@ -10,7 +10,8 @@ import { cn } from '@/lib/utils';
 import HeatBar from './HeatBar';
 import CancelledNotice from './CancelledNotice';
 import {
-  heatLevel,
+  STATION_TITLES,
+  ticketHeat,
   formatMinutesElapsed,
   isWithinUndoWindow,
   earliestSentAt,
@@ -24,7 +25,7 @@ const LEVEL_RING = {
   late: 'border-destructive',
 };
 
-function ItemRow({ item, now, canOperate, onMarkReady, onMarkDelivered, onUndo, busy }) {
+function ItemRow({ item, now, showStation, canOperate, onMarkReady, onMarkDelivered, onUndo, busy }) {
   const subtitle = lineSubtitle(item);
   const canUndo = item.status === 'listo' && isWithinUndoWindow(item.ready_at, now);
 
@@ -36,6 +37,18 @@ function ItemRow({ item, now, canOperate, onMarkReady, onMarkDelivered, onUndo, 
       )}
     >
       <div className="min-w-[8rem] flex-1">
+        {showStation && STATION_TITLES[item.station] && (
+          <span
+            className={cn(
+              'mb-1 inline-block rounded-md px-2 py-0.5 text-xs font-semibold uppercase tracking-wide',
+              item.station === 'bar'
+                ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
+                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+            )}
+          >
+            {STATION_TITLES[item.station]}
+          </span>
+        )}
         <div className="text-lg font-semibold leading-snug break-words">
           {item.qty > 1 ? `${item.qty}× ` : ''}
           {item.name}
@@ -93,7 +106,8 @@ export default function StationTicket({
   tablesById,
   lines,
   now,
-  goalMinutes,
+  bar,
+  showStation = false,
   canOperate,
   ackedCancelled,
   onAcknowledgeCancelled,
@@ -106,7 +120,7 @@ export default function StationTicket({
   const activeLines = lines.filter((l) => l.status === 'enviado' || l.status === 'listo');
   const cancelledLines = lines.filter((l) => l.status === 'cancelado' && !ackedCancelled.has(l.id));
   const entrySentAt = earliestSentAt(lines);
-  const { ratio, level } = heatLevel(entrySentAt, now, goalMinutes);
+  const { ratio, level } = ticketHeat(lines, now, bar);
   const elapsedLabel = formatMinutesElapsed(entrySentAt, now);
   const pendingReady = activeLines.filter((l) => l.status === 'enviado');
 
@@ -161,6 +175,7 @@ export default function StationTicket({
             key={item.id}
             item={item}
             now={now}
+            showStation={showStation}
             canOperate={canOperate}
             onMarkReady={onMarkReady}
             onMarkDelivered={onMarkDelivered}

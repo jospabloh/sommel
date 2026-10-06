@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import {
   LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut,
   Clock, Package, BarChart3, Printer, Settings, Fingerprint, CalendarCheck,
-  ShieldCheck, LifeBuoy, Info, UserCircle,
+  ShieldCheck, LifeBuoy, Info, UserCircle, Layers,
 } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,7 @@ const NAV_ITEMS = [
   { label: 'Menú', to: '/menu', icon: GlassWater, perm: 'Menú:ver' },
   { label: 'Cocina', to: '/estacion/kitchen', icon: ChefHat, perm: 'Estaciones:operar' },
   { label: 'Barra', to: '/estacion/bar', icon: Beer, perm: 'Estaciones:operar' },
+  { label: 'Cocina y barra', to: '/estacion/todo', icon: Layers, perm: 'Estaciones:operar' },
   { label: 'Turno', to: '/turno', icon: Clock, perm: 'Turno:operar' },
   { label: 'Checador', to: '/checador', icon: Fingerprint, perm: 'Asistencia:checar' },
   { label: 'Asistencia', to: '/asistencia', icon: CalendarCheck, perm: 'Asistencia:checar' },
