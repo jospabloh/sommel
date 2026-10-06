@@ -136,6 +136,11 @@
       "default": 8,
       "description": "Minutos meta para preparar una bebida de barra"
     },
+    "approval_qr_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si es true, la aprobación del encargado también se puede dar desde el celular de un administrador (QR + Face ID o huella). El PIN del administrador sigue disponible siempre."
+    },
     "service_hours": {
       "type": "object",
       "description": "Ventana de horario de servicio del bar (para saber cuándo NO desplegar, §8 del plan)"

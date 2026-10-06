@@ -27,6 +27,7 @@ import Reportes from '@/pages/Reportes';
 import Ajustes from '@/pages/Ajustes';
 import Permisos from '@/pages/Permisos';
 import Seguridad from '@/pages/Seguridad';
+import Aprobar from '@/pages/Aprobar';
 import Cuenta from '@/pages/Cuenta';
 import Soporte from '@/pages/Soporte';
 import About from '@/pages/About';
@@ -180,6 +181,8 @@ const AuthenticatedApp = () => {
             <Route element={<RequirePermission perm="Inventario:ver" />}>
               <Route path="/inventario" element={<Inventario />} />
             </Route>
+            {/* The admin's phone after scanning the approval QR; the server checks bar_admin. */}
+            <Route path="/aprobar/:id" element={<Aprobar />} />
             <Route element={<RequirePermission perm="Seguridad:ver" />}>
               <Route path="/seguridad" element={<Seguridad />} />
             </Route>

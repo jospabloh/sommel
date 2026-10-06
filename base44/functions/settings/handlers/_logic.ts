@@ -27,6 +27,9 @@ export const EDITABLE_FIELDS = [
   'corte_emails',
   'prep_goal_kitchen_min',
   'prep_goal_bar_min',
+  // Manager approval from the phone (QR + Face ID / fingerprint); off by default,
+  // the admin's PIN is always available.
+  'approval_qr_enabled',
 ] as const;
 
 const KEY_RE = /^[a-z0-9][a-z0-9_]{0,23}$/;
@@ -148,6 +151,10 @@ export function buildSettingsPatch(body: Record<string, unknown>, currentMethods
   if ('payment_methods' in body) patch.payment_methods = validatePaymentMethods(body.payment_methods, currentMethods);
   if ('prep_goal_kitchen_min' in body) patch.prep_goal_kitchen_min = goal(body.prep_goal_kitchen_min);
   if ('prep_goal_bar_min' in body) patch.prep_goal_bar_min = goal(body.prep_goal_bar_min);
+  if ('approval_qr_enabled' in body) {
+    if (typeof body.approval_qr_enabled !== 'boolean') throw new LogicError('invalid_value', 'Valor no válido');
+    patch.approval_qr_enabled = body.approval_qr_enabled;
+  }
   if (Object.keys(patch).length === 0) throw new LogicError('nothing_to_update', 'No hay cambios que guardar');
   return patch;
 }

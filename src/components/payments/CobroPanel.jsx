@@ -122,7 +122,6 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
       cancelled = true;
     };
     // selectedKey stands in for selectedIds (a new Set each toggle).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, isOpenOrder, selectedKey, remaining, orderId]);
 
   let suggested = remaining;

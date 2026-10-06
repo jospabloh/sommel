@@ -29,7 +29,7 @@ export const approvers: Route = async (ctx: Ctx) => {
     onShift,
     nameOf: personName,
   });
-  return { approvers: list };
+  return { approvers: list, qr_enabled: ctx.bar?.approval_qr_enabled === true };
 };
 
 export const listApprovals: Route = async (ctx: Ctx) => {

@@ -1,0 +1,24 @@
+{
+  // Llave del celular de un administrador para aprobar con Face ID o huella
+  // (WebAuthn). Solo se guarda la mitad PÚBLICA; la privada nunca sale del
+  // celular.
+  "name": "Passkey",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar del administrador. Módulo 19, candado de LECTURA y ESCRITURA a nivel entidad: las cuatro operaciones son solo de plataforma (role admin). Solo la función security la crea (el admin registra su propio celular), la lee para verificar una aprobación y la borra cuando el admin la quita. Si se afloja la escritura, un mesero puede registrar su propio celular como si fuera del admin y aprobarse solo; si se afloja la lectura, el equipo ve qué celulares aprueban." },
+    "user_id": { "type": "string", "description": "Administrador dueño de la llave" },
+    "credential_id": { "type": "string", "description": "Id de la llave (base64url)" },
+    "public_key_jwk": { "type": "object", "description": "Llave pública P-256 en formato JWK" },
+    "sign_count": { "type": "integer", "default": 0, "description": "Último contador de firmas visto (0 = el celular no cuenta)" },
+    "label": { "type": "string", "description": "Nombre que el admin le dio (p. ej. iPhone de José)" },
+    "created_at": { "type": "string", "format": "date-time", "description": "Cuándo se registró" },
+    "last_used_at": { "type": ["string", "null"], "format": "date-time", "description": "Última aprobación con esta llave" }
+  },
+  "required": ["tenant_id", "user_id", "credential_id", "public_key_jwk", "created_at"],
+  "rls": {
+    "read": { "user_condition": { "role": "admin" } },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

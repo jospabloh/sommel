@@ -51,13 +51,14 @@ export async function callFn(endpoint, action, payload = {}) {
 // call is repeated with the admin's PIN until it passes or the person cancels.
 async function callWithApproval(endpoint, action, payload, first) {
   const label = first.data?.approval_label || first.message;
-  let approval = await askForApproval({ label, error: null });
+  const approvalAction = first.data?.approval_action || null;
+  let approval = await askForApproval({ label, action: approvalAction, error: null });
   while (approval) {
     try {
       return await callWithRetry(endpoint, action, { ...payload, approval });
     } catch (err) {
       if (!(err instanceof ApiError) || !APPROVAL_RETRY_CODES.has(err.code)) throw err;
-      approval = await askForApproval({ label, error: err.message });
+      approval = await askForApproval({ label, action: approvalAction, error: err.message });
     }
   }
   throw new ApiError(403, 'approval_cancelled', 'Se canceló la aprobación', null);

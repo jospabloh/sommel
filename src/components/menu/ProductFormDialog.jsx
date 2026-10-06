@@ -81,7 +81,6 @@ export default function ProductFormDialog({
       setForm(buildForm(product, categories, defaultCategoryId));
       setInvalidField(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, product, defaultCategoryId]);
 
   const sortedCategories = useMemo(
