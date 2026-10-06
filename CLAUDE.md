@@ -291,6 +291,7 @@ deriva) pasaron por paquete, con `validate:functions` en 15 de 40 (conteo de la 
     npm run validate:locks         # ya incluido en lint; se puede correr suelto
     deno test --allow-env --allow-read=base44/entities base44/tests/ base44/functions/acaciaSign.test.ts
     deno lint base44/functions base44/tests
+    npm run check:functions        # deno check de cada función (SDK sustituido por un stub)
 
 `deno.land` y `jsr.io` están bloqueados en el sandbox de desarrollo: las pruebas
 de Deno de este repo **no importan nada externo**, a propósito, para que corran
@@ -673,13 +674,12 @@ anterior sin avisar** en el Publish. Se descubrió al forzar
 `POST /coding/redeploy-function/terminals`, que sí devuelve el error del
 empaquetador.
 
-Antes de publicar una función nueva o con imports cambiados, compílala con el
-SDK sustituido por un stub (el sandbox no resuelve `npm:@base44/sdk`):
-
-    # deno.json: { "imports": { "npm:@base44/sdk@0.8.49": "./sdkstub.ts" } }
-    deno check --config <ese deno.json> base44/functions/<fn>/entry.ts
-
-Hoy `acaciaControl` (3), `shifts` (2), `inventory` (1) y `manageStaff` (1)
-tienen errores de tipos previos que no impiden empaquetar; un error
-`TS2305` (no exporta) sí lo impide. Y después de publicar, verifica cada
-función nueva por comportamiento, no por la salida del Publish.
+Por eso existe `npm run check:functions` (corre en CI antes de `deno test`):
+compila los 20 `entry.ts` y todas las pruebas con `deno check`, con
+`npm:@base44/sdk` sustituido por `scripts/typecheck/sdk-stub.ts` (el sandbox no
+lo descarga). Se dejó en **cero errores**: los 5 de tipos que ya existían en
+`inventory`, `manageStaff`, `payments` y `shifts` se corrigieron en el mismo PR,
+solo en los tipos, sin cambiar comportamiento. Comprobado que falla con el
+import roto del #32 (`TS2305`, salida 1) y pasa sin él. Una función que no
+compila no se mergea. Y después de publicar, verifica cada función nueva por
+comportamiento, no por la salida del Publish.

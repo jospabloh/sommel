@@ -91,11 +91,11 @@ export function inviteIdsToRevoke(rows: StaffInviteRow[], chosen: StaffInviteRow
  * exists, regardless of whether it happens to still be live — re-inviting
  * revives it instead of stacking a duplicate.
  */
-export function shouldRefreshExistingInvite(
-  existing: Pick<StaffInviteRow, 'tenant_id' | 'email' | 'status'> | null | undefined,
+export function shouldRefreshExistingInvite<T extends Pick<StaffInviteRow, 'tenant_id' | 'email' | 'status'>>(
+  existing: T | null | undefined,
   tenantId: string,
   email: string
-): existing is Pick<StaffInviteRow, 'tenant_id' | 'email' | 'status'> {
+): existing is T {
   return !!existing && existing.tenant_id === tenantId && existing.email === email && existing.status === 'pending';
 }
 

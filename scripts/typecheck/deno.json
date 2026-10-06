@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "npm:@base44/sdk@0.8.49": "./sdk-stub.ts"
+  }
+}

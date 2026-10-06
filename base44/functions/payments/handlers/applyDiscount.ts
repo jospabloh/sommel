@@ -26,6 +26,6 @@ export const applyDiscount: Route = async (ctx: Ctx, body: any) => {
     httpError(409, 'has_payments', 'Ya hay pagos registrados. Anúlalos antes de cambiar el descuento.');
   }
 
-  const updated = await writeTotals(ctx, order, plan);
+  const updated = await writeTotals(ctx, order, { ...plan });
   return { order: updated };
 };

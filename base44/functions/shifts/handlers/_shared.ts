@@ -69,7 +69,7 @@ export async function loadOrdersAndCancellations(ctx: Ctx, shift: any, payments:
     })
   ).filter((o) => o && o.tenant_id === ctx.tenantId);
 
-  const itemLists = await inChunks(orderIds, 20, (id) => ctx.svc.entities.OrderItem.filter({ order_id: id }));
+  const itemLists = await inChunks<string, any[]>(orderIds, 20, (id) => ctx.svc.entities.OrderItem.filter({ order_id: id }));
   let cancelledItems = 0;
   for (const list of itemLists) cancelledItems += list.filter((i: any) => i.status === 'cancelado').length;
 
@@ -78,7 +78,7 @@ export async function loadOrdersAndCancellations(ctx: Ctx, shift: any, payments:
   const duringShift = cancelledOrders.filter(
     (o: any) => !orderIds.includes(o.id) && String(o.opened_at ?? o.created_date ?? '') >= String(shift.opened_at ?? '')
   );
-  const cancelledLists = await inChunks(duringShift, 20, (o: any) => ctx.svc.entities.OrderItem.filter({ order_id: o.id }));
+  const cancelledLists = await inChunks<any, any[]>(duringShift, 20, (o: any) => ctx.svc.entities.OrderItem.filter({ order_id: o.id }));
   for (const list of cancelledLists) cancelledItems += list.filter((i: any) => i.status === 'cancelado').length;
 
   return { orders, cancelledItems };

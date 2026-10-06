@@ -18,4 +18,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      # Compiles every function against a stub SDK: a broken import never
+      # reaches Base44, whose deploy fails silently and keeps the old code.
+      - run: npm run check:functions
       - run: deno test --allow-env --allow-read=base44/entities base44/tests/ base44/functions/acaciaSign.test.ts
