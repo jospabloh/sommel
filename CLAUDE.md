@@ -815,3 +815,11 @@ que actúa no pide nada a nadie.
   malo con el mismo admin elegido y pasa con el bueno. **No verificado:** contra
   Base44 publicado, y las otras tres pantallas (cancelar platillo, anular pago,
   cerrar turno), que usan el mismo `callFn` y no cambiaron.
+
+## Menú: una sola entrada "Cocina y barra" (2026-10-06)
+
+Decisión de José: el menú ya no muestra "Cocina" ni "Barra"; queda solo
+"Cocina y barra" (`/estacion/todo`), que filtra arriba Todo / Cocina / Barra y
+recuerda la elección por equipo. Las rutas `/estacion/kitchen` y `/estacion/bar`
+siguen abriendo directo (pantallas fijas o terminales que ya las usan). El
+manual se actualizó para decir dónde está.

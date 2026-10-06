@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import {
-  LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut,
+  LayoutGrid, GlassWater, Users, Building2, LogOut,
   Clock, Package, BarChart3, Printer, Settings, Fingerprint, CalendarCheck,
   ShieldCheck, LifeBuoy, Info, UserCircle, Layers, Lock, ShieldAlert,
 } from 'lucide-react';
@@ -32,8 +32,8 @@ const NAV_ITEMS = [
   { label: 'Plataforma', to: '/super-admin', icon: Building2, only: 'platform' },
   { label: 'Mesas', to: '/mesas', icon: LayoutGrid },
   { label: 'Menú', to: '/menu', icon: GlassWater, perm: 'Menú:ver' },
-  { label: 'Cocina', to: '/estacion/kitchen', icon: ChefHat, perm: 'Estaciones:operar' },
-  { label: 'Barra', to: '/estacion/bar', icon: Beer, perm: 'Estaciones:operar' },
+  // One entry: /estacion/todo filters Todo / Cocina / Barra itself (José,
+  // 2026-10-06). /estacion/kitchen and /estacion/bar still open directly.
   { label: 'Cocina y barra', to: '/estacion/todo', icon: Layers, perm: 'Estaciones:operar' },
   { label: 'Turno', to: '/turno', icon: Clock, perm: 'Turno:operar' },
   { label: 'Checador', to: '/checador', icon: Fingerprint, perm: 'Asistencia:checar' },
