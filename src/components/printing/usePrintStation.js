@@ -1,4 +1,4 @@
-// State and actions of the print station: queue loading (realtime plus a 10 s
+// State and actions of the print station: queue loading (realtime plus a 45 s
 // polling fallback, since websockets can drop), claiming, printing and the
 // follow-up calls. Kept out of the page so Impresion.jsx stays layout only.
 //
@@ -25,7 +25,11 @@ import { eventRow, getDeviceId, readAutoPref, writeAutoPref } from './printingHe
 import { buildDrawerPulse, buildEscPos, testLines } from './escpos';
 import { choosePrinter, findPaired, forget, printerName, sendBytes, usbSupported } from './usbPrinter';
 
-const POLL_MS = 10 * 1000;
+// Fallback poll: only when nothing (realtime, a print) reloaded the queue in
+// the last 45 s. Was 10 s; every open station spent Base44's per-app rate
+// limit on it (2026-10-06).
+const POLL_MS = 45 * 1000;
+const POLL_TICK_MS = 15 * 1000;
 const EVENT_DEBOUNCE_MS = 300;
 
 function nextFrame() {
@@ -82,7 +86,9 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
   // Unset preference: on with a USB printer (it is the caja), off otherwise.
   const auto = autoPref ?? !!usb;
 
+  const lastLoadRef = useRef(0);
   const load = useCallback(async () => {
+    lastLoadRef.current = Date.now();
     try {
       const { jobs: rows } = await callFn('printing', 'queue', { include_done: true });
       setJobs(Array.isArray(rows) ? rows : []);
@@ -95,11 +101,22 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
     }
   }, []);
 
+  // Polls only while this tab is visible: every open Sommel tab on a device
+  // with a USB printer runs a station, and hidden ones only add requests
+  // against Base44's rate limit (realtime still wakes them when a job lands).
   useEffect(() => {
     if (!enabled) return undefined;
+    const visible = () => typeof document === 'undefined' || document.visibilityState === 'visible';
     load();
-    const t = setInterval(load, POLL_MS);
-    return () => clearInterval(t);
+    const t = setInterval(() => {
+      if (visible() && Date.now() - lastLoadRef.current >= POLL_MS) load();
+    }, POLL_TICK_MS);
+    const onVisible = () => { if (visible()) load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [enabled, load]);
 
   // Realtime: subscribe() is not filtered by the server, so only events of

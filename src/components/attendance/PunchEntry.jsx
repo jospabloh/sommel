@@ -5,6 +5,8 @@ import { ArrowLeft } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import PinPad, { PIN_MIN } from './PinPad';
+import CameraPreview from '@/components/security/CameraPreview';
+import { usePhotoCapture } from '@/lib/camera/usePhotoCapture';
 
 function errorText(err) {
   if (err.code === 'wrong_pin') return 'PIN incorrecto. Inténtalo de nuevo.';
@@ -18,13 +20,15 @@ export default function PunchEntry({ person, onBack, onDone, onNeedPin, isSelf }
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const camera = usePhotoCapture(!!person.photo_check && person.has_pin);
 
   const submit = async () => {
     if (busy || pin.length < PIN_MIN) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await callFn('attendance', 'punch', { user_id: person.user_id, pin });
+      const photo = person.photo_check ? camera.capture() : null;
+      const res = await callFn('attendance', 'punch', { user_id: person.user_id, pin, ...(photo ? { photo } : {}) });
       onDone(res);
     } catch (err) {
       setError(errorText(err));
@@ -47,6 +51,7 @@ export default function PunchEntry({ person, onBack, onDone, onNeedPin, isSelf }
           {person.inside ? 'Escribe tu PIN para registrar tu salida' : 'Escribe tu PIN para registrar tu entrada'}
         </p>
       </div>
+      <CameraPreview videoRef={camera.videoRef} status={camera.status} />
       <PinPad value={pin} onChange={(v) => { setPin(v); setError(null); }} onSubmit={submit} disabled={busy} />
       <p className="text-center text-sm text-destructive min-h-[1.25rem]" role="alert" aria-live="polite">
         {error}

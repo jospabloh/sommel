@@ -711,3 +711,72 @@ persona salía con su correo en el checador, la terminal y los reportes.
   La regla vive en `personName`/`normalizeDisplayName` del guard y en copias
   de `manageStaff`, `createWineBar`, `attendance`, `terminals`, `support` y
   `src/lib/rbac.js`; `base44/tests/display_name_test.ts` las amarra.
+
+## Foto y alertas contra el préstamo de PIN (2026-10-06)
+
+Para que nadie use el PIN de otra persona (el lector de huella se descartó).
+- **Foto por persona**: el admin la enciende en Staff (ícono de cámara,
+  `manageStaff.setPhotoCheck`, campo con candado `User.photo_check`). Esa
+  persona ve su cámara al escribir el PIN en la terminal y en el checador, y la
+  foto (240 px, ~3-8 KB) viaja con `terminals.unlock` / `attendance.punch`. Sin
+  cámara o sin permiso **no se bloquea**: se levanta una alerta.
+- **La imagen vive en el renglón `PhotoCheck`, no en un archivo**: Base44 no
+  tiene forma de borrar archivos subidos (ni SDK ni API), así que con archivos la
+  caducidad no sería real. Se borra a los **30 días** y las alertas a los 90,
+  sin cron: cada foto o alerta nueva y cada lectura de Seguridad borran hasta 25
+  vencidas de ese bar (`purgeExpired`). Una foto que nadie pidió no se guarda
+  aunque llegue.
+- **Alertas** (`SecurityAlert`): entrar o checar sin foto cuando se pedía; la
+  misma persona en dos terminales en menos de 10 min
+  (`TerminalDevice.unlocked_user_id/unlocked_at`, se limpian al bloquear);
+  staff que entra a una terminal sin haber checado (solo si usó el checador en
+  los últimos 14 días). Una alerta igual sin ver de la última hora no se repite.
+- Pantalla **Seguridad** (`/seguridad`, permiso nuevo `Seguridad:ver`, solo
+  admins), función nueva `security` (21 de 40). La lista nunca trae imágenes;
+  se abre una a la vez.
+- Lógica en `scripts/templates/_security.ts`, copiada por `generate:guards` a
+  `attendance`, `terminals` y `security`. Pruebas en
+  `base44/tests/security_logic_test.ts`.
+- Verificado: pruebas (512/0), lint, build, check:functions y la pantalla con el
+  build local a 390/1440 en claro y oscuro, con cámara falsa de Chromium (el
+  checador manda la foto). **No verificado:** nada contra Base44 publicado (las
+  respuestas de `security` y del checador se simularon), una cámara real en
+  Mac/iPad, y el permiso de cámara dentro de la app instalada.
+
+## Concurrencia: el límite de Base44 es por app (2026-10-06)
+
+El 2026-10-06 José vio "Hay muchas solicitudes seguidas" en Turno con un solo
+usuario de QA. Los logs de `printing` muestran `POST → 429` a las 04:57:44,
+04:58:07, 04:58:14 y 04:59:07 UTC, justo mientras corrían pruebas de navegador
+con esa misma cuenta. El 429 lo pone Base44 (la plataforma limita operaciones
+de entidades, ~150 por minuto según quien lo preguntó; no lo publica) y el
+guard solo lo traduce (`isRateLimitError`). Si el límite es por app, lo
+comparten **todos los bares**: cada llamada gastaba 3 a 6 operaciones y cada
+estación de impresión consultaba la cola cada 10 s, así que 5 o 6 equipos
+abiertos bastaban para topar.
+
+Lo que se cambió:
+- **Caché de 20 s en el guard** (`TtlCache` en `_guard_logic.ts`): el
+  `WineBar` y el `PermissionProfile` se leen una vez por instancia caliente y
+  sirven 20 s. **Decisión de José:** un cambio de permisos o una suspensión de
+  licencia puede tardar hasta 20 s en aplicar. **Nunca** se cachean el `User`
+  (quitar a alguien aplica en la siguiente llamada) ni el `TerminalDevice`
+  (revocar aplica en la siguiente llamada).
+- Las rutas que editan o deciden sobre esos datos leen fresco con
+  `freshReads(route)`: `settings.get/update/platform*`, todo `account`, todo
+  `permissions`. Tras escribir, `forgetBar` / `forgetProfiles` borran la
+  entrada de esa instancia. Otra función puede ver el valor viejo hasta 20 s.
+- **Cliente**: `callFn` reintenta solo **lecturas** (`READ_ACTIONS` en
+  `src/lib/retryPolicy.js`) ante un 429, a los ~1.5 s y ~4 s. Las escrituras
+  nunca se reintentan solas: un 429 puede llegar con la mitad de la escritura
+  hecha, y repetir un pago o una marca la haría dos veces. Una acción nueva de
+  solo lectura se agrega ahí a propósito.
+- **Impresión**: la cola se recarga por tiempo real; el sondeo es respaldo
+  cada 45 s (antes 10 s) y solo en la pestaña visible.
+- Pruebas: `base44/tests/concurrency_test.ts`.
+
+**No verificado:** que Base44 mantenga la instancia caliente entre llamadas
+(si no, el caché nunca acierta y no hace daño, pero tampoco ahorra); el límite
+real y si es por app o por usuario; una prueba de carga con varios equipos
+simulados. **Regla nueva:** las pruebas automáticas de navegador nunca usan la
+cuenta con la que José está probando; van contra un bar de prueba aparte.

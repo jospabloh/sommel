@@ -7,7 +7,7 @@
 // KEPT, never touched: Order, OrderItem, Payment, Shift, CashMovement,
 // InventoryMovement, Attendance (CFF art. 30: five years). No billing gate:
 // a suspended bar's owner must still be able to close it.
-import { httpError, HttpError, type Ctx, type Route } from '../_guard.ts';
+import { httpError, HttpError, type Ctx, type Route, forgetBar } from '../_guard.ts';
 import {
   ACCOUNT_DENIAL_MESSAGE,
   ACCOUNT_DENIAL_STATUS,
@@ -40,6 +40,7 @@ export const deleteBar: Route = async (ctx: Ctx, body: any) => {
   // 1. Archive first: if a later step fails the bar is already read-only and
   //    the owner (still linked) can retry.
   await svc.entities.WineBar.update(bar.id, archivePatch(bar, nowIso));
+  forgetBar(bar.id);
   const [fresh] = await svc.entities.WineBar.filter({ id: bar.id });
   if (fresh?.billing_status !== 'suspended') {
     httpError(500, 'archive_failed', 'No se pudo archivar el bar');

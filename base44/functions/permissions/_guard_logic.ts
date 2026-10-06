@@ -45,6 +45,7 @@ export const PERMISSION_DEFAULTS: Record<string, { bar_admin: boolean; staff: bo
   "Asistencia:checar": { bar_admin: true, staff: true },
   "Asistencia:ver_equipo": { bar_admin: true, staff: false },
   "Asistencia:corregir": { bar_admin: true, staff: false },
+  "Seguridad:ver": { bar_admin: true, staff: false },
 };
 // AUTOGEN:PERMISSION_DEFAULTS:END
 
@@ -532,4 +533,62 @@ export function normalizeDisplayName(input: unknown): string | null {
   // deno-lint-ignore no-control-regex
   const v = input.replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/\s+/g, ' ');
   return v.length >= 1 && v.length <= 60 ? v : null;
+}
+
+// ---- Short read cache (concurrency, 2026-10-06) ----
+// Base44 rate-limits entity operations per app. Every guarded call used to
+// re-read the bar (WineBar) and, for staff, its PermissionProfile. Both now
+// live up to CACHE_TTL_MS in the warm function instance. Decided by José:
+// a permission change or a license suspension may take up to 20 s to apply.
+// The User row and the TerminalDevice are NEVER cached: removing someone or
+// revoking a terminal takes effect on the next call.
+export const CACHE_TTL_MS = 20_000;
+export const CACHE_MAX_ENTRIES = 500;
+
+export class TtlCache<V> {
+  private map = new Map<string, { value: V; exp: number }>();
+  constructor(private ttlMs = CACHE_TTL_MS, private max = CACHE_MAX_ENTRIES) {}
+
+  /** The value, or undefined when missing or older than the TTL. */
+  get(key: string, nowMs: number): V | undefined {
+    const hit = this.map.get(key);
+    if (!hit) return undefined;
+    if (hit.exp <= nowMs) {
+      this.map.delete(key);
+      return undefined;
+    }
+    return hit.value;
+  }
+
+  set(key: string, value: V, nowMs: number): void {
+    this.map.delete(key);
+    if (this.map.size >= this.max) {
+      const oldest = this.map.keys().next().value;
+      if (oldest !== undefined) this.map.delete(oldest);
+    }
+    this.map.set(key, { value, exp: nowMs + this.ttlMs });
+  }
+
+  /** Drops one key, or every key starting with `prefix` when it ends in '|'. */
+  delete(keyOrPrefix: string): void {
+    if (!keyOrPrefix.endsWith('|')) {
+      this.map.delete(keyOrPrefix);
+      return;
+    }
+    for (const k of [...this.map.keys()]) if (k.startsWith(keyOrPrefix)) this.map.delete(k);
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+}
+
+/** Cache key of a tenant+role permission profile. */
+export function profileKey(tenantId: string, role: string): string {
+  return `${tenantId}|${role}`;
+}
+
+/** Whether a route asked to read the bar and permissions fresh (Ajustes, Cuenta, Permisos). */
+export function routeWantsFresh(route: unknown): boolean {
+  return typeof route === 'function' && (route as { freshReads?: unknown }).freshReads === true;
 }

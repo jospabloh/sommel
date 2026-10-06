@@ -44,6 +44,7 @@ export const TARGET_DIRS = [
   'account',
   'support',
   'terminals',
+  'security',
   // account and session (Ola 2, modules 7 and 20) are added here together with
   // their entry.ts: a function directory with no entry.ts must never reach
   // main, because Base44 syncs every directory under base44/functions.
@@ -54,6 +55,10 @@ const COPIED_FILES = ['_guard_logic.ts', '_guard.ts'];
 // (scripts/templates/_email.ts). manageStaff and acaciaControl are standalone
 // (no _guard.ts), so they are listed here only.
 export const EMAIL_TARGET_DIRS = ['shifts', 'manageStaff', 'acaciaControl'];
+
+// Function groups that take anti PIN-sharing photos or raise security alerts
+// get a copy of scripts/templates/_security.ts.
+export const SECURITY_TARGET_DIRS = ['attendance', 'terminals', 'security'];
 
 const BEGIN_MARK = '// AUTOGEN:PERMISSION_DEFAULTS:BEGIN';
 const END_MARK = '// AUTOGEN:PERMISSION_DEFAULTS:END';
@@ -104,6 +109,7 @@ export async function buildExpectedFiles() {
   const guardLogic = replaceAutogenBlock(rawGuardLogic, block);
   const guard = readFileSync(join(TEMPLATES_DIR, '_guard.ts'), 'utf8');
   const email = readFileSync(join(TEMPLATES_DIR, '_email.ts'), 'utf8');
+  const security = readFileSync(join(TEMPLATES_DIR, '_security.ts'), 'utf8');
 
   const files = new Map();
   files.set(join(TEMPLATES_DIR, '_guard_logic.ts'), guardLogic);
@@ -115,6 +121,9 @@ export async function buildExpectedFiles() {
   }
   for (const dir of EMAIL_TARGET_DIRS) {
     files.set(join(FUNCTIONS_DIR, dir, '_email.ts'), email);
+  }
+  for (const dir of SECURITY_TARGET_DIRS) {
+    files.set(join(FUNCTIONS_DIR, dir, '_security.ts'), security);
   }
   return files;
 }

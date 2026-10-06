@@ -50,6 +50,9 @@ import {
   personName,
   normalizeDisplayName,
   LOCKED_TERMINAL_PERMISSIONS,
+  TtlCache,
+  profileKey,
+  routeWantsFresh,
   type AppRole,
   type PaymentMethodDef,
 } from './_guard_logic.ts';
@@ -89,6 +92,34 @@ export {
 };
 export type { PaymentMethodDef };
 
+// Warm-instance caches (see TtlCache in _guard_logic.ts). Module scope on
+// purpose: they live as long as Base44 keeps this function instance warm.
+const barCache = new TtlCache<any>();
+const profileCache = new TtlCache<Record<string, boolean> | null>();
+
+/** Reads a WineBar, through the cache unless `fresh`. */
+async function readBar(svc: Ctx['svc'], tenantId: string, fresh: boolean): Promise<any | null> {
+  const now = Date.now();
+  if (!fresh) {
+    const hit = barCache.get(tenantId, now);
+    // A copy: a handler that edits ctx.bar must never edit the cached row.
+    if (hit !== undefined) return hit === null ? null : structuredClone(hit);
+  }
+  const [row] = await svc.entities.WineBar.filter({ id: tenantId });
+  barCache.set(tenantId, row ? structuredClone(row) : null, now);
+  return row ?? null;
+}
+
+/** Call after writing a WineBar in this function, so this instance never serves the old row. */
+export function forgetBar(tenantId: string | null | undefined): void {
+  if (tenantId) barCache.delete(tenantId);
+}
+
+/** Call after writing a PermissionProfile in this function. */
+export function forgetProfiles(tenantId: string | null | undefined): void {
+  if (tenantId) profileCache.delete(`${tenantId}|`);
+}
+
 export interface Ctx {
   base44: ReturnType<typeof createClientFromRequest>;
   svc: ReturnType<typeof createClientFromRequest>['asServiceRole'];
@@ -104,6 +135,9 @@ export interface Ctx {
   // are the PERSON who unlocked it; without one (only on routes marked
   // `allowLockedTerminal`) they are the terminal account and appRole is null.
   terminal: { device: any; unlocked: boolean } | null;
+  // The route asked for fresh reads (`freshReads`): bar and permissions are
+  // read from the database, not from the 20 s cache.
+  fresh?: boolean;
 }
 
 /**
@@ -122,7 +156,7 @@ export interface Ctx {
  */
 export async function requireContext(
   req: Request,
-  opts: { allowNoTenant?: boolean; allowLockedTerminal?: boolean; terminalPass?: unknown } = {}
+  opts: { allowNoTenant?: boolean; allowLockedTerminal?: boolean; terminalPass?: unknown; fresh?: boolean } = {}
 ): Promise<Ctx> {
   const base44 = createClientFromRequest(req);
   // Fixed 2026-09-28 (D "unauthenticated calls return 500"): an
@@ -166,13 +200,9 @@ export async function requireContext(
     throw new HttpError(403, 'no_tenant', 'No perteneces a ningún bar');
   }
 
-  let bar: any | null = null;
-  if (tenantId) {
-    const [row] = await svc.entities.WineBar.filter({ id: tenantId });
-    bar = row ?? null;
-  }
+  const bar = tenantId ? await readBar(svc, tenantId, !!opts.fresh) : null;
 
-  return { base44, svc, user, self, tenantId, appRole, isPlatform, bar, terminal: null };
+  return { base44, svc, user, self, tenantId, appRole, isPlatform, bar, terminal: null, fresh: !!opts.fresh };
 }
 
 /**
@@ -186,13 +216,13 @@ async function terminalContext(
   base44: Ctx['base44'],
   svc: Ctx['svc'],
   self: any,
-  opts: { allowLockedTerminal?: boolean; terminalPass?: unknown }
+  opts: { allowLockedTerminal?: boolean; terminalPass?: unknown; fresh?: boolean }
 ): Promise<Ctx> {
   const [device] = await svc.entities.TerminalDevice.filter({ account_user_id: self.id });
   if (!device || device.revoked_at || !device.tenant_id || device.tenant_id !== self.tenant_id) {
     throw new HttpError(401, 'terminal_revoked', 'Este equipo ya no está autorizado como terminal');
   }
-  const [bar] = await svc.entities.WineBar.filter({ id: device.tenant_id });
+  const bar = await readBar(svc, device.tenant_id, !!opts.fresh);
   if (!bar || bar.archived_at) {
     throw new HttpError(401, 'terminal_revoked', 'Este equipo ya no está autorizado como terminal');
   }
@@ -213,6 +243,7 @@ async function terminalContext(
         isPlatform: false,
         bar,
         terminal: { device, unlocked: true },
+        fresh: !!opts.fresh,
       };
     }
   }
@@ -229,6 +260,7 @@ async function terminalContext(
     isPlatform: false,
     bar,
     terminal: { device, unlocked: false },
+    fresh: !!opts.fresh,
   };
 }
 
@@ -260,11 +292,19 @@ export async function hasPermission(ctx: Ctx, key: string): Promise<boolean> {
   if (ctx.isPlatform || ctx.appRole === 'bar_admin') return true;
   let overrides: Record<string, boolean> | undefined;
   if (ctx.tenantId && ctx.appRole) {
-    const [profile] = await ctx.svc.entities.PermissionProfile.filter({
-      tenant_id: ctx.tenantId,
-      role: ctx.appRole,
-    });
-    overrides = profile?.overrides;
+    const key = profileKey(ctx.tenantId, ctx.appRole);
+    const now = Date.now();
+    const cached = ctx.fresh ? undefined : profileCache.get(key, now);
+    if (cached !== undefined) {
+      overrides = cached ?? undefined;
+    } else {
+      const [profile] = await ctx.svc.entities.PermissionProfile.filter({
+        tenant_id: ctx.tenantId,
+        role: ctx.appRole,
+      });
+      overrides = profile?.overrides;
+      profileCache.set(key, overrides ?? null, now);
+    }
   }
   return resolvePermission(key, { isPlatform: ctx.isPlatform, appRole: ctx.appRole, overrides });
 }
@@ -312,6 +352,7 @@ export function httpError(status: number, code: string, message: string, extra?:
 export type Route = ((ctx: Ctx, body: any) => Promise<object>) & {
   allowNoTenant?: boolean;
   allowLockedTerminal?: boolean;
+  freshReads?: boolean;
 };
 
 /**
@@ -329,6 +370,7 @@ export function remoteOnly(route: (ctx: Ctx, body: any) => Promise<object>): Rou
   const marks = route as Route;
   if (marks.allowNoTenant) wrapped.allowNoTenant = true;
   if (marks.allowLockedTerminal) wrapped.allowLockedTerminal = true;
+  if (marks.freshReads) wrapped.freshReads = true;
   return wrapped;
 }
 
@@ -340,6 +382,20 @@ export function remoteOnly(route: (ctx: Ctx, body: any) => Promise<object>): Rou
 export function allowLockedTerminal(route: (ctx: Ctx, body: any) => Promise<object>): Route {
   const wrapped: Route = (ctx, body) => route(ctx, body);
   wrapped.allowLockedTerminal = true;
+  return wrapped;
+}
+
+/**
+ * Marks a route that must see the bar and permissions as stored right now,
+ * skipping the 20 s cache: screens that edit them (Ajustes, Cuenta, Permisos).
+ * Keeps the other marks.
+ */
+export function freshReads(route: (ctx: Ctx, body: any) => Promise<object>): Route {
+  const wrapped: Route = (ctx, body) => route(ctx, body);
+  const marks = route as Route;
+  if (marks.allowNoTenant) wrapped.allowNoTenant = true;
+  if (marks.allowLockedTerminal) wrapped.allowLockedTerminal = true;
+  wrapped.freshReads = true;
   return wrapped;
 }
 
@@ -389,6 +445,7 @@ export async function handle(req: Request, routes: Record<string, Route>): Promi
       allowLockedTerminal: routeAllowsLockedTerminal(route),
       // Terminal mode: the client sends the person's pass in the body.
       terminalPass: body?.terminal_pass,
+      fresh: routeWantsFresh(route),
     });
     const result = await route(ctx, body);
     return Response.json({ ok: true, ...result });

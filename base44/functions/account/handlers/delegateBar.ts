@@ -3,7 +3,7 @@
 // caller's own bar members (read fresh with the service role), so an id from
 // another bar is simply "not found". Order: permission -> billing gate ->
 // validate -> write. Ownership is a team change, so a suspended bar is 402.
-import { httpError, HttpError, requirePermission, requireWritable, type Ctx, type Route } from '../_guard.ts';
+import { httpError, HttpError, requirePermission, requireWritable, type Ctx, type Route, forgetBar } from '../_guard.ts';
 import { ACCOUNT_DENIAL_MESSAGE, ACCOUNT_DENIAL_STATUS, checkDelegate, confirmationMatches } from './_logic.ts';
 
 export const delegateBar: Route = async (ctx: Ctx, body: any) => {
@@ -29,6 +29,7 @@ export const delegateBar: Route = async (ctx: Ctx, body: any) => {
   }
 
   await svc.entities.WineBar.update(ctx.bar.id, { owner_id: targetId });
+  forgetBar(ctx.bar.id);
 
   // Re-read: the target may have been demoted or removed between the pre-check
   // and the write. If so, put the bar back in the caller's hands.
@@ -36,6 +37,7 @@ export const delegateBar: Route = async (ctx: Ctx, body: any) => {
   const stillValid = freshTarget?.tenant_id === ctx.tenantId && freshTarget?.app_role === 'bar_admin';
   if (!stillValid) {
     await svc.entities.WineBar.update(ctx.bar.id, { owner_id: ctx.self.id });
+    forgetBar(ctx.bar.id);
     httpError(409, 'target_not_admin', ACCOUNT_DENIAL_MESSAGE.target_not_admin);
   }
   return { owner_id: targetId };

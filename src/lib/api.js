@@ -9,6 +9,7 @@
 // `err.response?.data?.error` by hand.
 import { base44 } from '@/api/base44Client';
 import { currentPass, lockTerminal, markRevoked } from '@/lib/terminal/terminalStore';
+import { isRateLimited, isRetryableRead, retryDelay } from '@/lib/retryPolicy';
 
 export class ApiError extends Error {
   /**
@@ -37,6 +38,21 @@ export class ApiError extends Error {
  * @throws {ApiError}
  */
 export async function callFn(endpoint, action, payload = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await callOnce(endpoint, action, payload);
+    } catch (err) {
+      // Base44's rate limit: reads wait a moment and try again; writes never.
+      const wait = err instanceof ApiError && isRateLimited(err.status, err.code) && isRetryableRead(endpoint, action)
+        ? retryDelay(attempt)
+        : null;
+      if (wait === null) throw err;
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+  }
+}
+
+async function callOnce(endpoint, action, payload) {
   try {
     // Terminal mode: the person who unlocked this terminal travels with every
     // call; the server checks it and acts as that person.

@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import {
   LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut,
   Clock, Package, BarChart3, Printer, Settings, Fingerprint, CalendarCheck,
-  ShieldCheck, LifeBuoy, Info, UserCircle, Layers, Lock,
+  ShieldCheck, LifeBuoy, Info, UserCircle, Layers, Lock, ShieldAlert,
 } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
@@ -41,6 +41,7 @@ const NAV_ITEMS = [
   { label: 'Reportes', to: '/reportes', icon: BarChart3, perm: 'Reportes:ver' },
   { label: 'Impresión', to: '/estacion/impresion', icon: Printer, perm: 'Impresion:operar' },
   { label: 'Staff', to: '/staff', icon: Users, only: 'bar_admin' },
+  { label: 'Seguridad', to: '/seguridad', icon: ShieldAlert, perm: 'Seguridad:ver' },
   // Permisos is bar_admin/platform only; not gated with can('Ajustes:editar'),
   // which is true for bar_admin only through the role shortcut.
   { label: 'Permisos', to: '/permisos', icon: ShieldCheck, only: 'bar_admin_with_bar' },
@@ -50,7 +51,7 @@ const NAV_ITEMS = [
   { label: 'Acerca de', to: '/about', icon: Info },
 ];
 
-const TERMINAL_HIDDEN = new Set(['/cuenta', '/staff', '/permisos', '/super-admin']);
+const TERMINAL_HIDDEN = new Set(['/cuenta', '/staff', '/permisos', '/super-admin', '/seguridad']);
 
 function navFor(user, can) {
   const isPlatformAdmin = isPlatformUser(user);

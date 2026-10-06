@@ -17,6 +17,8 @@
     "activated_by_user_id": { "type": "string", "description": "Quién la activó" },
     "activated_by_name": { "type": "string", "description": "Nombre congelado de quien la activó" },
     "last_seen_at": { "type": ["string", "null"], "format": "date-time", "description": "Último uso registrado" },
+    "unlocked_user_id": { "type": ["string", "null"], "description": "Quién la desbloqueó por última vez; se limpia al bloquearla. Sirve para avisar si la misma persona entra a otra terminal a la vez" },
+    "unlocked_at": { "type": ["string", "null"], "format": "date-time", "description": "Cuándo la desbloqueó unlocked_user_id" },
     "revoked_at": { "type": ["string", "null"], "format": "date-time", "description": "Revocada desde esta hora; deja de funcionar en la siguiente llamada" },
     "account_deleted_at": { "type": ["string", "null"], "format": "date-time", "description": "Cuándo se borró la cuenta de Base44 de la terminal al revocarla" },
     "revoked_by_user_id": { "type": ["string", "null"], "description": "Quién la revocó" }

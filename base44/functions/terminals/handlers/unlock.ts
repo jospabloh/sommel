@@ -5,7 +5,8 @@
 // dies at once.
 import { allowLockedTerminal, HttpError, httpError, issuePass, passEpochOf, personMayUseTerminal, type Ctx } from '../_guard.ts';
 import { verifyPin } from '../_pin.ts';
-import { displayName, isValidPin, lockMinutesLeft, registerDeviceFailure, registerFailure } from '../_terminal_logic.ts';
+import { displayName, isOnShift, isValidPin, lockMinutesLeft, registerDeviceFailure, registerFailure } from '../_terminal_logic.ts';
+import { otherTerminalsInUse, photoRequired, raiseAlerts, savePhoto, unlockAlerts, usesChecador, validatePhoto } from '../_security.ts';
 import { requireTerminal } from './_shared.ts';
 
 function lockedError(left: number): never {
@@ -55,12 +56,45 @@ export const unlock = allowLockedTerminal(async (ctx: Ctx, body: any) => {
     await ctx.svc.entities.StaffPin.update(pinRow.id, { failed_attempts: 0, locked_until: null });
   }
   const epoch = passEpochOf(device) + 1;
-  await ctx.svc.entities.TerminalDevice.update(device.id, { pass_epoch: epoch, failed_unlocks: 0, unlock_locked_until: null });
+  await ctx.svc.entities.TerminalDevice.update(device.id, {
+    pass_epoch: epoch, failed_unlocks: 0, unlock_locked_until: null,
+    unlocked_user_id: person.id, unlocked_at: new Date(nowMs).toISOString(),
+  });
 
   const { pass, expires_at } = await issuePass(ctx, person.id, epoch);
+  await antiSharingChecks(ctx, device, person, body?.photo, nowMs);
   return {
     pass,
     expires_at,
     person: { id: person.id, name: displayName(person), email: person.email ?? '', app_role: person.app_role },
   };
 });
+
+/** Photo and alerts (anti PIN-sharing). Never blocks the unlock. */
+async function antiSharingChecks(ctx: Ctx, device: any, person: any, rawPhoto: unknown, nowMs: number): Promise<void> {
+  try {
+    const tenantId = device.tenant_id;
+    const name = displayName(person);
+    const photo = validatePhoto(rawPhoto);
+    const [devices, records] = await Promise.all([
+      ctx.svc.entities.TerminalDevice.filter({ tenant_id: tenantId }).catch(() => []),
+      ctx.svc.entities.Attendance.filter({ tenant_id: tenantId, user_id: person.id }, '-clock_in', 20).catch(() => []),
+    ]);
+    const photoId = await savePhoto(ctx.svc, {
+      tenantId, person, personName: name, kind: 'unlock', photo,
+      terminalId: device.id, terminalName: device.name ?? null, nowMs,
+    });
+    const drafts = unlockAlerts({
+      appRole: person.app_role,
+      photoRequired: photoRequired(person),
+      photoGiven: !!photo,
+      onShift: records.some((r: any) => isOnShift(r, nowMs)),
+      usesChecador: usesChecador(records, nowMs),
+      otherTerminals: otherTerminalsInUse(devices, { userId: person.id, deviceId: device.id, nowMs }),
+      terminalName: device.name || 'sin nombre',
+    });
+    await raiseAlerts(ctx.svc, { tenantId, userId: person.id, userName: name, drafts, terminalId: device.id, photoId, nowMs });
+  } catch (err) {
+    console.error('unlock anti-sharing checks failed', (err as Error).message);
+  }
+}

@@ -35,6 +35,7 @@ export const roster: Route = async (ctx: Ctx) => {
         user_id: u.id,
         name: displayName(u),
         has_pin: withPin.has(u.id),
+        photo_check: u.photo_check === true,
         inside: !!open,
         ...(open ? { since: open.clock_in, forgotten: isForgotten(open, nowMs) } : {}),
       };

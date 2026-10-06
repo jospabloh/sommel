@@ -79,7 +79,7 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({
         staff: users.map((u: any) => ({
           id: u.id, email: u.email, full_name: u.full_name, display_name: u.display_name ?? null,
-          name: personName(u), app_role: u.app_role,
+          name: personName(u), app_role: u.app_role, photo_check: u.photo_check === true,
           is_owner: isOwner(listBar, u.id)
         })),
         invites
@@ -187,6 +187,21 @@ export default async function(req: Request): Promise<Response> {
       }
       await svc.entities.User.update(target.id, { display_name: newName });
       return Response.json({ ok: true, name: newName });
+    }
+
+    if (action === 'setPhotoCheck') {
+      // Anti PIN-sharing: the bar admin decides who takes a photo when
+      // unlocking a terminal or punching. Locked field (rls.write false).
+      const targetId = typeof body.user_id === 'string' ? body.user_id : '';
+      if (typeof body.enabled !== 'boolean') {
+        return Response.json({ error: 'enabled debe ser true o false', code: 'invalid_value' }, { status: 400 });
+      }
+      const [target] = targetId ? await svc.entities.User.filter({ id: targetId }) : [];
+      if (!target || target.tenant_id !== tenantId || target.app_role === 'terminal') {
+        return Response.json({ error: 'No encontrado', code: 'not_found' }, { status: 404 });
+      }
+      await svc.entities.User.update(target.id, { photo_check: body.enabled });
+      return Response.json({ ok: true, photo_check: body.enabled });
     }
 
     if (action === 'setRole' || action === 'removeMember') {

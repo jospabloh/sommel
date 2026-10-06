@@ -7,6 +7,8 @@ import { callFn } from '@/lib/api';
 import { setUnlocked } from '@/lib/terminal/terminalStore';
 import { Button } from '@/components/ui/button';
 import PinPad, { PIN_MIN } from '@/components/attendance/PinPad';
+import CameraPreview from '@/components/security/CameraPreview';
+import { usePhotoCapture } from '@/lib/camera/usePhotoCapture';
 
 function unlockError(err) {
   if (err.code === 'wrong_pin') return 'PIN incorrecto. Inténtalo de nuevo.';
@@ -38,6 +40,7 @@ export default function TerminalLock() {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [pinError, setPinError] = useState(null);
+  const camera = usePhotoCapture(!!person?.photo_check);
 
   const load = useCallback(async () => {
     setError(null);
@@ -57,7 +60,8 @@ export default function TerminalLock() {
     setBusy(true);
     setPinError(null);
     try {
-      setUnlocked(await callFn('terminals', 'unlock', { user_id: person.id, pin }));
+      const photo = person.photo_check ? camera.capture() : null;
+      setUnlocked(await callFn('terminals', 'unlock', { user_id: person.id, pin, ...(photo ? { photo } : {}) }));
     } catch (err) {
       setPinError(unlockError(err));
       setPin('');
@@ -100,6 +104,7 @@ export default function TerminalLock() {
               <h2 className="font-display text-2xl font-semibold">{person.name}</h2>
               <p className="text-muted-foreground">Escribe tu PIN para entrar</p>
             </div>
+            <CameraPreview videoRef={camera.videoRef} status={camera.status} />
             <PinPad value={pin} onChange={(v) => { setPin(v); setPinError(null); }} onSubmit={submit} disabled={busy} />
             <p className="text-center text-sm text-destructive min-h-[1.25rem]" role="alert" aria-live="polite">{pinError}</p>
           </div>

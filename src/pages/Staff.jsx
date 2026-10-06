@@ -3,7 +3,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, UserPlus, Mail, Clock, X, Pencil } from 'lucide-react';
+import { Users, UserPlus, Mail, Clock, X, Pencil, Camera, CameraOff } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import MemberActions from '@/components/staff/MemberActions';
 import RemoveMemberDialog from '@/components/staff/RemoveMemberDialog';
@@ -86,6 +86,22 @@ export default function Staff() {
     setMemberBusyId(null);
   };
 
+  const togglePhoto = async (member) => {
+    const enabled = !member.photo_check;
+    setMemberBusyId(member.id);
+    try {
+      await base44.functions.invoke('manageStaff', { action: 'setPhotoCheck', user_id: member.id, enabled });
+      toast({
+        title: enabled ? `Se le pedirá foto a ${personName(member)}` : `Ya no se le pedirá foto a ${personName(member)}`,
+        description: enabled ? 'Al entrar a una terminal y al checar. Las fotos se borran solas a los 30 días.' : undefined,
+      });
+      await load();
+    } catch (err) {
+      toast({ title: 'No se pudo cambiar', description: memberErrorMessage(err, 'Intenta de nuevo.'), variant: 'destructive' });
+    }
+    setMemberBusyId(null);
+  };
+
   const confirmRemove = async () => {
     if (!toRemove) return;
     setMemberBusyId(toRemove.id);
@@ -148,6 +164,19 @@ export default function Staff() {
                     onClick={() => setToRename(s)}
                   >
                     <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={s.photo_check ? 'secondary' : 'ghost'}
+                    size="icon"
+                    className="h-11 w-11 shrink-0"
+                    aria-pressed={!!s.photo_check}
+                    aria-label={s.photo_check ? `Dejar de pedir foto a ${personName(s)}` : `Pedir foto a ${personName(s)} al entrar y al checar`}
+                    title={s.photo_check ? 'Se le pide foto. Toca para quitarla' : 'Pedir foto al entrar y al checar'}
+                    disabled={memberBusyId === s.id}
+                    onClick={() => togglePhoto(s)}
+                  >
+                    {s.photo_check ? <Camera className="w-4 h-4 text-primary" /> : <CameraOff className="w-4 h-4 text-muted-foreground" />}
                   </Button>
                   {s.is_owner && <span className="text-xs bg-primary/15 text-primary px-2.5 py-1 rounded-full font-medium">Dueño</span>}
                   <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize">{s.app_role === BAR_ADMIN ? 'Admin' : 'Mesero'}</span>

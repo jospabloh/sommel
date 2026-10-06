@@ -1,0 +1,27 @@
+{
+  // Alerta de posible préstamo de PIN (entrar sin foto, la misma persona en dos
+  // terminales a la vez, entrar a una terminal sin haber checado). La escriben
+  // attendance y terminals; el admin la ve y la marca vista en Seguridad.
+  "name": "SecurityAlert",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar de la alerta. Módulo 19, candado de LECTURA y ESCRITURA a nivel entidad: las cuatro operaciones son solo de plataforma (role admin). Solo attendance y terminals la crean como servicio, y la función security la lee y la marca vista para el admin del bar con Seguridad:ver. Si se afloja la escritura, la persona señalada puede borrar o marcar vista su propia alerta antes de que el admin la lea; si se afloja la lectura, el equipo sabe qué se vigila." },
+    "user_id": { "type": "string", "description": "Persona señalada" },
+    "user_name": { "type": "string", "description": "Nombre congelado de la persona" },
+    "kind": { "type": "string", "enum": ["photo_missing", "two_terminals", "off_shift_unlock"], "description": "Tipo de alerta" },
+    "detail": { "type": "string", "description": "Texto en español para el admin" },
+    "terminal_id": { "type": ["string", "null"], "description": "Terminal involucrada, si hubo" },
+    "photo_id": { "type": ["string", "null"], "description": "PhotoCheck del momento, si hubo" },
+    "created_at": { "type": "string", "format": "date-time", "description": "Cuándo pasó" },
+    "expires_at": { "type": "string", "format": "date-time", "description": "Desde cuándo se puede borrar (90 días después)" },
+    "seen_at": { "type": ["string", "null"], "format": "date-time", "description": "Cuándo la marcó vista el admin" },
+    "seen_by": { "type": ["string", "null"], "description": "Quién la marcó vista" }
+  },
+  "required": ["tenant_id", "user_id", "kind", "detail", "created_at", "expires_at"],
+  "rls": {
+    "read": { "user_condition": { "role": "admin" } },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

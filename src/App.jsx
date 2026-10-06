@@ -26,6 +26,7 @@ import Inventario from '@/pages/Inventario';
 import Reportes from '@/pages/Reportes';
 import Ajustes from '@/pages/Ajustes';
 import Permisos from '@/pages/Permisos';
+import Seguridad from '@/pages/Seguridad';
 import Cuenta from '@/pages/Cuenta';
 import Soporte from '@/pages/Soporte';
 import About from '@/pages/About';
@@ -178,6 +179,9 @@ const AuthenticatedApp = () => {
             </Route>
             <Route element={<RequirePermission perm="Inventario:ver" />}>
               <Route path="/inventario" element={<Inventario />} />
+            </Route>
+            <Route element={<RequirePermission perm="Seguridad:ver" />}>
+              <Route path="/seguridad" element={<Seguridad />} />
             </Route>
             <Route element={<RequirePermission perm="Reportes:ver" />}>
               <Route path="/reportes" element={<Reportes />} />
