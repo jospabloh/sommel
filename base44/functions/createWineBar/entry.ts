@@ -1,5 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
-import { buildNewBar } from './_trial_logic.ts';
+import { buildNewBar, normalizeDisplayName } from './_trial_logic.ts';
 
 // The only way a user gets a tenant: User.tenant_id/app_role are rls.write:false
 // (Module 24 of jospabloh/acacia-app-standard), so onboarding can no longer set
@@ -42,8 +42,11 @@ export default async function(req: Request): Promise<Response> {
 
     const bar = await svc.entities.WineBar.create(buildNewBar({ name, address, ownerId: user.id }));
     try {
+      // "Tu nombre" from signup, written once: Base44 never lets full_name change.
+      const ownName = normalizeDisplayName(body.display_name);
       await svc.entities.User.update(user.id, {
-        tenant_id: bar.id, app_role: 'bar_admin'
+        tenant_id: bar.id, app_role: 'bar_admin',
+        ...(ownName && !self?.display_name ? { display_name: ownName } : {}),
       });
     } catch (error) {
       // The bar exists but nobody was attached to it (the creator would not be

@@ -21,6 +21,13 @@
         "write": false
       }
     },
+    "display_name": {
+      "type": "string",
+      "description": "Nombre con el que Sommel muestra a la persona (checador, terminal, reportes, quién hizo qué). Base44 no deja cambiar full_name después del registro, por eso existe este campo. Módulo 19, candado de ESCRITURA (rls.write false): solo lo escriben createWineBar y manageStaff (service role) — al registrarse, una sola vez, y después solo el bar_admin desde Staff. Si se quita, cualquiera se pone con updateMe el nombre de un compañero y lo que haga aparece firmado por esa persona. Un nombre mal escrito no se arregla quitando este candado: lo corrige el admin en Staff.",
+      "rls": {
+        "write": false
+      }
+    },
     "tenant_id": {
       "type": "string",
       "description": "ID of the WineBar this user belongs to. Server-authoritative: sólo lo escriben createWineBar, manageStaff y terminals (service role; terminal = cuenta de un equipo autorizado, sin permisos propios). Candado de ESCRITURA (rls.write false, módulo 24 del estándar; módulo 19 lo protege): no gobierna las lecturas. Si se quita, con updateMe cualquiera se apunta al bar de otro y lee sus datos, porque todo el RLS compara contra este campo. Un usuario sin bar o con pantalla vacía no se arregla quitando este candado: se diagnostica la fila del usuario y se corrige desde createWineBar o manageStaff.",

@@ -3,12 +3,13 @@ import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, UserPlus, Mail, Clock, X } from 'lucide-react';
+import { Users, UserPlus, Mail, Clock, X, Pencil } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import MemberActions from '@/components/staff/MemberActions';
 import RemoveMemberDialog from '@/components/staff/RemoveMemberDialog';
+import RenameMemberDialog from '@/components/staff/RenameMemberDialog';
 import { memberErrorMessage } from '@/components/staff/memberErrors';
-import { BAR_ADMIN } from '@/lib/rbac';
+import { BAR_ADMIN, personName } from '@/lib/rbac';
 
 export default function Staff() {
   const { user } = useAuth();
@@ -21,6 +22,7 @@ export default function Staff() {
   const [revokingId, setRevokingId] = useState(null);
   const [memberBusyId, setMemberBusyId] = useState(null);
   const [toRemove, setToRemove] = useState(null);
+  const [toRename, setToRename] = useState(null);
 
   const load = async () => {
     try {
@@ -130,12 +132,23 @@ export default function Staff() {
               {staff.map((s) => (
                 <div key={s.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                    {(s.full_name || s.email || '?').charAt(0).toUpperCase()}
+                    {(personName(s) || '?').charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{s.full_name || s.email}</div>
+                    <div className="font-medium truncate">{personName(s)}</div>
                     <div className="text-xs text-muted-foreground truncate">{s.email}</div>
                   </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11 shrink-0"
+                    aria-label={`Cambiar el nombre de ${personName(s)}`}
+                    title="Cambiar nombre"
+                    onClick={() => setToRename(s)}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
                   {s.is_owner && <span className="text-xs bg-primary/15 text-primary px-2.5 py-1 rounded-full font-medium">Dueño</span>}
                   <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize">{s.app_role === BAR_ADMIN ? 'Admin' : 'Mesero'}</span>
                   {!s.is_owner && (
@@ -184,6 +197,15 @@ export default function Staff() {
           )}
         </div>
       )}
+      <RenameMemberDialog
+        member={toRename}
+        onClose={() => setToRename(null)}
+        onSaved={async () => {
+          setToRename(null);
+          toast({ title: 'Nombre guardado' });
+          await load();
+        }}
+      />
       <RemoveMemberDialog member={toRemove} busy={!!toRemove && memberBusyId === toRemove.id} onConfirm={confirmRemove} onClose={() => setToRemove(null)} />
     </div>
   );

@@ -7,6 +7,7 @@ import {
   httpError,
   localDayRange,
   BAR_UTC_OFFSET_MIN,
+  personName,
   type Ctx,
   type Route,
 } from '../_guard.ts';
@@ -72,7 +73,7 @@ export const summary: Route = async (ctx: Ctx, body: any) => {
 
   const people: Record<string, string> = {};
   for (const u of users) {
-    if (u.email) people[u.email] = u.full_name || u.email;
+    if (u.email) people[u.email] = personName(u);
   }
 
   const result = aggregate({

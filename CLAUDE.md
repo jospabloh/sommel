@@ -690,3 +690,24 @@ solo en los tipos, sin cambiar comportamiento. Comprobado que falla con el
 import roto del #32 (`TS2305`, salida 1) y pasa sin él. Una función que no
 compila no se mergea. Y después de publicar, verifica cada función nueva por
 comportamiento, no por la salida del Publish.
+
+## Nombre propio de Sommel: `User.display_name` (2026-10-06)
+
+**Base44 no deja cambiar `full_name` de una cuenta ya creada**: lo ignoran en
+silencio `auth.updateMe`, `PUT /entities/User/{id}` y el rol de servicio
+(probado el 2026-10-06). Y `auth.register` no recibe nombre. Sin esto, cada
+persona salía con su correo en el checador, la terminal y los reportes.
+
+- `User.display_name`, candado de escritura (`rls.write: false`, manifiesto de
+  módulo 19). Solo lo escriben como servicio: `createWineBar` y
+  `manageStaff.claimInvite` **una vez** con el "Tu nombre" del registro (si
+  está vacío), y `manageStaff.setName`, solo el `bar_admin` de ese bar, desde
+  Staff (lápiz junto a cada persona). Nadie se pone el nombre de otro.
+- El registro pide "Tu nombre" y lo guarda en el navegador por correo
+  (`src/lib/pendingName.js`) hasta que la persona tiene bar. La bienvenida lo
+  vuelve a pedir si no llegó.
+- Orden para mostrar un nombre en todos lados: `display_name`, `full_name`,
+  y si no hay ninguno la parte del correo antes de la @ (cliente: el correo).
+  La regla vive en `personName`/`normalizeDisplayName` del guard y en copias
+  de `manageStaff`, `createWineBar`, `attendance`, `terminals`, `support` y
+  `src/lib/rbac.js`; `base44/tests/display_name_test.ts` las amarra.

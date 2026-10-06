@@ -1,6 +1,6 @@
 // terminals.list: this bar's terminals, for Ajustes > Terminales.
 import { type Ctx, type Route } from '../_guard.ts';
-import { publicDevice } from '../_terminal_logic.ts';
+import { displayName, publicDevice } from '../_terminal_logic.ts';
 import { barPeople, requireBarAdmin } from './_shared.ts';
 
 export const list: Route = async (ctx: Ctx) => {
@@ -11,6 +11,6 @@ export const list: Route = async (ctx: Ctx) => {
   ]);
   return {
     terminals: rows.map(publicDevice),
-    people: people.map((p: any) => ({ id: p.id, name: p.full_name || p.email, app_role: p.app_role })),
+    people: people.map((p: any) => ({ id: p.id, name: displayName(p), app_role: p.app_role })),
   };
 };

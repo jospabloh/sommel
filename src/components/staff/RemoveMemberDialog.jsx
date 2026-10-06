@@ -9,9 +9,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { personName } from '@/lib/rbac';
 
 export default function RemoveMemberDialog({ member, busy, onConfirm, onClose }) {
-  const name = member ? member.full_name || member.email : '';
+  const name = member ? personName(member) : '';
   return (
     <AlertDialog open={!!member} onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
       <AlertDialogContent>

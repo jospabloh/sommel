@@ -18,3 +18,16 @@ export function roleLabel(user) {
   if (barRoleOf(user) === STAFF) return 'Personal';
   return 'Sin bar';
 }
+
+/**
+ * How Sommel names a person: its own display_name (Base44 never lets
+ * full_name change after signup), then full_name, then the email. Same order
+ * as personName in scripts/templates/_guard_logic.ts.
+ */
+export function personName(user) {
+  const own = String(user?.display_name ?? '').trim();
+  if (own) return own;
+  const full = String(user?.full_name ?? '').trim();
+  if (full) return full;
+  return user?.email || '';
+}
