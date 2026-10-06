@@ -20,6 +20,7 @@ const APPROVAL_LABEL = {
   void_payment: 'Anuló un pago',
   cash_out: 'Retiro de efectivo',
   close_shift: 'Cerró el turno',
+  discount: 'Dio un descuento o cortesía',
 };
 
 function when(iso) {

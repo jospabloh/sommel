@@ -783,10 +783,12 @@ cuenta con la que José está probando; van contra un bar de prueba aparte.
 
 ## Aprobación del encargado (2026-10-06)
 
-Decisión de José: **cuatro acciones** de personal necesitan que un
+Decisión de José: **cinco acciones** de personal necesitan que un
 **administrador del bar** las apruebe con su PIN: cancelar un platillo ya
 enviado (`orders.cancelItem`), anular un pago (`payments.voidPayment`), retiro
-de efectivo (`shifts.addCashOut`) y cerrar el turno (`shifts.close`). Un admin
+de efectivo (`shifts.addCashOut`), cerrar el turno (`shifts.close`) y, añadido
+el mismo día, un descuento o cortesía (`payments.applyDiscount`; quitar un
+descuento no pide aprobación porque solo sube la cuenta). Un admin
 que actúa no pide nada a nadie.
 
 - El servidor decide (`requireApproval` en `scripts/templates/_approval.ts`,

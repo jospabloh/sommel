@@ -2,6 +2,7 @@
 import { loadOwned, requirePermission, requireWritable, httpError, type Ctx, type Route } from '../_guard.ts';
 import { planDiscount, paidTotal } from './_logic.ts';
 import { assertOrderOpen, loadItems, loadPayments, rethrow, writeTotals } from './_shared.ts';
+import { recordApproval, requireApproval } from '../_approval.ts';
 
 export const applyDiscount: Route = async (ctx: Ctx, body: any) => {
   const order = await loadOwned(ctx, 'Order', body?.order_id);
@@ -26,6 +27,14 @@ export const applyDiscount: Route = async (ctx: Ctx, body: any) => {
     httpError(409, 'has_payments', 'Ya hay pagos registrados. Anúlalos antes de cambiar el descuento.');
   }
 
+  // Manager approval for any discount or comp; removing one (discount 0)
+  // only raises the bill, so it needs nobody's OK.
+  const approval = plan.discount > 0 ? await requireApproval(ctx, body, 'discount') : null;
+
   const updated = await writeTotals(ctx, order, { ...plan });
+  await recordApproval(ctx, approval, {
+    targetId: order.id,
+    detail: `${plan.discount_kind === 'cortesia' ? 'Cortesía' : 'Descuento'}: ${plan.discount_reason}`,
+  });
   return { order: updated };
 };
