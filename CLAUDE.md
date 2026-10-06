@@ -1077,3 +1077,15 @@ CloudPRNT (TSP143IV, mC-Print3...). Una EC Line solo por red no puede.
 StarPRNT salen de la referencia de Star, no de una hoja impresa. Tampoco que la
 impresora acepte la URL con Basic sin problemas. La primera impresora que se
 conecte es la prueba; si sale basura, cambiar a "Texto simple".
+
+### CloudPRNT publicado y simulado contra producción (2026-10-06)
+
+Con PR #46 publicado, una impresora simulada con `curl` en el bar de prueba
+`sommelnew` (no en Sommel QA): sin credenciales y con contraseña mala, 401; el
+POST devolvió `jobReady: true` con `application/vnd.star.starprnt`; el GET bajó
+el trabajo de cocina (67 bytes, con `ESC @`, página 858, `jam` + `0xA2` + `n`
+para "jamón" y el corte `ESC d 3`); un id inventado dio 404; el DELETE lo dejó
+`impreso` y reclamado por `cloud:<id>`; el siguiente sondeo, `jobReady: false`.
+La impresora quedó con `mac`, `last_seen_at` y `last_status`. Después se marcó
+`revoked_at` y la misma contraseña responde 401. El bundle servido contiene
+"Impresoras en red". **Sigue sin verificar con una impresora Star física.**
