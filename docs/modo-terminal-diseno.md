@@ -21,8 +21,9 @@ Estado: **diseño para aprobar** (2026-10-06). Nada de esto está construido.
 1. El admin entra con su correo en la laptop de caja o la tablet y pulsa
    **"Usar este equipo como terminal de <bar>"**. Le pone nombre ("Caja",
    "Barra"). Desde Ajustes ve sus terminales y puede **revocar** cualquiera.
-2. La terminal muestra **"¿Quién eres?"**: los nombres del personal activo y el
-   teclado de PIN (el mismo del checador).
+2. La terminal muestra **"¿Quién eres?"**: botones con los nombres de quien
+   puede entrar **en ese momento y en esa terminal** (ver "Quién aparece"), y
+   el teclado de PIN (el mismo del checador).
 3. Con el PIN correcto, Sommel trabaja **como esa persona**: sus permisos, y todo
    lo que hace queda a su nombre (comanda, cobro, cancelación, cortesía, corte).
 4. A los 2 minutos sin tocar la pantalla, o con **"Cambiar usuario"**, vuelve a
@@ -30,6 +31,23 @@ Estado: **diseño para aprobar** (2026-10-06). Nada de esto está construido.
    servidor, no de la sesión.
 5. El checador vive en la misma pantalla: "Checar entrada/salida" con el PIN,
    sin entrar a la app.
+
+## Quién aparece en "¿Quién eres?" (José, 2026-10-06)
+
+Botones dinámicos, para elegir rápido:
+
+1. **A esa hora**: quien checó entrada y no ha checado salida. Sommel no tiene
+   horarios; el checador es lo que dice quién está trabajando ahora.
+2. **En esa terminal**: la lista de la terminal (todos, ciertos roles o ciertas
+   personas), que el admin elige al activarla. Ej.: "Barra" solo bartenders.
+3. **Admin y encargado siempre aparecen**, hayan checado o no, para autorizar o
+   corregir.
+4. **En vivo**: checar entrada en otra tablet hace aparecer el botón sin
+   recargar.
+5. **"Checar entrada"** siempre a la vista, con PIN, para quien todavía no
+   aparece.
+
+Opcional, no pedido todavía: **horarios por persona** como tercera condición.
 
 ## Piezas
 
@@ -54,7 +72,7 @@ actual del bar, con su PIN.
 ### 2. Terminal: `TerminalDevice` (entidad nueva)
 
 `tenant_id`, `name`, `activated_by`, `token_hash`, `last_seen_at`,
-`revoked_at`. Al activar, el servidor genera un secreto que el equipo guarda
+`revoked_at`, y `allowed` (todos, roles o personas que pueden usarla). Al activar, el servidor genera un secreto que el equipo guarda
 (solo el hash queda en la base). Revocar corta el equipo en la siguiente
 llamada.
 
