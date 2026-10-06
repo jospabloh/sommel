@@ -1,6 +1,6 @@
 // terminals.whoAmI: what a terminal shows on "¿Quién eres?". Runs locked.
-import { allowLockedTerminal, type Ctx } from '../_guard.ts';
-import { buildRoster, displayName, isOnShift, shouldTouchLastSeen, terminalAllows } from '../_terminal_logic.ts';
+import { allowLockedTerminal, terminalAllows, type Ctx } from '../_guard.ts';
+import { buildRoster, displayName, isOnShift, shouldTouchLastSeen } from '../_terminal_logic.ts';
 import { barPeople, requireTerminal } from './_shared.ts';
 
 export const whoAmI = allowLockedTerminal(async (ctx: Ctx) => {

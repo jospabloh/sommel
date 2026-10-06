@@ -291,6 +291,7 @@ deriva) pasaron por paquete, con `validate:functions` en 15 de 40 (conteo de la 
     npm run validate:locks         # ya incluido en lint; se puede correr suelto
     deno test --allow-env --allow-read=base44/entities base44/tests/ base44/functions/acaciaSign.test.ts
     deno lint base44/functions base44/tests
+    npm run check:functions        # deno check de cada función (SDK sustituido por un stub)
 
 `deno.land` y `jsr.io` están bloqueados en el sandbox de desarrollo: las pruebas
 de Deno de este repo **no importan nada externo**, a propósito, para que corran
@@ -663,3 +664,22 @@ Lo que cambia para quien toque el código:
   la prueba de provisión del 2026-10-06 y la pantalla con respuestas
   simuladas); que Base44 acepte `tenant_id: null` en la cuenta de terminal al
   revocar; que borrar la cuenta invalide la sesión ya emitida.
+
+### Un import roto no lo detecta `deno lint` (2026-10-06)
+
+El PR #32 se publicó con `terminals/handlers/whoAmI.ts` importando
+`terminalAllows` de un archivo que no lo exporta. `deno lint` y las pruebas
+pasaron; Base44 no pudo empaquetar la función y **siguió sirviendo la versión
+anterior sin avisar** en el Publish. Se descubrió al forzar
+`POST /coding/redeploy-function/terminals`, que sí devuelve el error del
+empaquetador.
+
+Por eso existe `npm run check:functions` (corre en CI antes de `deno test`):
+compila los 20 `entry.ts` y todas las pruebas con `deno check`, con
+`npm:@base44/sdk` sustituido por `scripts/typecheck/sdk-stub.ts` (el sandbox no
+lo descarga). Se dejó en **cero errores**: los 5 de tipos que ya existían en
+`inventory`, `manageStaff`, `payments` y `shifts` se corrigieron en el mismo PR,
+solo en los tipos, sin cambiar comportamiento. Comprobado que falla con el
+import roto del #32 (`TS2305`, salida 1) y pasa sin él. Una función que no
+compila no se mergea. Y después de publicar, verifica cada función nueva por
+comportamiento, no por la salida del Publish.

@@ -66,7 +66,7 @@ export async function recordMovement(ctx: Ctx, item: any, input: MovementInput):
   const client = ctx.svc.entities.InventoryMovement;
   const keyQuery = { tenant_id: item.tenant_id, idempotency_key: input.idempotency_key };
 
-  const existing = pickSurvivor(await client.filter(keyQuery));
+  const existing: any = pickSurvivor<any>(await client.filter(keyQuery));
   if (existing) {
     if (existing.item_id !== item.id) {
       httpError(409, 'idempotency_conflict', 'Esa llave ya se usó en otro insumo');

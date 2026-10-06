@@ -25,7 +25,8 @@
     "deploy": "node scripts/base44-deploy.mjs",
     "deploy:site": "node scripts/base44-deploy.mjs --site",
     "deploy:entities": "node scripts/base44-deploy.mjs --entities",
-    "functions:audit": "node scripts/base44-audit.mjs"
+    "functions:audit": "node scripts/base44-audit.mjs",
+    "check:functions": "deno check --config scripts/typecheck/deno.json base44/functions/*/entry.ts base44/tests/*.ts base44/functions/acaciaSign.test.ts"
   },
   "dependencies": {
     "@base44/sdk": "^0.8.52",
