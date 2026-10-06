@@ -660,10 +660,17 @@ Lo que cambia para quien toque el código:
 - Revisión independiente hecha antes del PR; sus hallazgos de reuso de pase,
   intentos de PIN entre personas, revocar a medias, impresora bloqueada y
   sesiones quedaron corregidos.
-- **No verificado:** activar, desbloquear y revocar contra Base44 real (solo
-  la prueba de provisión del 2026-10-06 y la pantalla con respuestas
-  simuladas); que Base44 acepte `tenant_id: null` en la cuenta de terminal al
-  revocar; que borrar la cuenta invalide la sesión ya emitida.
+- **Verificado en producción el 2026-10-06** con una terminal de prueba en
+  Sommel QA (activada por API, desactivada al final): `activate` crea la cuenta
+  y devuelve su sesión; la cuenta queda `app_role: terminal` en el bar;
+  `whoAmI` responde bloqueada; **las 12 funciones con guard** responden 401
+  `terminal_locked` sin pase y con un pase falso (prueba de que todas corren el
+  guard nuevo); la cola de impresión sí responde bloqueada; `manageStaff` y
+  `createWineBar` la rechazan; la terminal no aparece en Staff; `revoke` borra
+  la cuenta y **su sesión deja de funcionar** (401 `unauthenticated`).
+- **No verificado:** desbloquear con un PIN real (nadie de la prueba tenía
+  PIN), la pantalla real en el equipo, y la impresora con una terminal
+  bloqueada.
 
 ### Un import roto no lo detecta `deno lint` (2026-10-06)
 
