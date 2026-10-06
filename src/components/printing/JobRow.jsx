@@ -22,7 +22,7 @@ const STATUS_CLASS = {
   impreso: 'bg-muted text-muted-foreground',
 };
 
-export default function JobRow({ job, deviceId, isNext, busy, onPrint, onRetry, onReprint, onConfirm, onFail }) {
+export default function JobRow({ job, deviceId, isNext, otherDevice = false, busy, onPrint, onRetry, onReprint, onConfirm, onFail }) {
   const [open, setOpen] = useState(false);
   const mine = job.status === 'reclamado' && job.claimed_by === deviceId;
   const when = job.status === 'impreso' ? job.printed_at : job.created_date;
@@ -59,7 +59,7 @@ export default function JobRow({ job, deviceId, isNext, busy, onPrint, onRetry, 
               size="sm"
               onClick={() => onPrint(job)}
               disabled={busy || !isNext}
-              title={isNext ? undefined : 'Los trabajos se imprimen en orden'}
+              title={isNext ? undefined : otherDevice ? 'Este equipo no imprime este tipo. Actívalo en «Qué imprime este equipo»' : 'Los trabajos se imprimen en orden'}
             >
               <Printer /> Imprimir
             </Button>

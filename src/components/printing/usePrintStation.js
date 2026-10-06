@@ -21,7 +21,7 @@ import { flushSync } from 'react-dom';
 import { base44 } from '@/api/base44Client';
 import { callFn } from '@/lib/api';
 import { toast } from '@/components/ui/use-toast';
-import { eventRow, getDeviceId, readAutoPref, writeAutoPref } from './printingHelpers';
+import { eventRow, getDeviceId, jobMatchesKinds, kindsForClaim, normalizeKinds, readAutoPref, readKinds, writeAutoPref, writeKinds } from './printingHelpers';
 import { buildDrawerPulse, buildEscPos, testLines } from './escpos';
 import { choosePrinter, findPaired, forget, printerName, sendBytes, usbSupported } from './usbPrinter';
 
@@ -54,6 +54,7 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
   const [loadError, setLoadError] = useState(null);
   const [lastSync, setLastSync] = useState(null);
   const [autoPref, setAutoState] = useState(readAutoPref);
+  const [kinds, setKindsState] = useState(readKinds);
   const [busy, setBusy] = useState(false);
   const [paperJob, setPaperJob] = useState(null);
   const busyRef = useRef(false);
@@ -141,6 +142,12 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
     writeAutoPref(on);
   }, []);
 
+  const setKinds = useCallback((next) => {
+    const clean = normalizeKinds(next);
+    setKindsState(clean);
+    writeKinds(clean);
+  }, []);
+
   const fail = useCallback(
     async (job, message) => {
       try {
@@ -199,7 +206,11 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
     setBusy(true);
     try {
       await withPrintLock(async () => {
-        const { job } = await callFn('printing', 'claimNext', { device_id: deviceId });
+        const claimKinds = kindsForClaim(kinds);
+        const { job } = await callFn('printing', 'claimNext', {
+          device_id: deviceId,
+          ...(claimKinds ? { kinds: claimKinds } : {}),
+        });
         if (job) await paintAndPrint(job);
       });
     } catch (err) {
@@ -209,10 +220,12 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
       setBusy(false);
       load();
     }
-  }, [deviceId, paintAndPrint, load]);
+  }, [deviceId, kinds, paintAndPrint, load]);
 
   // Auto print: whenever the queue shows a waiting job and nothing is in flight.
-  const hasPending = jobs.some((j) => j.status === 'pendiente');
+  // Only this device's kinds: a pending job another station prints must not
+  // keep re-triggering claimNext here (it would answer null forever).
+  const hasPending = jobs.some((j) => j.status === 'pendiente' && jobMatchesKinds(j, kinds));
   // Off the Impresión page only the USB path prints (no dialog mid-sale).
   const canAutoPrint = enabled && auto && (!!usb || pageOpen);
   useEffect(() => {
@@ -293,6 +306,8 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
     lastSync,
     auto,
     setAuto,
+    kinds,
+    setKinds,
     busy,
     paperJob,
     printNext,

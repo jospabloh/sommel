@@ -906,3 +906,20 @@ PIN del admin sigue funcionando siempre.
 **No verificado:** nada contra Base44 publicado; el diálogo y la fila de Staff
 a 390 px; que `auth.me()` devuelva `permission_overrides` (debería, igual que
 `tenant_id`).
+
+## Impresora por tipo de trabajo (2026-10-06)
+
+Cierra el "Pendiente: no hay ruteo por tipo" de la sección de impresión.
+- En Impresión, **"Qué imprime este equipo"**: Cocina, Barra, Ticket, Corte.
+  Se guarda en el navegador (`sommel.print.kinds`, como el interruptor de
+  automática); sin elegir, o con los cuatro, es "todo", como antes. `cambio`
+  viaja con cocina o barra.
+- `printing.claimNext` recibe `kinds` (`validateKinds`: lista vacía o tipo
+  desconocido = 400, nunca "todo") y filtra **en la consulta**, para que 50
+  trabajos viejos de otro tipo no escondan el de este equipo.
+- La automática solo espera los tipos de este equipo (`jobMatchesKinds`): si no,
+  una comanda pendiente haría que la caja pidiera `claimNext` sin parar.
+- Si ningún equipo tiene un tipo activado, ese trabajo se queda en la cola; el
+  botón de imprimir sale desactivado y su título dice dónde activarlo.
+- Pruebas: `base44/tests/print_kinds_test.ts`. **No verificado:** dos
+  impresoras reales, ni la pantalla a 390/1440.
