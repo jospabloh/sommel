@@ -12,6 +12,7 @@ import { isPlatformUser, canManageBar } from '@/lib/rbac';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Layout from '@/components/Layout';
+import TerminalGate from '@/components/terminal/TerminalGate';
 import Menu from '@/pages/Menu';
 import Mesas from '@/pages/Mesas';
 import Orden from '@/pages/Orden';
@@ -43,8 +44,10 @@ import ResetPassword from '@/pages/ResetPassword';
 // `user.role`/`user.tenant_id` are flat (contract §1's "Forma de los
 // registros").
 const RequireTenant = () => {
-  const { user } = useAuth();
-  if (user && !isPlatformUser(user) && !user.tenant_id) {
+  const { user, isTerminal } = useAuth();
+  // A terminal whose bar was unlinked is a revoked device, not a new user:
+  // TerminalGate tells it so instead of offering to create a bar.
+  if (user && !isTerminal && !isPlatformUser(user) && !user.tenant_id) {
     return <Navigate to="/onboarding" replace />;
   }
   return <Outlet />;
@@ -54,8 +57,8 @@ const RequireTenant = () => {
 // needs one), /onboarding itself redirects to /mesas instead of showing the
 // "create your bar" form again.
 const OnboardingRoute = () => {
-  const { user } = useAuth();
-  if (user && (isPlatformUser(user) || user.tenant_id)) {
+  const { user, isTerminal } = useAuth();
+  if (user && (isTerminal || isPlatformUser(user) || user.tenant_id)) {
     return <Navigate to="/mesas" replace />;
   }
   return <Onboarding />;
@@ -143,6 +146,8 @@ const AuthenticatedApp = () => {
       <Route element={<ProtectedRoute unauthenticatedElement={<RedirectToLogin />} />}>
         <Route path="/onboarding" element={<OnboardingRoute />} />
         <Route element={<RequireTenant />}>
+          {/* Terminal mode: a terminal shows "¿Quién eres?" until a PIN unlocks it. */}
+          <Route element={<TerminalGate />}>
           <Route element={<Layout />}>
             <Route path="/" element={<Navigate to="/mesas" replace />} />
             <Route path="/menu" element={<Menu />} />
@@ -188,6 +193,7 @@ const AuthenticatedApp = () => {
             <Route path="/about" element={<About />} />
             <Route path="/staff" element={<Staff />} />
             <Route path="/super-admin" element={<SuperAdmin />} />
+          </Route>
           </Route>
         </Route>
       </Route>

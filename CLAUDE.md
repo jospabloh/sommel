@@ -633,3 +633,33 @@ para que la caja no muestre pestañas ni barra de dirección:
   **No verificado:** el botón "Instalar Sommel" (Chromium sin interfaz nunca
   dispara `beforeinstallprompt`), la app instalada con la impresora USB, y el
   iPad.
+
+## Modo terminal, fase 2a (2026-10-06)
+
+Diseño y detalle en `docs/modo-terminal-diseno.md` ("Fase 2a, lo construido").
+Lo que cambia para quien toque el código:
+
+- **El guard compartido conoce las terminales.** `requireContext` ve
+  `app_role: terminal`, carga el `TerminalDevice` y verifica `terminal_pass`
+  (cuerpo de la petición; `callFn` lo agrega solo). Con pase válido arma el
+  `ctx` **como la persona**; sin pase solo corren las rutas marcadas
+  `allowLockedTerminal`, y `hasPermission` solo concede `Impresion:operar`.
+  Una terminal nunca es plataforma. `remoteOnly(route)` bloquea una ruta desde
+  cualquier terminal: úsalo para todo lo que sea de la cuenta de alguien.
+- **Toda lista de personas del bar filtra `app_role: terminal`** (Staff,
+  checador, sesiones, delegar). Una lista nueva de miembros debe hacerlo
+  también, o una terminal aparecerá como persona.
+- **Secreto:** `BASE44_SOMMEL_TOKEN`, token personal del dueño de la
+  plataforma limitado a Sommel (la cuenta no permite llaves de workspace).
+  Probado el 2026-10-06: `app.base44.com` con `Authorization: Bearer`. Las APIs
+  de provisión y de inicio embebido están en beta.
+- **Lo que no cierra, a propósito:** la sesión de una terminal **lee** por RLS
+  lo mismo que cualquier miembro del bar, bloqueada o no. El pase gobierna
+  escrituras e identidad, no lecturas directas.
+- Revisión independiente hecha antes del PR; sus hallazgos de reuso de pase,
+  intentos de PIN entre personas, revocar a medias, impresora bloqueada y
+  sesiones quedaron corregidos.
+- **No verificado:** activar, desbloquear y revocar contra Base44 real (solo
+  la prueba de provisión del 2026-10-06 y la pantalla con respuestas
+  simuladas); que Base44 acepte `tenant_id: null` en la cuenta de terminal al
+  revocar; que borrar la cuenta invalide la sesión ya emitida.

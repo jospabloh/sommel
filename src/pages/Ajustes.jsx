@@ -10,9 +10,15 @@ import { Button } from '@/components/ui/button';
 import TicketForm from '@/components/settings/TicketForm';
 import PaymentMethodsCard from '@/components/settings/PaymentMethodsCard';
 import CorteEmailsCard from '@/components/settings/CorteEmailsCard';
+import TerminalsCard from '@/components/settings/TerminalsCard';
+import { useAuth } from '@/lib/AuthContext';
+import { isBarAdmin } from '@/lib/rbac';
 
 export default function Ajustes() {
   const { can } = usePermission();
+  const { user } = useAuth();
+  // Terminals are managed by the bar admin from their own sign-in only.
+  const showTerminals = isBarAdmin(user) && !user?.terminal;
   const canEdit = can('Ajustes:editar');
   const [bar, setBar] = useState(null);
   const [error, setError] = useState(null);
@@ -61,6 +67,7 @@ export default function Ajustes() {
           <TicketForm bar={bar} onSaved={setBar} />
           <PaymentMethodsCard bar={bar} onSaved={setBar} />
           <CorteEmailsCard bar={bar} onSaved={setBar} />
+          {showTerminals ? <TerminalsCard /> : null}
           <p className="text-sm text-muted-foreground">
             Licencia, sesiones activas, exportar datos y baja están en{' '}
             <Link to="/cuenta" className="text-primary underline underline-offset-2">Cuenta</Link>.

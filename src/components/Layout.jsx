@@ -4,12 +4,13 @@ import { useAuth } from '@/lib/AuthContext';
 import {
   LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut,
   Clock, Package, BarChart3, Printer, Settings, Fingerprint, CalendarCheck,
-  ShieldCheck, LifeBuoy, Info, UserCircle, Layers,
+  ShieldCheck, LifeBuoy, Info, UserCircle, Layers, Lock,
 } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
 import LicenseBanner from '@/components/LicenseBanner';
 import ScreenControls from '@/components/ScreenControls';
+import { lockNow } from '@/lib/terminal/lockNow';
 import { usePermission } from '@/lib/usePermission';
 import { isPlatformUser, isBarAdmin, barRoleOf, roleLabel } from '@/lib/rbac';
 import AppUpdateBanner from '@/components/AppUpdateBanner';
@@ -49,11 +50,16 @@ const NAV_ITEMS = [
   { label: 'Acerca de', to: '/about', icon: Info },
 ];
 
+const TERMINAL_HIDDEN = new Set(['/cuenta', '/staff', '/permisos', '/super-admin']);
+
 function navFor(user, can) {
   const isPlatformAdmin = isPlatformUser(user);
   const appRole = barRoleOf(user);
   if (!isPlatformAdmin && !appRole) return [];
   return NAV_ITEMS.filter((it) => {
+    // A terminal is shared: no one's account, team or permissions from here
+    // (the server refuses them too); those need the person's own sign-in.
+    if (user?.terminal && TERMINAL_HIDDEN.has(it.to)) return false;
     if (it.only === 'platform') return isPlatformAdmin;
     if (it.only === 'bar_admin_with_bar') return isBarAdmin(user) || (isPlatformAdmin && !!user?.tenant_id);
     if (it.only === 'bar_admin') return isPlatformAdmin || isBarAdmin(user);
@@ -170,17 +176,35 @@ export default function Layout() {
             </div>
             <div className="hidden lg:block min-w-0">
               <p className="text-sm font-medium truncate">{displayName}</p>
-              <p className="text-xs text-muted-foreground truncate">{roleLabel(user)}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {roleLabel(user)}
+                {user?.terminal ? ` · Terminal ${user.terminal.name}` : ''}
+              </p>
             </div>
           </div>
           <ScreenControls />
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          >
-            <LogOut className="w-5 h-5 shrink-0" />
-            <span className="hidden lg:block">Cerrar sesión</span>
-          </button>
+          {user?.terminal ? (
+            // On a terminal, signing out would undo the terminal itself: the
+            // person just hands it over, and it asks "¿Quién eres?" again.
+            <button
+              type="button"
+              onClick={lockNow}
+              title="Cambiar usuario"
+              aria-label="Cambiar usuario"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+            >
+              <Lock className="w-5 h-5 shrink-0" />
+              <span className="hidden lg:block">Cambiar usuario</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+            >
+              <LogOut className="w-5 h-5 shrink-0" />
+              <span className="hidden lg:block">Cerrar sesión</span>
+            </button>
+          )}
         </div>
       </aside>
       <main className="flex-1 min-w-0 overflow-auto pb-20">

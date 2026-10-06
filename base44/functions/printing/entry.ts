@@ -1,7 +1,7 @@
 // `printing` endpoint (Impresión): entrega-2-contratos.md §5 "printing".
 // Router only: `handle()` (canonical `_guard.ts`) does requireContext,
 // dispatch and error mapping; each handler runs its own guard order.
-import { handle } from './_guard.ts';
+import { allowLockedTerminal, handle } from './_guard.ts';
 import { queue } from './handlers/queue.ts';
 import { claimNext } from './handlers/claimNext.ts';
 import { markPrinted } from './handlers/markPrinted.ts';
@@ -10,5 +10,14 @@ import { retry } from './handlers/retry.ts';
 import { reprint } from './handlers/reprint.ts';
 
 export default function (req: Request): Promise<Response> {
-  return handle(req, { queue, claimNext, markPrinted, markFailed, retry, reprint });
+  // Terminal mode: a locked terminal keeps its print station running (it
+  // prints by device, not by person); retry and reprint need a person.
+  return handle(req, {
+    queue: allowLockedTerminal(queue),
+    claimNext: allowLockedTerminal(claimNext),
+    markPrinted: allowLockedTerminal(markPrinted),
+    markFailed: allowLockedTerminal(markFailed),
+    retry,
+    reprint,
+  });
 }

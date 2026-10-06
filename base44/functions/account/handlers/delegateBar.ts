@@ -13,7 +13,8 @@ export const delegateBar: Route = async (ctx: Ctx, body: any) => {
 
   const svc = ctx.svc;
   const targetId = typeof body?.user_id === 'string' ? body.user_id : '';
-  const members = await svc.entities.User.filter({ tenant_id: ctx.tenantId });
+  // A terminal account (terminal mode) can never own the bar.
+  const members = (await svc.entities.User.filter({ tenant_id: ctx.tenantId })).filter((u: any) => u.app_role !== 'terminal');
   const denial = checkDelegate({
     members,
     callerId: ctx.self.id,

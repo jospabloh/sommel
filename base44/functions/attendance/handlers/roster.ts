@@ -25,6 +25,8 @@ export const roster: Route = async (ctx: Ctx) => {
   }
 
   const people = users
+    // Terminal accounts (terminal mode) are devices, not people who punch.
+    .filter((u: any) => u.app_role !== 'terminal')
     .map((u: any) => {
       // Prefer a live entrada over a forgotten one left open from before.
       const opens = openRecords(openByUser.get(u.id) ?? []);

@@ -49,6 +49,7 @@ export const ENTITY_LOCKS = [
   { entity: "Product", ops: ["read", ...WRITE_OPS], carrier: "tenant_id", words: ["lectura", "escritura"] },
   { entity: "Attendance", ops: ["read", ...WRITE_OPS], carrier: "tenant_id", words: ["lectura", "escritura"] },
   { entity: "StaffPin", ops: ["read", ...WRITE_OPS], carrier: "tenant_id", words: ["lectura", "escritura"] },
+  { entity: "TerminalDevice", ops: ["read", ...WRITE_OPS], carrier: "tenant_id", words: ["lectura", "escritura"] },
   ...["Order", "Payment", "Shift", "CashMovement", "StaffInvite", "PermissionProfile"].map((entity) => ({
     entity, ops: WRITE_OPS, carrier: "tenant_id", words: ["escritura"],
   })),
