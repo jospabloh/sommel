@@ -53,12 +53,14 @@ import {
   TtlCache,
   profileKey,
   routeWantsFresh,
+  personOverridesOf,
   type AppRole,
   type PaymentMethodDef,
 } from './_guard_logic.ts';
 
 export {
   PERMISSION_DEFAULTS,
+  personOverridesOf,
   HttpError,
   isValidCents,
   sumCents,
@@ -281,7 +283,8 @@ export async function issuePass(
 }
 
 /**
- * Precedence: platform / bar_admin → always allowed; else an explicit
+ * Precedence: platform / bar_admin → always allowed; else what the bar admin
+ * decided for THIS person (`User.permission_overrides`); else an explicit
  * `PermissionProfile` override for the caller's tenant+role; else the
  * registry default (`PERMISSION_DEFAULTS`, generated from
  * `src/lib/permissionRegistry.js`); an unknown key denies.
@@ -306,7 +309,13 @@ export async function hasPermission(ctx: Ctx, key: string): Promise<boolean> {
       profileCache.set(key, overrides ?? null, now);
     }
   }
-  return resolvePermission(key, { isPlatform: ctx.isPlatform, appRole: ctx.appRole, overrides });
+  return resolvePermission(key, {
+    isPlatform: ctx.isPlatform,
+    appRole: ctx.appRole,
+    overrides,
+    // Per-person overrides come from the User row re-read on every call (never cached).
+    personOverrides: personOverridesOf(ctx.self),
+  });
 }
 
 export async function requirePermission(ctx: Ctx, key: string): Promise<void> {

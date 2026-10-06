@@ -3,7 +3,7 @@
 // per person) plus one for the terminal itself (10 misses across people), and
 // every unlock bumps the device's pass epoch so the previous person's pass
 // dies at once.
-import { allowLockedTerminal, HttpError, httpError, issuePass, passEpochOf, personMayUseTerminal, type Ctx } from '../_guard.ts';
+import { allowLockedTerminal, personOverridesOf, HttpError, httpError, issuePass, passEpochOf, personMayUseTerminal, type Ctx } from '../_guard.ts';
 import { verifyPin } from '../_pin.ts';
 import { displayName, isOnShift, isValidPin, lockMinutesLeft, registerDeviceFailure, registerFailure } from '../_terminal_logic.ts';
 import { otherTerminalsInUse, photoRequired, raiseAlerts, savePhoto, unlockAlerts, usesChecador, validatePhoto } from '../_security.ts';
@@ -66,7 +66,7 @@ export const unlock = allowLockedTerminal(async (ctx: Ctx, body: any) => {
   return {
     pass,
     expires_at,
-    person: { id: person.id, name: displayName(person), email: person.email ?? '', app_role: person.app_role },
+    person: { id: person.id, name: displayName(person), email: person.email ?? '', app_role: person.app_role, permission_overrides: personOverridesOf(person) },
   };
 });
 

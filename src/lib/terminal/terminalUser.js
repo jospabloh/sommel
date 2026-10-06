@@ -20,6 +20,8 @@ export function effectiveUser(account, terminal) {
     email: person.email ?? '',
     role: 'user', // never the platform from a terminal
     app_role: person.app_role,
+    // What the bar admin decided for this person (PermissionContext reads it).
+    permission_overrides: person.permission_overrides ?? null,
     tenant_id: account.tenant_id,
     terminal: { account_id: account.id, name: String(account.full_name || '').replace(/^Terminal\s+/, '') },
   };

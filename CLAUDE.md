@@ -874,3 +874,35 @@ PIN del admin sigue funcionando siempre.
   producción** el mismo día, junto con el checador de la terminal: checar desde
   la pantalla de bloqueo, el equipo completo con alguien dentro, y la
   aprobación por QR con Face ID en su celular.
+
+## Fase 3: cocina y barra separadas, y permisos por persona (2026-10-06)
+
+- **`Estaciones:operar` se partió** en `Estaciones:cocina` y `Estaciones:barra`
+  (las dos permitidas al staff por defecto). El servidor revisa **cada renglón
+  contra el permiso de SU estación** (`stations/handlers/_access.ts`, con los
+  renglones guardados, nunca el cuerpo): en "Cocina y barra", quien solo tiene
+  barra ve la cocina pero sin botones y el servidor le responde 403. El menú
+  muestra "Cocina y barra" con cualquiera de las dos.
+- **Clave vieja:** `LEGACY_PERMISSION_ALIASES` (cliente y `_guard_logic.ts`)
+  hace que un `Estaciones:operar` guardado siga valiendo para las dos, y la
+  pantalla de Permisos lo traduce (`upgradeLegacyKeys`) antes de guardar, para
+  que un `false` viejo no se pierda en silencio. Leído el 2026-10-06: el único
+  `PermissionProfile` vivo tiene `overrides: {}`, así que hoy no aplica a nadie.
+- **Permisos por persona:** `User.permission_overrides` (candado de escritura,
+  manifiesto de módulo 19). Precedencia, igual en cliente y servidor: plataforma
+  o `bar_admin` → lo decidido para esa persona → perfil del rol → default. Lo
+  escribe solo `permissions.setPersonOverrides` (bar_admin, `remoteOnly`, nunca
+  desde una terminal) y solo para staff de su bar; otro bar, una terminal o
+  alguien inexistente responden 404 igual. En Staff, el ícono de ajustes abre
+  "Como su rol / Sí / No" por permiso. Un "Sí" explícito se guarda aunque el rol
+  ya diga sí, para que sobreviva si el rol cambia.
+- Se lee de la fila `User` que el guard relee en **cada** llamada (sin caché de
+  20 s): un cambio aplica en la siguiente acción. La pantalla de esa persona se
+  actualiza al recargar; en una terminal viaja en `unlock`/`renew`.
+- Pruebas: `base44/tests/person_permissions_test.ts`.
+
+**Verificado:** pruebas (555/0), lint, build, `check:functions`,
+`check:guards`, `validate:rls`, `validate:tenant-roles`, `deno lint`.
+**No verificado:** nada contra Base44 publicado; el diálogo y la fila de Staff
+a 390 px; que `auth.me()` devuelva `permission_overrides` (debería, igual que
+`tenant_id`).

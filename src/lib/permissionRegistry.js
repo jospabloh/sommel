@@ -26,7 +26,8 @@ export const PERMISSION_DEFAULTS = {
   'Comandas:cancelar_enviado': { bar_admin: true, staff: true },
   'Comandas:mover_mesas': { bar_admin: true, staff: true },
   'Comandas:cancelar_orden': { bar_admin: true, staff: false },
-  'Estaciones:operar': { bar_admin: true, staff: true },
+  'Estaciones:cocina': { bar_admin: true, staff: true },
+  'Estaciones:barra': { bar_admin: true, staff: true },
   'Cobro:cobrar': { bar_admin: true, staff: true },
   'Cobro:descuento': { bar_admin: true, staff: false },
   'Cobro:anular_pago': { bar_admin: true, staff: false },
@@ -65,7 +66,8 @@ export const PERMISSION_LABELS = {
   'Comandas:cancelar_enviado': { section: 'Comandas', label: 'Cancelar productos ya enviados' },
   'Comandas:mover_mesas': { section: 'Comandas', label: 'Mover y unir mesas' },
   'Comandas:cancelar_orden': { section: 'Comandas', label: 'Cancelar una orden completa' },
-  'Estaciones:operar': { section: 'Estaciones', label: 'Operar cocina y barra' },
+  'Estaciones:cocina': { section: 'Estaciones', label: 'Atender cocina' },
+  'Estaciones:barra': { section: 'Estaciones', label: 'Atender barra' },
   'Cobro:cobrar': { section: 'Cobro', label: 'Cobrar cuentas' },
   'Cobro:descuento': { section: 'Cobro', label: 'Aplicar descuentos' },
   'Cobro:anular_pago': { section: 'Cobro', label: 'Anular pagos' },
@@ -93,16 +95,53 @@ export function permissionLabel(key) {
 }
 
 /**
- * Misma precedencia que `_guard.ts`'s `hasPermission` en el servidor.
- * @param {string} key - Clave 'Sección:accion'.
- * @param {{ isPlatform?: boolean, appRole?: 'bar_admin'|'staff'|null, overrides?: Record<string, boolean>|null }} ctx
- * @returns {boolean}
+ * Claves que reemplazaron a otra: un perfil o una persona guardados con la
+ * clave vieja siguen valiendo para las nuevas (2026-10-06: `Estaciones:operar`
+ * se partió en cocina y barra). Mismo mapa en `_guard_logic.ts`.
+ */
+export const LEGACY_PERMISSION_ALIASES = {
+  'Estaciones:cocina': 'Estaciones:operar',
+  'Estaciones:barra': 'Estaciones:operar',
+};
+
+/**
+ * Copia de un mapa de overrides con las claves viejas traducidas a las nuevas
+ * (sin pisar una nueva que ya exista). La pantalla de Permisos guarda el mapa
+ * completo con solo claves vigentes: sin esto, un `Estaciones:operar: false`
+ * guardado antes se perdería en silencio al siguiente guardado y el personal
+ * recuperaría las estaciones.
+ */
+export function upgradeLegacyKeys(map) {
+  const out = { ...(map || {}) };
+  for (const [key, legacy] of Object.entries(LEGACY_PERMISSION_ALIASES)) {
+    if (!Object.prototype.hasOwnProperty.call(out, key) && Object.prototype.hasOwnProperty.call(out, legacy)) {
+      out[key] = out[legacy];
+    }
+  }
+  for (const legacy of new Set(Object.values(LEGACY_PERMISSION_ALIASES))) delete out[legacy];
+  return out;
+}
+
+function overrideFor(map, key) {
+  if (!map || typeof map !== 'object') return undefined;
+  if (Object.prototype.hasOwnProperty.call(map, key)) return !!map[key];
+  const legacy = LEGACY_PERMISSION_ALIASES[key];
+  if (legacy && Object.prototype.hasOwnProperty.call(map, legacy)) return !!map[legacy];
+  return undefined;
+}
+
+/**
+ * Misma precedencia que el servidor (`resolvePermission` en `_guard_logic.ts`):
+ * plataforma o bar_admin, siempre; si no, lo que el admin decidió para ESTA
+ * persona; si no, el perfil del rol; si no, el default del registro.
  */
 export function resolvePermission(key, ctx) {
-  const { isPlatform, appRole, overrides } = ctx || {};
+  const { isPlatform, appRole, overrides, personOverrides } = ctx || {};
   if (isPlatform || appRole === 'bar_admin') return true;
-  const o = overrides || {};
-  if (Object.prototype.hasOwnProperty.call(o, key)) return !!o[key];
+  const person = overrideFor(personOverrides, key);
+  if (person !== undefined) return person;
+  const role = overrideFor(overrides, key);
+  if (role !== undefined) return role;
   const def = PERMISSION_DEFAULTS[key];
   if (!def) return false; // clave desconocida => deniega
   if (appRole === 'staff') return !!def.staff;

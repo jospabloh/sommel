@@ -56,6 +56,10 @@ export const MANUAL_SECTIONS = [
         a: 'Marca el platillo o bebida como listo, o toda la orden de un jalón. Cuando lo entregas puedes marcarlo como entregado.',
       },
       {
+        q: 'Veo la cocina pero no me deja marcar nada',
+        a: 'Cocina y barra son permisos separados. Si solo tienes el de barra, ves los platillos de cocina pero sin botones. El administrador lo cambia en Permisos (para todo el equipo) o en Staff (solo para ti).',
+      },
+      {
         q: '¿Me equivoqué al marcar, puedo deshacer?',
         a: 'Sí, durante los primeros 5 minutos. Pasado ese tiempo ya no se puede deshacer.',
       },
@@ -254,6 +258,10 @@ export const MANUAL_SECTIONS = [
       {
         q: '¿Cómo cambio lo que puede hacer el staff?',
         a: 'El administrador ajusta los permisos del rol staff en la pantalla de Permisos. Cada cambio se guarda al momento; el personal lo ve la próxima vez que abra la app, y el servidor lo comprueba en cada acción.',
+      },
+      {
+        q: '¿Puedo darle o quitarle un permiso a una sola persona?',
+        a: 'Sí. En Staff toca el ícono de ajustes junto a la persona y elige, para cada permiso, Como su rol, Sí o No. Lo que elijas ahí gana sobre la pantalla de Permisos solo para esa persona. Por ejemplo: que un cocinero atienda cocina pero no barra.',
       },
       {
         q: 'El correo de mi código de acceso llegó en inglés',

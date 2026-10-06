@@ -16,7 +16,7 @@ export const READ_ACTIONS = {
   shifts: ['list', 'current'],
   security: ['listAlerts', 'listPhotos', 'getPhoto', 'approvers', 'listApprovals'],
   printing: ['queue'],
-  permissions: ['getProfile'],
+  permissions: ['getProfile', 'getPerson'],
   inventory: ['list', 'movements'],
   manageStaff: ['list'],
   account: ['exportData'],

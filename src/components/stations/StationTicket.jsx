@@ -122,7 +122,10 @@ export default function StationTicket({
   const entrySentAt = earliestSentAt(lines);
   const { ratio, level } = ticketHeat(lines, now, bar);
   const elapsedLabel = formatMinutesElapsed(entrySentAt, now);
-  const pendingReady = activeLines.filter((l) => l.status === 'enviado');
+  // canOperate(station): cocina and barra are separate permissions
+  // (Estaciones:cocina / Estaciones:barra), so a line's buttons depend on its station.
+  const canLine = (l) => canOperate(l.station);
+  const pendingReady = activeLines.filter((l) => l.status === 'enviado' && canLine(l));
 
   if (activeLines.length === 0 && cancelledLines.length === 0) return null;
 
@@ -137,7 +140,7 @@ export default function StationTicket({
             </div>
           )}
         </div>
-        {canOperate && pendingReady.length > 1 && (
+        {pendingReady.length > 1 && (
           <Button
             type="button"
             variant="secondary"
@@ -176,7 +179,7 @@ export default function StationTicket({
             item={item}
             now={now}
             showStation={showStation}
-            canOperate={canOperate}
+            canOperate={canLine(item)}
             onMarkReady={onMarkReady}
             onMarkDelivered={onMarkDelivered}
             onUndo={onUndo}

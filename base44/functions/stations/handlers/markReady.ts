@@ -8,8 +8,9 @@
 // with no re-write and its original `ready_at` kept; an item in a status
 // that can never reach `listo` from here (`nuevo`, `entregado`, `cancelado`)
 // is skipped rather than failing the whole batch.
-import { loadOwned, requirePermission, requireWritable, hasPermission, redactItemCosts, type Ctx, type Route, HttpError } from '../_guard.ts';
+import { loadOwned, requireWritable, hasPermission, redactItemCosts, type Ctx, type Route, HttpError } from '../_guard.ts';
 import { LogicError, validateItemIds, canMarkReady, isAlreadyReady } from './_logic.ts';
+import { requireStationsFor } from './_access.ts';
 
 export const markReady: Route = async (ctx: Ctx, body: any) => {
   let ids: string[];
@@ -25,7 +26,7 @@ export const markReady: Route = async (ctx: Ctx, body: any) => {
     items.push(await loadOwned(ctx, 'OrderItem', id));
   }
 
-  await requirePermission(ctx, 'Estaciones:operar');
+  await requireStationsFor(ctx, items);
   requireWritable(ctx);
 
   const now = new Date().toISOString();

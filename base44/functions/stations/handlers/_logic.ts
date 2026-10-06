@@ -136,3 +136,25 @@ export function heatLevel(
   else if (ratio >= 0.75) level = 'warn';
   return { ratio, level };
 }
+
+// ---- Per-station permission (phase 3, 2026-10-06) ----
+// `Estaciones:operar` split into one key per station. A line is checked
+// against the permission of ITS station, not the screen's: the combined view
+// shows both queues, and marking a kitchen line needs Estaciones:cocina.
+
+export const STATION_PERMISSION: Record<string, string> = {
+  kitchen: 'Estaciones:cocina',
+  bar: 'Estaciones:barra',
+};
+
+/** Permission keys needed to act on these lines; `null` = either station key. */
+export function permissionsForItems(items: Array<{ station?: string | null }>): { keys: string[]; needsAny: boolean } {
+  const keys = new Set<string>();
+  let needsAny = false;
+  for (const item of items) {
+    const key = item?.station ? STATION_PERMISSION[item.station] : undefined;
+    if (key) keys.add(key);
+    else needsAny = true;
+  }
+  return { keys: [...keys].sort(), needsAny };
+}
