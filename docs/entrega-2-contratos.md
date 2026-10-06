@@ -16,7 +16,7 @@ asistencia del personal.
 | Pendiente | Default construido | Dónde se cambia sin código |
 |---|---|---|
 | IVA incluido o no | Los precios de la carta son el precio final. El ticket **no** desglosa IVA; muestra la leyenda "Este ticket no es una factura". | Si ella dice que no incluyen IVA, es un cambio de código chico (desglose en ticket y reportes). No se construye antes. |
-| Propina | Opcional, en monto o porcentaje, la captura quien cobra. Sin porcentaje sugerido. | — |
+| Propina | Opcional, en monto o porcentaje, la captura quien cobra. Botones rápidos 10 / 15 / 20 % para quien cobra (2026-10-06); nada se sugiere ni se imprime al cliente. | — |
 | Descuentos y cortesías | Existen, con motivo obligatorio. Solo `bar_admin` por default. | `PermissionProfile` (clave `Cobro:descuento`) |
 | Formas de pago / vales | Default: Efectivo, Tarjeta, Transferencia. Vales u otras se agregan en Ajustes. | Ajustes → formas de pago |
 | Correos del corte | Vacío. Sin destinatarios el corte se guarda y queda `email_status: fallido` con motivo `sin_destinatarios`; se reenvía después. | Ajustes → correos del corte |

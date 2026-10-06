@@ -30,12 +30,14 @@ export function getDeviceId() {
   }
 }
 
-/** Auto print is OFF until someone turns it on (contract §6). */
+/** This device's explicit choice: true, false, or null when nobody chose.
+ *  The station turns null into "on with a USB printer, off without". */
 export function readAutoPref() {
   try {
-    return localStorage.getItem(AUTO_KEY) === '1';
+    const v = localStorage.getItem(AUTO_KEY);
+    return v === '1' ? true : v === '0' ? false : null;
   } catch {
-    return false;
+    return null;
   }
 }
 

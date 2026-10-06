@@ -12,6 +12,7 @@ import LicenseBanner from '@/components/LicenseBanner';
 import { usePermission } from '@/lib/usePermission';
 import { isPlatformUser, isBarAdmin, barRoleOf, roleLabel } from '@/lib/rbac';
 import AppUpdateBanner from '@/components/AppUpdateBanner';
+import PrintStationProvider from '@/components/printing/PrintStationProvider';
 import IdleWarningDialog from '@/components/IdleWarningDialog';
 import SessionExpiredDialog from '@/components/SessionExpiredDialog';
 import { useSessionManager } from '@/hooks/useSessionManager';
@@ -125,6 +126,7 @@ export default function Layout() {
     // The resolved theme comes from ThemeContext / index.html's pre-mount
     // script, applied to <html>; nothing here forces a mode. The theme control
     // itself is the corner ThemeSwitcher mounted in main.jsx (module 12).
+    <PrintStationProvider tenantId={user?.tenant_id ?? null} allowed={can('Impresion:operar')}>
     <div className="min-h-screen bg-background text-foreground flex">
       <aside className="sticky top-0 h-screen w-20 lg:w-60 shrink-0 border-r border-border bg-sidebar flex flex-col">
         <div className="h-16 flex items-center gap-2 px-4 lg:px-6 border-b border-sidebar-border">
@@ -186,5 +188,6 @@ export default function Layout() {
       <IdleWarningDialog open={idleState === 'idle_warning'} onContinue={continueSession} />
       <SessionExpiredDialog open={sessionExpired} />
     </div>
+    </PrintStationProvider>
   );
 }

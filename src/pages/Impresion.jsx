@@ -3,16 +3,14 @@
 // y confirma con el servidor. Con una impresora conectada por USB los manda
 // directo (sin driver ni cuadro de impresión); si no, usa el cuadro del
 // navegador. Nunca escribe entidades directo; todo pasa por `printing`.
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Printer, RefreshCw, Usb, Unplug, Wallet } from 'lucide-react';
-import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import JobRow from '@/components/printing/JobRow';
 import KioskInstructions from '@/components/printing/KioskInstructions';
-import PrintArea from '@/components/printing/PrintArea';
-import usePrintStation from '@/components/printing/usePrintStation';
+import usePrintStationContext from '@/components/printing/usePrintStationContext';
 import { formatTime, shortDevice } from '@/components/printing/printingHelpers';
 
 function Section({ title, hint, count, children }) {
@@ -71,9 +69,15 @@ function PrinterCard({ station }) {
 }
 
 export default function Impresion() {
-  const { user } = useAuth();
-  const station = usePrintStation(user?.tenant_id ?? null);
-  const { deviceId, jobs, loading, loadError, lastSync, auto, setAuto, busy, paperJob } = station;
+  const station = usePrintStationContext();
+  const { deviceId, jobs, loading, loadError, lastSync, auto, setAuto, busy, setPageOpen } = station;
+
+  // While this page is open the station also works without a USB printer
+  // (print dialog) and keeps the queue live.
+  useEffect(() => {
+    setPageOpen(true);
+    return () => setPageOpen(false);
+  }, [setPageOpen]);
 
   const waiting = jobs.filter((j) => j.status === 'pendiente' || j.status === 'reclamado');
   const failed = jobs.filter((j) => j.status === 'fallido');
@@ -109,7 +113,9 @@ export default function Impresion() {
             <label htmlFor="auto-print" className="font-medium block">Imprimir automáticamente</label>
             <p className="text-sm text-muted-foreground">
               {auto
-                ? 'Cada trabajo nuevo se imprime solo en este equipo.'
+                ? station.printer
+                  ? 'Cada ticket nuevo se imprime solo en este equipo, aunque estés en otra pantalla.'
+                  : 'Cada trabajo nuevo se imprime solo mientras esta pantalla esté abierta.'
                 : 'Apagado. Imprime cada trabajo con su botón.'}
             </p>
           </div>
@@ -179,7 +185,6 @@ export default function Impresion() {
         </>
       )}
 
-      <PrintArea job={paperJob} />
     </div>
   );
 }

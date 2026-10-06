@@ -509,6 +509,8 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
         open={tipOpen}
         onOpenChange={setTipOpen}
         hasTip={hasTip}
+        currentPct={order?.tip_pct ?? null}
+        base={Math.max(0, (order?.subtotal ?? 0) - (order?.discount ?? 0))}
         submitting={busy}
         onConfirm={(payload) => runAdjust('setTip', payload, 'No se pudo guardar la propina', () => setTipOpen(false))}
       />

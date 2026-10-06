@@ -565,3 +565,27 @@ Sin ese permiso `attendance.roster` solo devuelve a quien inició sesión, la
 pantalla abre directo su teclado, y `attendance.punch` responde 403
 `not_self` si se intenta checar a otra persona aunque se sepa su PIN. Antes
 cualquier sesión de personal veía y podía checar a todos.
+
+**La impresora imprime desde cualquier pantalla.** Un ticket pedido desde
+Cobro se quedaba `pendiente` hasta que alguien abría Impresión: solo esa
+página tenía la estación. Ahora hay una sola estación para toda la app
+(`PrintStationProvider` en `Layout`; contexto, proveedor y hook en tres
+archivos, igual que `lib/auth/`). Reglas:
+- Con impresora USB en este equipo: trabaja desde cualquier pantalla, y la
+  impresión automática arranca **encendida** salvo que alguien la apague en
+  este equipo (`readAutoPref` devuelve `null` si nadie eligió).
+- Sin impresora USB: solo con Impresión abierta, como antes, porque
+  `window.print()` abriría un cuadro en medio de un cobro.
+- Un Web Lock (`sommel-print-station`) evita que dos pestañas del mismo
+  equipo impriman el mismo trabajo: comparten `device_id` y el reclamo del
+  servidor no las distingue.
+- **Pendiente:** no hay ruteo por tipo. Dos equipos con impresora y la
+  automática encendida se reparten cualquier trabajo (cocina, barra, ticket,
+  corte). Con una sola impresora no importa; con dos, hace falta asignar
+  tipos por estación.
+
+**Propinas rápidas.** `TipDialog` ofrece 10 / 15 / 20 % (`QUICK_TIP_PCTS`) con
+su monto, y un toque guarda. Son para quien cobra cuando el cliente ya dijo
+cuánto deja: nada se sugiere ni se imprime al cliente. El contrato decía "sin
+porcentaje sugerido" y se actualizó (`docs/entrega-2-contratos.md`). El monto
+del botón es solo vista previa; el servidor calcula la propina.
