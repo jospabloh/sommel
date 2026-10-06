@@ -96,3 +96,24 @@ export function closeOpenAttendancePatch(callerEmail: string, nowIso: string) {
 export function isOpenAttendance(row: { clock_out?: string | null }): boolean {
   return !row.clock_out;
 }
+
+// Same rule as personName/normalizeDisplayName in scripts/templates/_guard_logic.ts
+// (this function has no guard copy); base44/tests/display_name_test.ts pins them.
+export function personName(
+  user: { display_name?: string | null; full_name?: string | null; email?: string | null } | null | undefined
+): string {
+  const own = String(user?.display_name ?? '').trim();
+  if (own) return own;
+  const full = String(user?.full_name ?? '').trim();
+  if (full) return full;
+  const email = String(user?.email ?? '').trim();
+  const at = email.indexOf('@');
+  return (at > 0 ? email.slice(0, at) : email) || 'Sin nombre';
+}
+
+export function normalizeDisplayName(input: unknown): string | null {
+  if (typeof input !== 'string') return null;
+  // deno-lint-ignore no-control-regex
+  const v = input.replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/\s+/g, ' ');
+  return v.length >= 1 && v.length <= 60 ? v : null;
+}

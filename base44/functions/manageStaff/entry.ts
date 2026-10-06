@@ -20,6 +20,8 @@ import {
   isMemberRole,
   isOpenAttendance,
   isOwner,
+  normalizeDisplayName,
+  personName,
 } from './_member_logic.ts';
 
 // Standalone function (does not use _guard.ts — contrato §5, manageStaff is
@@ -56,7 +58,7 @@ export default async function(req: Request): Promise<Response> {
     // any authenticated person can call, regardless of tenant/role — it's
     // how they GET a tenant in the first place.
     if (action === 'claimInvite') {
-      return await claimInvite(svc, self);
+      return await claimInvite(svc, self, body);
     }
 
     if (!tenantId || (appRole !== 'bar_admin' && !isPlatformAdmin)) {
@@ -76,7 +78,8 @@ export default async function(req: Request): Promise<Response> {
         }));
       return Response.json({
         staff: users.map((u: any) => ({
-          id: u.id, email: u.email, full_name: u.full_name, app_role: u.app_role,
+          id: u.id, email: u.email, full_name: u.full_name, display_name: u.display_name ?? null,
+          name: personName(u), app_role: u.app_role,
           is_owner: isOwner(listBar, u.id)
         })),
         invites
@@ -125,7 +128,7 @@ export default async function(req: Request): Promise<Response> {
         try {
           const { subject, body: html } = buildInviteEmail({
             barName: bar?.name || 'tu bar',
-            inviterName: self.full_name || self.email,
+            inviterName: personName(self),
             email,
             role: requestedRole,
             existingAccount,
@@ -168,6 +171,22 @@ export default async function(req: Request): Promise<Response> {
         });
       }
       return Response.json({ ok: true, invited_existing: false, email_sent: await sendInvite(false, expiresAt) });
+    }
+
+    if (action === 'setName') {
+      // The bar admin names a member of THEIR bar (Base44 never lets full_name
+      // change, and nobody may rename themselves into a colleague).
+      const targetId = typeof body.user_id === 'string' ? body.user_id : '';
+      const newName = normalizeDisplayName(body.name);
+      if (!newName) {
+        return Response.json({ error: 'Escribe un nombre de 1 a 60 letras', code: 'invalid_name' }, { status: 400 });
+      }
+      const [target] = targetId ? await svc.entities.User.filter({ id: targetId }) : [];
+      if (!target || target.tenant_id !== tenantId || target.app_role === 'terminal') {
+        return Response.json({ error: 'No encontrado', code: 'not_found' }, { status: 404 });
+      }
+      await svc.entities.User.update(target.id, { display_name: newName });
+      return Response.json({ ok: true, name: newName });
     }
 
     if (action === 'setRole' || action === 'removeMember') {
@@ -305,7 +324,7 @@ export default async function(req: Request): Promise<Response> {
  * app: the only way into an existing bar is an invite a bar_admin created,
  * which counts as pre-approved (2026-09-30 audit).
  */
-async function claimInvite(svc: any, self: any): Promise<Response> {
+async function claimInvite(svc: any, self: any, body: any = {}): Promise<Response> {
   if (self.tenant_id) {
     return Response.json({ ok: true, claimed: false, reason: 'already_in_a_bar' });
   }
@@ -334,8 +353,12 @@ async function claimInvite(svc: any, self: any): Promise<Response> {
     await svc.entities.StaffInvite.update(id, { status: 'revoked' });
   }
 
+  // "Tu nombre" from signup, written once (Base44 never lets full_name change);
+  // after that only the bar admin changes it, from Staff (setName).
+  const ownName = normalizeDisplayName(body?.display_name);
   await svc.entities.User.update(self.id, {
-    tenant_id: chosen.tenant_id, app_role: roleFromInvite(chosen)
+    tenant_id: chosen.tenant_id, app_role: roleFromInvite(chosen),
+    ...(ownName && !self.display_name ? { display_name: ownName } : {}),
   });
   await svc.entities.StaffInvite.update(chosen.id, {
     status: 'accepted', accepted_at: now.toISOString(), accepted_user_id: self.id

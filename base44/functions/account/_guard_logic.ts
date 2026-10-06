@@ -503,3 +503,33 @@ export const LOCKED_TERMINAL_PERMISSIONS = new Set(['Impresion:operar']);
 export function routeAllowsLockedTerminal(route: unknown): boolean {
   return typeof route === 'function' && (route as { allowLockedTerminal?: unknown }).allowLockedTerminal === true;
 }
+
+// ---------------------------------------------------------------------------
+// People's names. Base44 never lets an account change `full_name` after it
+// signs up (and Sommel's signup did not ask for it), so Sommel keeps its own
+// `User.display_name`. Every screen and every "who did it" uses this order.
+// Same rule in manageStaff/_member_logic.ts and createWineBar/_trial_logic.ts
+// (they cannot import this file); base44/tests/display_name_test.ts pins them.
+// ---------------------------------------------------------------------------
+
+/** display_name, then full_name, then the part of the email before the @. */
+export function personName(
+  user: { display_name?: string | null; full_name?: string | null; email?: string | null } | null | undefined
+): string {
+  const own = String(user?.display_name ?? '').trim();
+  if (own) return own;
+  const full = String(user?.full_name ?? '').trim();
+  if (full) return full;
+  const email = String(user?.email ?? '').trim();
+  const at = email.indexOf('@');
+  return (at > 0 ? email.slice(0, at) : email) || 'Sin nombre';
+}
+
+/** A name as stored: trimmed, single spaces, 1 to 60 characters, no control
+ *  characters. Returns null when it is not a usable name. */
+export function normalizeDisplayName(input: unknown): string | null {
+  if (typeof input !== 'string') return null;
+  // deno-lint-ignore no-control-regex
+  const v = input.replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/\s+/g, ' ');
+  return v.length >= 1 && v.length <= 60 ? v : null;
+}

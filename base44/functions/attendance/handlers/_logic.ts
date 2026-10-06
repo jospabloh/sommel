@@ -45,8 +45,13 @@ export function validatePin(pin: unknown): string {
   return pin;
 }
 
-/** `full_name`, or the part of the email before the @. */
-export function displayName(user: { full_name?: string | null; email?: string | null } | null | undefined): string {
+/** Sommel's display_name, then `full_name`, then the part of the email before the @
+ *  (same order as personName in scripts/templates/_guard_logic.ts). */
+export function displayName(
+  user: { display_name?: string | null; full_name?: string | null; email?: string | null } | null | undefined
+): string {
+  const own = String(user?.display_name ?? '').trim();
+  if (own) return own;
   const full = String(user?.full_name ?? '').trim();
   if (full) return full;
   const email = String(user?.email ?? '').trim();

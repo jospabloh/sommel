@@ -3,6 +3,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Loader2 } from 'lucide-react';
+import { clearPendingName, readPendingName } from '@/lib/pendingName';
 import { Image } from '@/components/ui/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +18,7 @@ export default function Onboarding() {
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [ownName, setOwnName] = useState(() => readPendingName(user?.email) || String(user?.full_name || '').trim());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   // Módulo 19/22 (fix 2026-09-28): a person who registered from a Base44
@@ -30,9 +32,11 @@ export default function Onboarding() {
     let cancelled = false;
     async function claim() {
       try {
-        const res = await base44.functions.invoke('manageStaff', { action: 'claimInvite' });
+        const pending = readPendingName(user?.email);
+        const res = await base44.functions.invoke('manageStaff', { action: 'claimInvite', ...(pending ? { display_name: pending } : {}) });
         if (cancelled) return;
         if (res?.data?.claimed) {
+          clearPendingName(user?.email);
           toast({
             title: res.data.bar_name ? `Te uniste a ${res.data.bar_name}` : 'Te uniste al bar',
           });
@@ -53,13 +57,15 @@ export default function Onboarding() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!ownName.trim()) { setError('Escribe tu nombre'); return; }
     if (!name.trim()) { setError('El nombre del bar es obligatorio'); return; }
     setLoading(true); setError('');
     try {
       // Server-side: the bar, the owner's tenant_id/app_role (locked on User)
       // and the starter catalog + tables.
-      const res = await base44.functions.invoke('createWineBar', { name: name.trim(), address: address.trim() });
+      const res = await base44.functions.invoke('createWineBar', { name: name.trim(), address: address.trim(), display_name: ownName.trim() });
       if (res?.data?.error) throw new Error(res.data.error);
+      clearPendingName(user?.email);
 
       await checkUserAuth();
     } catch (err) {
@@ -93,6 +99,10 @@ export default function Onboarding() {
           </div>
         </div>
         <form onSubmit={submit} className="space-y-4 bg-card border border-border rounded-2xl p-6">
+          <div className="space-y-2">
+            <Label htmlFor="own-name">Tu nombre</Label>
+            <Input id="own-name" value={ownName} onChange={(e) => setOwnName(e.target.value)} placeholder="Nombre y apellido" maxLength={60} autoComplete="name" />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="name">Nombre del bar</Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. La Cava de Aurelio" autoFocus />

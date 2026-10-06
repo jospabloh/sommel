@@ -4,7 +4,8 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Mail, Lock, Loader2 } from "lucide-react";
+import { UserPlus, Mail, Lock, Loader2, User } from "lucide-react";
+import { savePendingName } from "@/lib/pendingName";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 import VerifyEmailStep from "@/components/VerifyEmailStep";
@@ -20,6 +21,7 @@ export default function Register() {
       return "";
     }
   });
+  const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -29,6 +31,10 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!fullName.trim()) {
+      setError("Escribe tu nombre.");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Las contraseñas no coinciden.");
       return;
@@ -36,6 +42,7 @@ export default function Register() {
     setLoading(true);
     try {
       await base44.auth.register({ email, password });
+      savePendingName(email, fullName);
       setShowOtp(true);
     } catch (err) {
       setError(friendlyAuthError(err, "No pudimos crear tu cuenta. Inténtalo de nuevo.", "register"));
@@ -109,6 +116,25 @@ export default function Register() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
+          <Label htmlFor="full-name">Tu nombre</Label>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Input
+              id="full-name"
+              type="text"
+              autoComplete="name"
+              autoFocus
+              maxLength={60}
+              placeholder="Nombre y apellido"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="pl-10 h-12"
+              required
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">Así te verá tu equipo en Sommel.</p>
+        </div>
+        <div className="space-y-2">
           <Label htmlFor="email">Correo</Label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
@@ -116,7 +142,6 @@ export default function Register() {
               id="email"
               type="email"
               autoComplete="email"
-              autoFocus
               placeholder="tu@correo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

@@ -47,6 +47,8 @@ import {
   personMayUseTerminal,
   routeAllowsLockedTerminal,
   passEpochOf,
+  personName,
+  normalizeDisplayName,
   LOCKED_TERMINAL_PERMISSIONS,
   type AppRole,
   type PaymentMethodDef,
@@ -82,6 +84,8 @@ export {
   terminalAllows,
   personMayUseTerminal,
   passEpochOf,
+  personName,
+  normalizeDisplayName,
 };
 export type { PaymentMethodDef };
 

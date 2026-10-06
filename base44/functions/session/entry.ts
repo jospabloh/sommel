@@ -90,7 +90,7 @@ async function manageSession(req: Request, body: any): Promise<object> {
     session = await svc.entities.AppSession.create({
       user_id: self.id,
       user_email: self.email,
-      user_name: self.full_name ?? null,
+      user_name: String(self.display_name ?? '').trim() || self.full_name || null,
       device_id: deviceId,
       device_name: deviceName,
       device: deviceName,

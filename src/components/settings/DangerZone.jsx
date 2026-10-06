@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { BAR_ADMIN } from '@/lib/rbac';
+import { BAR_ADMIN, personName } from '@/lib/rbac';
 import { notifyMissionControl } from '@/lib/supportTickets';
 
 const STEP_COUNT = 3;
@@ -295,7 +295,7 @@ export default function DangerZone({ bar }) {
             >
               <option value="">Elige a una persona</option>
               {admins.map((m) => (
-                <option key={m.id} value={m.id}>{m.full_name ? `${m.full_name} (${m.email})` : m.email}</option>
+                <option key={m.id} value={m.id}>{personName(m) !== m.email ? `${personName(m)} (${m.email})` : m.email}</option>
               ))}
             </select>
           )
@@ -303,7 +303,7 @@ export default function DangerZone({ bar }) {
         canContinue={!!target}
         details={
           <>
-            <p>{target ? `${target.full_name || target.email} será la dueña o el dueño del bar.` : ''}</p>
+            <p>{target ? `${personName(target)} será la dueña o el dueño del bar.` : ''}</p>
             <p>Solo esa persona podrá cederlo de nuevo o darlo de baja. Tú te quedas como administrador.</p>
           </>
         }

@@ -21,3 +21,13 @@ export function buildNewBar(input: { name: string; address: string; ownerId: str
     owner_id: input.ownerId,
   };
 }
+
+// The creator's name from signup ("Tu nombre"). Same rule as
+// normalizeDisplayName in scripts/templates/_guard_logic.ts; pinned by
+// base44/tests/display_name_test.ts.
+export function normalizeDisplayName(input: unknown): string | null {
+  if (typeof input !== 'string') return null;
+  // deno-lint-ignore no-control-regex
+  const v = input.replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/\s+/g, ' ');
+  return v.length >= 1 && v.length <= 60 ? v : null;
+}

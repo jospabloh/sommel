@@ -12,7 +12,7 @@ import LicenseBanner from '@/components/LicenseBanner';
 import ScreenControls from '@/components/ScreenControls';
 import { lockNow } from '@/lib/terminal/lockNow';
 import { usePermission } from '@/lib/usePermission';
-import { isPlatformUser, isBarAdmin, barRoleOf, roleLabel } from '@/lib/rbac';
+import { isPlatformUser, isBarAdmin, barRoleOf, roleLabel, personName } from '@/lib/rbac';
 import AppUpdateBanner from '@/components/AppUpdateBanner';
 import PrintStationProvider from '@/components/printing/PrintStationProvider';
 import IdleWarningDialog from '@/components/IdleWarningDialog';
@@ -122,7 +122,7 @@ export default function Layout() {
     }
   };
 
-  const displayName = user?.full_name || user?.email || 'Sesión iniciada';
+  const displayName = personName(user) || 'Sesión iniciada';
   const initial = (displayName.trim().charAt(0) || '?').toUpperCase();
 
   const handleLogout = () => {

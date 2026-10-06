@@ -81,7 +81,11 @@ export function registerDeviceFailure(
   return { failed_unlocks: next, unlock_locked_until: null };
 }
 
-export function displayName(user: { full_name?: string | null; email?: string | null } | null | undefined): string {
+export function displayName(
+  user: { display_name?: string | null; full_name?: string | null; email?: string | null } | null | undefined
+): string {
+  const own = String(user?.display_name ?? '').trim();
+  if (own) return own;
   const full = String(user?.full_name ?? '').trim();
   if (full) return full;
   const email = String(user?.email ?? '').trim();
@@ -113,7 +117,7 @@ export interface RosterPerson {
  * so someone who forgot to punch in is never locked out.
  */
 export function buildRoster(
-  users: Array<{ id: string; full_name?: string | null; email?: string | null; app_role?: string | null; tenant_id?: string | null }>,
+  users: Array<{ id: string; display_name?: string | null; full_name?: string | null; email?: string | null; app_role?: string | null; tenant_id?: string | null }>,
   opts: { tenantId: string; allows: (id: string) => boolean; withPin: Set<string>; onShift: Set<string> }
 ): RosterPerson[] {
   return users

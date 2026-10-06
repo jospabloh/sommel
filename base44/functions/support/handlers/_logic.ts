@@ -13,7 +13,11 @@ type Ticket = { status?: string | null; responses?: unknown };
 type Author = { name: string; email: string | null };
 
 /** `full_name`, or the part of the email before the @. */
-export function authorName(user: { full_name?: string | null; email?: string | null } | null | undefined): string {
+export function authorName(
+  user: { display_name?: string | null; full_name?: string | null; email?: string | null } | null | undefined
+): string {
+  const own = String(user?.display_name ?? '').trim();
+  if (own) return own;
   const full = String(user?.full_name ?? '').trim();
   if (full) return full.slice(0, 100);
   const email = String(user?.email ?? '').trim();
