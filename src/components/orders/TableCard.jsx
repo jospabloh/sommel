@@ -36,7 +36,7 @@ export default function TableCard({ table, order, onTap, onEdit, canEdit, style 
               e.stopPropagation();
               onEdit();
             }}
-            className="pointer-events-auto shrink-0 w-7 h-7 rounded-full flex items-center justify-center hover:bg-foreground/10"
+            className="pointer-events-auto relative z-10 shrink-0 w-7 h-7 rounded-full flex items-center justify-center hover:bg-foreground/10"
             aria-label={`Editar mesa ${table.name}`}
           >
             <Pencil className="w-3.5 h-3.5 opacity-60" />

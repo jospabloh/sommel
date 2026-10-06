@@ -31,7 +31,7 @@ export default function RangePicker({ value, onChange }) {
             key={p.key}
             type="button"
             variant={value.mode === p.key ? 'default' : 'outline'}
-            className="h-11 flex-1 sm:flex-none sm:px-6"
+            className="h-11 min-w-0 flex-1 px-2 sm:flex-none sm:px-6"
             aria-pressed={value.mode === p.key}
             onClick={() => onChange(rangeFor(p.key, value))}
           >

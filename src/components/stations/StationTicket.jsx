@@ -31,21 +31,21 @@ function ItemRow({ item, now, canOperate, onMarkReady, onMarkDelivered, onUndo, 
   return (
     <div
       className={cn(
-        'flex items-center gap-3 rounded-xl border-2 px-3 py-3',
+        'flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border-2 px-3 py-3',
         item.status === 'listo' ? 'border-[hsl(var(--chart-3))] bg-[hsl(var(--chart-3))]/10' : 'border-border bg-card'
       )}
     >
-      <div className="min-w-0 flex-1">
-        <div className="text-lg font-semibold leading-snug truncate">
+      <div className="min-w-[8rem] flex-1">
+        <div className="text-lg font-semibold leading-snug break-words">
           {item.qty > 1 ? `${item.qty}× ` : ''}
           {item.name}
         </div>
-        {subtitle && <div className="text-sm text-muted-foreground truncate">{subtitle}</div>}
-        {item.notes && <div className="text-sm italic text-muted-foreground truncate">"{item.notes}"</div>}
+        {subtitle && <div className="text-sm text-muted-foreground break-words">{subtitle}</div>}
+        {item.notes && <div className="text-sm italic text-muted-foreground break-words">"{item.notes}"</div>}
       </div>
 
       {canOperate && (
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 max-w-full">
           {item.status === 'enviado' && (
             <Button
               type="button"
@@ -114,9 +114,9 @@ export default function StationTicket({
 
   return (
     <div className={cn('rounded-2xl border-2 bg-card p-4 sm:p-5 space-y-3', LEVEL_RING[level])}>
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
-          <div className="font-display text-xl font-bold truncate">{orderDisplayName(order, tablesById)}</div>
+          <div className="font-display text-xl font-bold break-words">{orderDisplayName(order, tablesById)}</div>
           {elapsedLabel && (
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
               <Clock className="w-4 h-4" /> Entró hace {elapsedLabel}

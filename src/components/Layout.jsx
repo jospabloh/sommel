@@ -161,7 +161,7 @@ export default function Layout() {
           </button>
         </div>
       </aside>
-      <main className="flex-1 min-w-0 overflow-auto">
+      <main className="flex-1 min-w-0 overflow-auto pb-20">
         <LicenseBanner />
         <AppUpdateBanner />
         <Outlet />

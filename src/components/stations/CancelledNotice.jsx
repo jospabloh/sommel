@@ -11,11 +11,11 @@ import { Button } from '@/components/ui/button';
 
 export default function CancelledNotice({ item, onAcknowledge }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border-2 border-destructive bg-destructive/15 px-4 py-3">
+    <div className="flex items-start gap-2 rounded-xl border-2 border-destructive bg-destructive/15 px-3 py-3 sm:gap-3 sm:px-4">
       <AlertTriangle className="w-6 h-6 text-destructive shrink-0 mt-0.5" />
       <div className="min-w-0 flex-1">
-        <div className="text-base font-bold text-destructive tracking-wide">CAMBIO / CANCELADO</div>
-        <div className="text-sm font-medium truncate">{item.name}</div>
+        <div className="text-sm font-bold text-destructive sm:text-base sm:tracking-wide">CAMBIO / CANCELADO</div>
+        <div className="text-sm font-medium break-words">{item.name}</div>
         {item.cancel_reason && (
           <div className="text-sm text-muted-foreground mt-0.5">Motivo: {item.cancel_reason}</div>
         )}

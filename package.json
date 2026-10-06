@@ -18,6 +18,7 @@
     "check:version": "node scripts/check-version-sync.mjs",
     "release": "node scripts/publish-release.mjs",
     "test:smoke": "playwright test",
+    "scan:layout": "node scripts/layout-overlap-scan.mjs",
     "validate:tenant-roles": "node scripts/check-tenant-roles.mjs",
     "generate:guards": "node scripts/generate-guards.mjs",
     "check:guards": "node scripts/generate-guards.mjs --check",

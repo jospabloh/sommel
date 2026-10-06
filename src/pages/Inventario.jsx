@@ -98,11 +98,11 @@ export default function Inventario() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-3xl">
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex flex-wrap items-center gap-3 mb-5">
         <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
           <Package className="w-6 h-6 text-primary" />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[9rem]">
           <h1 className="font-display text-2xl sm:text-3xl font-semibold">Inventario</h1>
           <p className="text-muted-foreground mt-0.5">Existencias, entradas, mermas y conteos.</p>
         </div>

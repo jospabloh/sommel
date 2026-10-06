@@ -14,12 +14,12 @@ const STATION_ICON = { kitchen: ChefHat, bar: Beer };
 function VariantRow({ variant, canViewCosts }) {
   const profit = canViewCosts ? profitFor(variant.price, variant.cost) : null;
   return (
-    <div className="flex items-center justify-between text-sm py-1">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 text-sm py-1">
       <span className="text-muted-foreground">{variant.label}</span>
       <span className="flex items-center gap-3">
         <span className="font-medium">{formatMXN(variant.price)}</span>
         {canViewCosts && (
-          <span className="text-xs text-muted-foreground w-28 text-right">
+          <span className="text-xs text-muted-foreground text-right sm:w-28">
             {profit === null
               ? 'sin costo'
               : `${formatMXN(profit.profit)} · ${profit.marginPct.toFixed(0)}%`}
@@ -60,7 +60,7 @@ export default function ProductCard({ product, canEdit, canViewCosts, onEdit, on
           </div>
 
           {!hasVariants ? (
-            <div className="mt-1 flex items-center gap-3">
+            <div className="mt-1 flex flex-wrap items-center gap-x-3">
               <span className="font-semibold">{formatMXN(product.price)}</span>
               {canViewCosts && (
                 <span className="text-xs text-muted-foreground">
