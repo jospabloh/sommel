@@ -2,17 +2,19 @@
 // it offline. Canonical template: scripts/generate-guards.mjs copies it into
 // every group in APPROVAL_TARGET_DIRS. Edit this file, never the copies.
 //
-// Decided by José: four actions need it (cancel a sent line, void a payment,
-// cash out, close the shift) and only the bar's admins approve. The default
+// Decided by José: five actions need it (cancel a sent line, void a payment,
+// cash out, close the shift, and a discount or comp, added the same day) and
+// only the bar's admins approve. The default
 // method is the admin's PIN (the same PIN as the checador and the terminal).
 
-export type ApprovalAction = 'cancel_sent_item' | 'void_payment' | 'cash_out' | 'close_shift';
+export type ApprovalAction = 'cancel_sent_item' | 'void_payment' | 'cash_out' | 'close_shift' | 'discount';
 
 export const APPROVAL_LABELS: Record<ApprovalAction, string> = {
   cancel_sent_item: 'Cancelar un platillo ya enviado',
   void_payment: 'Anular un pago',
   cash_out: 'Retiro de efectivo',
   close_shift: 'Cerrar el turno',
+  discount: 'Un descuento o cortesía',
 };
 
 /** Same lockout as the checador: 5 misses lock that PIN for 15 minutes. */

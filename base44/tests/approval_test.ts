@@ -16,8 +16,8 @@ function assertEquals(actual: unknown, expected: unknown, msg?: string) {
 
 const NOW = Date.parse('2026-10-06T22:00:00Z');
 
-Deno.test('exactly the four actions José chose need approval', () => {
-  assertEquals(Object.keys(logic.APPROVAL_LABELS).sort(), ['cancel_sent_item', 'cash_out', 'close_shift', 'void_payment']);
+Deno.test('exactly the five actions José chose need approval', () => {
+  assertEquals(Object.keys(logic.APPROVAL_LABELS).sort(), ['cancel_sent_item', 'cash_out', 'close_shift', 'discount', 'void_payment']);
 });
 
 Deno.test('staff must ask; an admin or the platform acts alone', () => {
@@ -102,7 +102,7 @@ Deno.test('with no dialog mounted, asking resolves to null (the action is cancel
 });
 
 Deno.test('the four gated actions are writes and are never retried on a 429', () => {
-  for (const [e, a] of [['orders', 'cancelItem'], ['payments', 'voidPayment'], ['shifts', 'addCashOut'], ['shifts', 'close']]) {
+  for (const [e, a] of [['orders', 'cancelItem'], ['payments', 'voidPayment'], ['shifts', 'addCashOut'], ['shifts', 'close'], ['payments', 'applyDiscount']]) {
     assertEquals(isRetryableRead(e, a), false, `${e}.${a}`);
   }
 });

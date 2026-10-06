@@ -49,7 +49,7 @@ export const MANUAL_SECTIONS = [
     items: [
       {
         q: '¿Cómo veo lo que tengo que preparar?',
-        a: 'Abre Cocina o Barra en el menú. Ahí aparecen los renglones que los meseros enviaron, en tiempo real. Si hay una lista larga, usa el botón de actualizar.',
+        a: 'Abre Cocina y barra en el menú y elige arriba Todo, Cocina o Barra. Ahí aparecen los renglones que los meseros enviaron, en tiempo real. Si hay una lista larga, usa el botón de actualizar.',
       },
       {
         q: '¿Cómo marco algo como listo?',
