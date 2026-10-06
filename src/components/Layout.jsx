@@ -10,7 +10,7 @@ import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
 import LicenseBanner from '@/components/LicenseBanner';
 import ScreenControls from '@/components/ScreenControls';
-import { lockTerminal } from '@/lib/terminal/terminalStore';
+import { lockNow } from '@/lib/terminal/lockNow';
 import { usePermission } from '@/lib/usePermission';
 import { isPlatformUser, isBarAdmin, barRoleOf, roleLabel } from '@/lib/rbac';
 import AppUpdateBanner from '@/components/AppUpdateBanner';
@@ -50,11 +50,16 @@ const NAV_ITEMS = [
   { label: 'Acerca de', to: '/about', icon: Info },
 ];
 
+const TERMINAL_HIDDEN = new Set(['/cuenta', '/staff', '/permisos', '/super-admin']);
+
 function navFor(user, can) {
   const isPlatformAdmin = isPlatformUser(user);
   const appRole = barRoleOf(user);
   if (!isPlatformAdmin && !appRole) return [];
   return NAV_ITEMS.filter((it) => {
+    // A terminal is shared: no one's account, team or permissions from here
+    // (the server refuses them too); those need the person's own sign-in.
+    if (user?.terminal && TERMINAL_HIDDEN.has(it.to)) return false;
     if (it.only === 'platform') return isPlatformAdmin;
     if (it.only === 'bar_admin_with_bar') return isBarAdmin(user) || (isPlatformAdmin && !!user?.tenant_id);
     if (it.only === 'bar_admin') return isPlatformAdmin || isBarAdmin(user);
@@ -183,7 +188,7 @@ export default function Layout() {
             // person just hands it over, and it asks "¿Quién eres?" again.
             <button
               type="button"
-              onClick={lockTerminal}
+              onClick={lockNow}
               title="Cambiar usuario"
               aria-label="Cambiar usuario"
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"

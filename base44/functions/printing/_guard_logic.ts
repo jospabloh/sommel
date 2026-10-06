@@ -429,9 +429,14 @@ export function randomHex(bytes: number): string {
   return hexOf(crypto.getRandomValues(new Uint8Array(bytes)));
 }
 
-/** Signs a pass for `userId` on `deviceId`, valid until `expMs`. */
-export async function signPass(keyHex: string, deviceId: string, userId: string, expMs: number): Promise<string> {
-  const payload = b64urlEncode(JSON.stringify({ d: deviceId, u: userId, e: expMs }));
+/**
+ * Signs a pass for `userId` on `deviceId`, valid until `expMs`. `epoch` is the
+ * device's `pass_epoch`: every unlock and every lock bumps it, so the pass of
+ * whoever used the terminal before stops working at once instead of living
+ * out its 15 minutes.
+ */
+export async function signPass(keyHex: string, deviceId: string, userId: string, expMs: number, epoch: number): Promise<string> {
+  const payload = b64urlEncode(JSON.stringify({ d: deviceId, u: userId, e: expMs, n: epoch }));
   return `${payload}.${await hmacHex(keyHex, payload)}`;
 }
 
@@ -443,7 +448,8 @@ export async function verifyPass(
   keyHex: unknown,
   deviceId: string,
   pass: unknown,
-  nowMs: number
+  nowMs: number,
+  epoch: number
 ): Promise<{ userId: string; expMs: number } | null> {
   if (typeof keyHex !== 'string' || !/^[0-9a-f]{64}$/.test(keyHex)) return null;
   if (typeof pass !== 'string' || pass.length > 2048) return null;
@@ -456,6 +462,7 @@ export async function verifyPass(
     const data = JSON.parse(b64urlDecode(payload));
     if (data?.d !== deviceId || typeof data?.u !== 'string' || !data.u) return null;
     if (typeof data?.e !== 'number' || data.e <= nowMs) return null;
+    if (data?.n !== epoch) return null;
     return { userId: data.u, expMs: data.e };
   } catch {
     return null;
@@ -479,6 +486,18 @@ export function personMayUseTerminal(
   if (!TERMINAL_PERSON_ROLES.has(String(person.app_role ?? ''))) return false;
   return terminalAllows(device.allowed, person.id);
 }
+
+/** The device's current pass epoch (missing on rows from before it existed = 0). */
+export function passEpochOf(device: { pass_epoch?: unknown } | null | undefined): number {
+  const n = device?.pass_epoch;
+  return Number.isInteger(n) && (n as number) >= 0 ? (n as number) : 0;
+}
+
+/**
+ * A terminal nobody unlocked may still run its print station (it prints by
+ * device, not by person). That is the only permission it has.
+ */
+export const LOCKED_TERMINAL_PERMISSIONS = new Set(['Impresion:operar']);
 
 /** True when a route function carries the mark set by `allowLockedTerminal()`. */
 export function routeAllowsLockedTerminal(route: unknown): boolean {

@@ -46,6 +46,8 @@ import {
   terminalAllows,
   personMayUseTerminal,
   routeAllowsLockedTerminal,
+  passEpochOf,
+  LOCKED_TERMINAL_PERMISSIONS,
   type AppRole,
   type PaymentMethodDef,
 } from './_guard_logic.ts';
@@ -79,6 +81,7 @@ export {
   randomHex,
   terminalAllows,
   personMayUseTerminal,
+  passEpochOf,
 };
 export type { PaymentMethodDef };
 
@@ -190,7 +193,9 @@ async function terminalContext(
     throw new HttpError(401, 'terminal_revoked', 'Este equipo ya no está autorizado como terminal');
   }
 
-  const pass = opts.terminalPass ? await verifyPass(device.pass_key, device.id, opts.terminalPass, Date.now()) : null;
+  const pass = opts.terminalPass
+    ? await verifyPass(device.pass_key, device.id, opts.terminalPass, Date.now(), passEpochOf(device))
+    : null;
   if (pass) {
     const [person] = await svc.entities.User.filter({ id: pass.userId });
     if (person && personMayUseTerminal(person, device)) {
@@ -223,12 +228,20 @@ async function terminalContext(
   };
 }
 
-/** Signs a fresh pass for `userId` on the terminal of `ctx`. */
-export async function issuePass(ctx: Ctx, userId: string): Promise<{ pass: string; expires_at: string }> {
+/**
+ * Signs a fresh pass for `userId` on the terminal of `ctx`. `epoch` defaults to
+ * the device's current one (renew); unlock passes the epoch it just bumped to.
+ */
+export async function issuePass(
+  ctx: Ctx,
+  userId: string,
+  epoch?: number
+): Promise<{ pass: string; expires_at: string }> {
   const device = ctx.terminal?.device;
   if (!device) throw new HttpError(403, 'not_terminal', 'Esta acción solo se usa desde una terminal');
   const expMs = Date.now() + PASS_TTL_MS;
-  return { pass: await signPass(device.pass_key, device.id, userId, expMs), expires_at: new Date(expMs).toISOString() };
+  const n = epoch ?? passEpochOf(device);
+  return { pass: await signPass(device.pass_key, device.id, userId, expMs, n), expires_at: new Date(expMs).toISOString() };
 }
 
 /**
@@ -238,6 +251,8 @@ export async function issuePass(ctx: Ctx, userId: string): Promise<{ pass: strin
  * `src/lib/permissionRegistry.js`); an unknown key denies.
  */
 export async function hasPermission(ctx: Ctx, key: string): Promise<boolean> {
+  // A locked terminal (no person): only its print station.
+  if (ctx.terminal && !ctx.terminal.unlocked) return LOCKED_TERMINAL_PERMISSIONS.has(key);
   if (ctx.isPlatform || ctx.appRole === 'bar_admin') return true;
   let overrides: Record<string, boolean> | undefined;
   if (ctx.tenantId && ctx.appRole) {
@@ -307,6 +322,9 @@ export function remoteOnly(route: (ctx: Ctx, body: any) => Promise<object>): Rou
     }
     return route(ctx, body);
   };
+  const marks = route as Route;
+  if (marks.allowNoTenant) wrapped.allowNoTenant = true;
+  if (marks.allowLockedTerminal) wrapped.allowLockedTerminal = true;
   return wrapped;
 }
 

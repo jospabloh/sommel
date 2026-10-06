@@ -9,6 +9,7 @@ import { revoke } from './handlers/revoke.ts';
 import { whoAmI } from './handlers/whoAmI.ts';
 import { unlock } from './handlers/unlock.ts';
 import { renew } from './handlers/renew.ts';
+import { lock } from './handlers/lock.ts';
 
 export default function (req: Request): Promise<Response> {
   return handle(req, {
@@ -18,5 +19,6 @@ export default function (req: Request): Promise<Response> {
     whoAmI,
     unlock,
     renew,
+    lock,
   });
 }

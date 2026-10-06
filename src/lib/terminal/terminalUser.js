@@ -17,7 +17,7 @@ export function effectiveUser(account, terminal) {
   return {
     id: person.id,
     full_name: person.name,
-    email: '',
+    email: person.email ?? '',
     role: 'user', // never the platform from a terminal
     app_role: person.app_role,
     tenant_id: account.tenant_id,

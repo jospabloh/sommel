@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { callFn } from '@/lib/api';
-import { getTerminalState, lockTerminal, setUnlocked } from '@/lib/terminal/terminalStore';
+import { getTerminalState, setUnlocked } from '@/lib/terminal/terminalStore';
+import { lockNow } from '@/lib/terminal/lockNow';
 
 // José, 2026-10-06: a terminal locks after 2 minutes without a touch. The
 // 15-minute pass is renewed while the person keeps working, so a busy shift
@@ -27,7 +28,7 @@ export function useTerminalIdle(active) {
       const now = Date.now();
       const { expiresAt } = getTerminalState();
       if (now - lastActivity.current >= TERMINAL_IDLE_MS || (expiresAt && Date.parse(expiresAt) <= now)) {
-        lockTerminal();
+        lockNow();
         return;
       }
       if (now - lastRenew.current >= RENEW_EVERY_MS) {

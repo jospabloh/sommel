@@ -6,5 +6,5 @@ import { displayName } from '../_terminal_logic.ts';
 export const renew: Route = async (ctx: Ctx) => {
   if (!ctx.terminal?.unlocked) httpError(403, 'not_terminal', 'Esta acción solo se usa desde una terminal');
   const { pass, expires_at } = await issuePass(ctx, ctx.self.id);
-  return { pass, expires_at, person: { id: ctx.self.id, name: displayName(ctx.self), app_role: ctx.self.app_role } };
+  return { pass, expires_at, person: { id: ctx.self.id, name: displayName(ctx.self), email: ctx.self.email ?? '', app_role: ctx.self.app_role } };
 };

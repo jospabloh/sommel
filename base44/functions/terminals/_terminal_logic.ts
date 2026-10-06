@@ -13,6 +13,9 @@ export class LogicError extends Error {
 export const MAX_FAILED_ATTEMPTS = 5;
 export const LOCK_MINUTES = 15;
 export const FORGOTTEN_HOURS = 16;
+/** Misses across ALL people at one terminal before the terminal itself locks:
+ *  without it, N people × 5 tries each is N times the guesses per 15 minutes. */
+export const DEVICE_MAX_FAILED_UNLOCKS = 10;
 const MIN_MS = 60_000;
 
 /** Domain with no mailbox for terminal accounts: nobody reads mail there. */
@@ -64,6 +67,18 @@ export function registerFailure(
     return { failed_attempts: 0, locked_until: new Date(nowMs + LOCK_MINUTES * MIN_MS).toISOString() };
   }
   return { failed_attempts: next, locked_until: null };
+}
+
+/** Device-wide counter after a wrong PIN at this terminal. */
+export function registerDeviceFailure(
+  failedUnlocks: number | null | undefined,
+  nowMs: number
+): { failed_unlocks: number; unlock_locked_until: string | null } {
+  const next = (Number.isInteger(failedUnlocks) && (failedUnlocks as number) > 0 ? (failedUnlocks as number) : 0) + 1;
+  if (next >= DEVICE_MAX_FAILED_UNLOCKS) {
+    return { failed_unlocks: 0, unlock_locked_until: new Date(nowMs + LOCK_MINUTES * MIN_MS).toISOString() };
+  }
+  return { failed_unlocks: next, unlock_locked_until: null };
 }
 
 export function displayName(user: { full_name?: string | null; email?: string | null } | null | undefined): string {
@@ -128,6 +143,8 @@ export function publicDevice(row: any) {
     created_date: row?.created_date ?? null,
     last_seen_at: row?.last_seen_at ?? null,
     revoked_at: row?.revoked_at ?? null,
+    // Revoked but its Base44 account could not be deleted: "Desactivar" again.
+    account_pending: !!row?.revoked_at && !row?.account_deleted_at,
   };
 }
 

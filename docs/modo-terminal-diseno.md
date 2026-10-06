@@ -1,6 +1,6 @@
 # Modo terminal: entrar con PIN en los equipos del bar
 
-Estado: **diseño para aprobar** (2026-10-06). Nada de esto está construido.
+Estado (2026-10-06): **fase 2a construida** (ver "Fase 2a, lo construido" al final). Personas sin correo (`StaffMember`) y permisos por persona siguen pendientes.
 
 ## Decisiones de José (2026-10-06)
 
@@ -139,7 +139,11 @@ Dos caminos:
 
 - **A. Cuenta propia por terminal** (preferida): un usuario de Base44 de la
   terminal, con el bar y un rol `terminal` sin permisos propios. Si alguien abre
-  las herramientas del navegador, no consigue más que lo que su pase le da.
+  las herramientas del navegador, no consigue escribir nada ni actuar como
+  nadie sin pase. **Sí puede leer** lo que el RLS deja leer a cualquier miembro
+  del bar (comandas, mesas, turnos, pagos), porque el RLS no distingue una
+  terminal bloqueada de una desbloqueada; el pase gobierna funciones, no
+  lecturas directas. Costos, PINs y la llave del pase siguen cerrados.
   **Riesgo:** `auth.register` e `inviteUser` piden un correo real que se verifica
   con código; no está probado que Sommel pueda crear esa cuenta sin un buzón.
 - **B. La sesión del admin que activó el equipo**: funciona hoy sin nada nuevo,
@@ -179,3 +183,39 @@ decide entre B con mitigaciones o pedir un correo por terminal (por ejemplo
   equipo.
 - Las reglas de aislamiento entre bares: el bar siempre sale del servidor, nunca
   del navegador.
+
+## Fase 2a, lo construido (2026-10-06)
+
+Sin migración: usa las personas (`User`) y los PINs del checador que ya
+existen. `StaffMember` (personas sin correo) es la fase 2b.
+
+- **Activar** (Ajustes > Terminales, solo `bar_admin` y nunca desde una
+  terminal): `terminals.activate` crea la cuenta sin buzón
+  (`t-…@terminales.acaciaco.com.mx`) con el token `BASE44_SOMMEL_TOKEN`, la
+  inicia del lado del servidor, la apunta al bar con `app_role: terminal` y
+  crea el `TerminalDevice` con su propia llave de pase. El navegador guarda la
+  sesión con `setToken` (nunca en la URL) y recarga como terminal.
+- **¿Quién eres?**: `terminals.whoAmI` (corre bloqueada). Botones para quien
+  está en turno y los admins; el resto en "Otra persona". Solo personas del bar,
+  con rol de bar, en la lista de la terminal y con PIN.
+- **PIN**: `terminals.unlock`. Mismo bloqueo que el checador por persona (5
+  fallos, 15 min) **y** uno por terminal (10 fallos entre todas las personas,
+  15 min), para que una lista larga no multiplique los intentos.
+- **Pase**: 15 min, firmado con la llave del equipo, se renueva solo cada 5 min
+  de uso. Lleva el `pass_epoch` del equipo: cada desbloqueo y cada bloqueo lo
+  suben, así que el pase de quien usó la terminal antes muere al instante.
+- **Guard**: con pase válido, toda función corre como esa persona (su rol, sus
+  permisos, su nombre en lo que haga). Sin pase, solo las rutas
+  `allowLockedTerminal`: `whoAmI`, `unlock`, `lock` y la estación de impresión
+  (`queue`, `claimNext`, `markPrinted`, `markFailed`), para que la Caja siga
+  imprimiendo bloqueada. `remoteOnly` cierra desde una terminal: Cuenta (baja,
+  exportar, delegar), editar permisos y manejar terminales.
+- **Bloqueo**: 2 minutos sin tocar la pantalla, o "Cambiar usuario".
+- **Revocar**: corta el equipo en su siguiente llamada, borra su cuenta de
+  Base44 y la desliga del bar. Si el borrado falla, Ajustes lo dice y deja
+  repetirlo. Una cuenta de terminal sin bar no puede crear un bar.
+- Las cuentas de terminal no salen en Staff, Checador, sesiones del bar ni
+  delegar el bar.
+
+**Pendiente de la fase 2a:** "Checar entrada" desde la pantalla de bloqueo
+(hoy la persona entra con su PIN y checa en Checador).

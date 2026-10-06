@@ -152,7 +152,9 @@ async function listSessions(req: Request, body: any): Promise<object> {
     fail(403, 'forbidden', 'No tienes permiso para esta acción');
   }
   if (!caller.tenantId) fail(404, 'not_found', 'No se encontró el bar');
-  const members = await svc.entities.User.filter({ tenant_id: caller.tenantId });
+  // Terminal accounts are managed from Ajustes > Terminales: revoking their
+  // session here would sign the device out and leave the terminal half alive.
+  const members = (await svc.entities.User.filter({ tenant_id: caller.tenantId })).filter((m: any) => m.app_role !== 'terminal');
   const rows: any[] = [];
   for (const m of members.slice(0, 100)) {
     for (const s of await userSessions(svc, m.id)) if (!isRevoked(s)) rows.push(s);

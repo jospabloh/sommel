@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Monitor } from 'lucide-react';
 import { callFn } from '@/lib/api';
+import { base44 } from '@/api/base44Client';
 import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,9 +48,10 @@ export default function TerminalsCard() {
     try {
       const allowed = mode === 'people' ? { mode: 'people', user_ids: [...picked] } : { mode: 'all' };
       const res = await callFn('terminals', 'activate', { name: name.trim(), allowed });
-      // This device now signs in as the terminal: the SDK stores the session
-      // from the URL and removes it from the address bar.
-      window.location.assign(`/mesas?access_token=${encodeURIComponent(res.session)}`);
+      // This device now signs in as the terminal. The session never goes in
+      // the URL: the SDK stores it, then the app reloads as the terminal.
+      base44.auth.setToken(res.session);
+      window.location.assign('/mesas');
     } catch (err) {
       toast({ title: 'No se pudo activar la terminal', description: err.message, variant: 'destructive' });
       setBusy(false);
@@ -60,8 +62,16 @@ export default function TerminalsCard() {
   const revoke = async (device) => {
     setRevoking(device.id);
     try {
-      await callFn('terminals', 'revoke', { device_id: device.id });
-      toast({ title: `Terminal ${device.name} desactivada` });
+      const res = await callFn('terminals', 'revoke', { device_id: device.id });
+      if (res.deprovisioned) {
+        toast({ title: `Terminal ${device.name} desactivada` });
+      } else {
+        toast({
+          title: `Terminal ${device.name} desactivada, pero su cuenta sigue viva`,
+          description: 'Ese equipo ya no puede usarse, pero vuelve a pulsar Desactivar para borrar su cuenta.',
+          variant: 'destructive',
+        });
+      }
       await load();
     } catch (err) {
       toast({ title: 'No se pudo desactivar', description: err.message, variant: 'destructive' });
@@ -70,7 +80,7 @@ export default function TerminalsCard() {
     }
   };
 
-  const active = (data?.terminals ?? []).filter((t) => !t.revoked_at);
+  const active = (data?.terminals ?? []).filter((t) => !t.revoked_at || t.account_pending);
   const people = data?.people ?? [];
   const canActivate = name.trim().length > 0 && (mode === 'all' || picked.size > 0);
 
@@ -102,6 +112,7 @@ export default function TerminalsCard() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{t.name}</p>
                     <p className="text-xs text-muted-foreground truncate">
+                      {t.account_pending ? 'Desactivada, falta borrar su cuenta · ' : ''}
                       {t.allowed?.mode === 'people' ? `${t.allowed.user_ids.length} persona(s)` : 'Todo el equipo'}
                       {t.last_seen_at ? ` · usada ${when(t.last_seen_at)}` : ''}
                     </p>

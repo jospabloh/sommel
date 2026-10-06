@@ -26,6 +26,11 @@ export default async function(req: Request): Promise<Response> {
     // SDK returns User rows (and every entity row) flat, so this reads
     // self.tenant_id directly, never self.data.tenant_id.
     const [self] = await svc.entities.User.filter({ id: user.id });
+    // A terminal account (terminal mode) is a device, never a bar owner, even
+    // after its bar was unlinked by a revoke.
+    if (self?.app_role === 'terminal') {
+      return Response.json({ error: 'Una terminal no puede crear un bar', code: 'terminal_not_allowed' }, { status: 403 });
+    }
     if (self?.tenant_id) {
       return Response.json({ error: 'Ya perteneces a un bar', code: 'already_in_a_bar' }, { status: 409 });
     }
