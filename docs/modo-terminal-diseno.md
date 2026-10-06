@@ -49,6 +49,35 @@ Botones dinámicos, para elegir rápido:
 
 Opcional, no pedido todavía: **horarios por persona** como tercera condición.
 
+## Cocina y barra en el mismo lugar (José, 2026-10-06)
+
+Hay bares donde la misma barra prepara las tapas. Para ellos:
+
+- **Vista combinada "Cocina y barra"** (`/estacion/todo`): las dos colas en una
+  sola pantalla, cada renglón marcado con su estación (Cocina / Barra), en un
+  solo orden por hora de envío. Una comanda con renglones de las dos estaciones
+  se ve junta.
+- **El semáforo sigue la meta de cada renglón**: un renglón de cocina se mide
+  contra `prep_goal_kitchen_min` (15 min por defecto) y uno de barra contra
+  `prep_goal_bar_min` (8 min por defecto), aunque estén en la misma pantalla.
+- **Filtro rápido** en la misma vista: Todo / Cocina / Barra, recordado por
+  equipo.
+- **La terminal elige qué estaciones atiende** al activarla: solo cocina, solo
+  barra o las dos. Una terminal con las dos abre la vista combinada.
+- **Permisos**: ver la vista combinada exige los dos permisos de estación
+  (`Estaciones:cocina` y `Estaciones:barra`, ver fase 3). Quien solo tiene uno ve
+  la vista combinada filtrada a su estación, nunca renglones de la otra.
+- **El servidor no cambia de reglas**: `markReady`/`markDelivered` siguen
+  comprobando cada renglón contra el bar; para la vista combinada hay que
+  comprobar además que quien marca tiene el permiso de la estación **de ese
+  renglón**, no de la pantalla.
+- **En vivo**: la suscripción a `OrderItem` acepta las dos estaciones, y todo lo
+  que llega por dos caminos se agrega por id (`upsertById`), igual que hoy.
+
+No depende del modo terminal: la vista combinada se puede construir antes, con
+la sesión de hoy y el permiso `Estaciones:operar`. Lo que sí depende es la
+elección de estaciones por terminal.
+
 ## Piezas
 
 ### 1. Personas del bar: `StaffMember` (entidad nueva)
@@ -126,7 +155,10 @@ decide entre B con mitigaciones o pedir un correo por terminal (por ejemplo
 1. Prueba del punto técnico (A o B).
 2. `StaffMember` + migración + PIN por persona + terminal + pase + "¿Quién
    eres?" + bloqueo a 2 minutos + firma de quién hizo qué.
-3. Permisos por persona en Staff.
+3. Permisos por persona en Staff, y `Estaciones:operar` partido en
+   `Estaciones:cocina` y `Estaciones:barra`.
+3b. **Vista combinada "Cocina y barra"** (ver su sección). Se puede adelantar
+   antes de la fase 2 si un bar la necesita ya.
 4. (Opcional) **Autorización en el momento**: si un mesero sin permiso intenta
    una cortesía, que el encargado ponga su PIN ahí mismo y quede registrado
    quién autorizó.
