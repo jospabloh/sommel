@@ -1034,5 +1034,5 @@ Staff con su nombre, rol `staff` y el bar; `setPersonPin` funcionó;
 `removeMember` la quitó. El bundle servido contiene "Agregar a alguien sin
 correo". José probó en una PC activada como terminal que el desbloqueo con PIN
 funciona, con una persona **con** correo (antes del #43 no se podía agregar a
-nadie sin correo). **No verificado:** el desbloqueo de una terminal con una
-persona sin correo; usa el mismo `unlock` y la misma fila `StaffPin`.
+nadie sin correo). Después, el mismo día, José desbloqueó la terminal con una
+persona **sin** correo creada desde Staff: funciona. Fase 2b cerrada.
