@@ -1116,8 +1116,15 @@ ticket y un health diario `ok` por el puente. `purge-sessions.yml` y
 combinaciones. Ninguna con scroll horizontal, error de página ni tema
 equivocado. El selector de tema tapa un control solo mientras no se hace
 scroll: "Listo" del checador a 390, una tarjeta de mesa a 390 y "Reimprimir" a
-834; al bajar quedan libres. Lo más molesto es el checador en celular: hay que
-bajar un poco para tocar "Listo".
+834; al bajar quedan libres.
+
+**Checador en celular, arreglado el mismo día.** Tocar "Listo" cambiaba el tema
+en vez de checar. Aquí no se movió el selector, a propósito: el teclado ocupa
+todo el ancho y en cualquier otra altura tapa otra tecla. Debajo de `sm`,
+`PinPad` deja libre la columna del selector (`max-sm:pr-12`). Vale para el
+checador, la terminal y la aprobación con PIN, que usan el mismo teclado.
+Verificado con el build local contra producción a 360, 390, 430, 640 y 834: el
+selector no tapa ninguna tecla, con o sin scroll.
 
 **Sigue sin verificar:** impresora Star física, impresora USB en Windows con
 driver, cámara real, el botón "Instalar Sommel" y un registro real con el
