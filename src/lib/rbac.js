@@ -31,3 +31,13 @@ export function personName(user) {
   if (full) return full;
   return user?.email || '';
 }
+
+/**
+ * People without email (phase 2b): their account has a no-mailbox address and
+ * they only ever unlock a terminal with their PIN. Same domain as
+ * PERSON_EMAIL_DOMAIN in base44/functions/terminals/_terminal_logic.ts.
+ */
+export const PERSON_EMAIL_DOMAIN = 'personal.acaciaco.com.mx';
+export function isWithoutEmail(user) {
+  return typeof user?.email === 'string' && user.email.toLowerCase().endsWith(`@${PERSON_EMAIL_DOMAIN}`);
+}

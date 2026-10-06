@@ -965,3 +965,45 @@ publica Base44: son números medidos, no una garantía.
 **Efecto de la prueba:** las dos corridas que toparon dejaron 429 durante unos
 segundos a cualquiera que usara Sommel en ese momento, en cualquier bar. No se
 escribió nada. Las corridas que no toparon no afectaron a nadie.
+
+## Fase 2b: personas sin correo (2026-10-06)
+
+**Se cambió el diseño, a propósito.** `docs/modo-terminal-diseno.md` proponía
+una entidad `StaffMember` y mover PINs, checador, firmas y permisos de
+`user_id` a `staff_member_id`, con migración. No hizo falta: la fase 2a ya crea
+cuentas sin buzón desde el servidor (`provisionAccount` + `signInAs`), y una
+persona sin correo es eso mismo, un `User` normal con dirección
+`p-…@personal.acaciaco.com.mx` con la que **nadie puede entrar**. Como es un
+`User`, su PIN, su checado, sus permisos por persona y la firma de todo lo que
+hace funcionan sin tocar nada más.
+
+- `terminals.addPerson` (bar_admin, `remoteOnly`): nombre, rol (`staff` o
+  `bar_admin`, lista blanca) y PIN. Crea la cuenta, inicia sesión una vez del
+  lado del servidor solo para que exista la fila `User` (la sesión se tira ahí
+  mismo), la apunta al bar con `display_name` y guarda el PIN con hash. Si algo
+  falla a la mitad, borra la cuenta.
+- `terminals.setPersonPin` (bar_admin, `remoteOnly`): cambia el PIN y lo
+  desbloquea. **Solo** para personas sin correo: quien tiene correo pone su
+  propio PIN y el admin nunca lo conoce (400 `has_own_login`).
+- El PIN lo escribe la persona en la pantalla del admin (dos veces); el admin
+  no necesita verlo. Una persona sin correo puede cambiar su PIN después desde
+  una terminal, desbloqueada como ella, igual que cualquiera.
+- **Dónde no pueden aparecer:** delegar el bar (`account.delegateBar` las
+  filtra; nunca podrían entrar a administrarlo) y el contacto del bar para
+  Mission Control (`barContacts` salta las direcciones sin buzón, también las
+  de terminales).
+- Staff: "Agregar a alguien sin correo", "Sin correo · entra solo en
+  terminales" en lugar del correo, y la llave para cambiar el PIN. La fila de
+  Staff se rehizo para envolver en celular: a 390 px el nombre quedaba en cero
+  y los distintivos se cortaban (ya pasaba antes de esto, con el admin).
+- Al quitar a una persona sin correo del equipo, su cuenta queda sin bar y sin
+  forma de entrar; no se borra (igual que con cualquier persona).
+- Pruebas: `base44/tests/people_without_email_test.ts`.
+
+**Verificado:** pruebas (564/0), lint, build, `check:functions`,
+`check:guards`, `validate:tenant-roles`, `deno lint`; la pantalla de Staff con
+el build local a 390/1440, claro y oscuro, con todas las funciones simuladas:
+sin desbordar, el aviso de PIN distinto, y el cuerpo de `addPerson` correcto.
+**No verificado:** `addPerson` contra Base44 publicado (que `provisionAccount`
+acepte el dominio `personal.` igual que `terminales.`) y desbloquear una
+terminal real con esa persona.

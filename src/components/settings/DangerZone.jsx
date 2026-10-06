@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { BAR_ADMIN, personName } from '@/lib/rbac';
+import { BAR_ADMIN, isWithoutEmail, personName } from '@/lib/rbac';
 import { notifyMissionControl } from '@/lib/supportTickets';
 
 const STEP_COUNT = 3;
@@ -198,7 +198,7 @@ export default function DangerZone({ bar }) {
     setOpen('delegate');
     try {
       const res = await callFn('manageStaff', 'list');
-      setAdmins((res.staff || []).filter((m) => m.app_role === BAR_ADMIN && m.id !== user?.id));
+      setAdmins((res.staff || []).filter((m) => m.app_role === BAR_ADMIN && m.id !== user?.id && !isWithoutEmail(m)));
     } catch (err) {
       toast({ title: 'No se pudo cargar el equipo', description: err.message, variant: 'destructive' });
     }
