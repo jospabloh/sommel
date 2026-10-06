@@ -607,4 +607,5 @@ la fase 3.
   devuelve `[]`.
 - Pruebas: `base44/tests/station_view_test.ts`. Vista revisada con el build
   local contra el backend real, a 390 y 1440 px, en claro y en oscuro.
-- No verificado: el tiempo real con dos pantallas abiertas a la vez.
+- Tiempo real con dos pantallas abiertas a la vez: verificado a mano por José
+  en producción el 2026-10-06.
