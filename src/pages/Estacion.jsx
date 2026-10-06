@@ -1,5 +1,6 @@
 // Pantalla de estación (cocina / barra) — contrato §5, pantallas 3 y 8.
-// Sirve /estacion/:station ('kitchen' | 'bar'). Dueño: agente "Estaciones UI"
+// Sirve /estacion/:station ('kitchen' | 'bar' | 'todo'; 'todo' = cocina y
+// barra en una sola pantalla, docs/modo-terminal-diseno.md). Dueño: agente "Estaciones UI"
 // (src/pages/Estacion.jsx + src/components/stations/**).
 //
 // Lecturas directas de OrderItem/Order/BarTable/WineBar están permitidas por
@@ -17,18 +18,35 @@ import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import StationTicket from '@/components/stations/StationTicket';
 import {
+  COMBINED_VIEW,
   STATION_TITLES,
-  STATIONS,
+  VIEW_TITLES,
   flattenRow,
   flattenEvent,
-  goalMinutesFor,
   groupItemsByOrder,
+  linesForFilter,
+  normalizeCombinedFilter,
+  stationsForView,
 } from '@/components/stations/stationHelpers';
 
 // El reloj de la pantalla avanza cada 30 s (contrato §5) — no en cada render
 // ni con un timer más rápido, para que la barra de calor "salte" en pasos
 // visibles en vez de recalcular constantemente sin que nadie lo note.
 const CLOCK_TICK_MS = 30 * 1000;
+
+// The combined view's filter is remembered per device: a counter that only
+// does drinks at night keeps "Barra" without choosing it every shift.
+const FILTER_KEY = 'sommel-station-filter';
+
+function readFilter() {
+  try {
+    return normalizeCombinedFilter(localStorage.getItem(FILTER_KEY));
+  } catch {
+    return 'all';
+  }
+}
+
+const FILTER_LABELS = { all: 'Todo', ...STATION_TITLES };
 
 export default function Estacion() {
   const { station } = useParams();
@@ -45,8 +63,22 @@ export default function Estacion() {
   const [now, setNow] = useState(() => new Date());
   const [ackedCancelled, setAckedCancelled] = useState(() => new Set());
   const [busyIds, setBusyIds] = useState(() => new Set());
+  const [filter, setFilterState] = useState(readFilter);
 
-  const validStation = STATIONS.includes(station);
+  const isCombined = station === COMBINED_VIEW;
+  // A string key keeps the effects below from re-running on every render.
+  const stationKey = stationsForView(station).join(',');
+  const validStation = stationKey.length > 0;
+
+  const setFilter = useCallback((value) => {
+    const next = normalizeCombinedFilter(value);
+    setFilterState(next);
+    try {
+      localStorage.setItem(FILTER_KEY, next);
+    } catch {
+      // storage blocked: the filter still works for this visit
+    }
+  }, []);
 
   const setBusy = useCallback((ids, on) => {
     setBusyIds((prev) => {
@@ -85,7 +117,11 @@ export default function Estacion() {
         // already scoped to status:'abierta' above); 'nuevo' hasn't been
         // sent yet and 'entregado' is done, so both are excluded from the
         // fetch itself instead of only from the render.
-        base44.entities.OrderItem.filter({ tenant_id: tenantId, station, status: { $in: ['enviado', 'listo', 'cancelado'] } }),
+        base44.entities.OrderItem.filter({
+          tenant_id: tenantId,
+          station: { $in: stationKey.split(',') },
+          status: { $in: ['enviado', 'listo', 'cancelado'] },
+        }),
       ]);
       setBar(barConfig || null);
       setOrders((orderRows || []).map(flattenRow).filter(Boolean));
@@ -96,7 +132,7 @@ export default function Estacion() {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, station, validStation]);
+  }, [tenantId, stationKey, validStation]);
 
   useEffect(() => {
     load();
@@ -114,13 +150,14 @@ export default function Estacion() {
   // igual que useOrderRealtime.js hace para la pantalla de Orden.
   useEffect(() => {
     if (!tenantId || !validStation) return undefined;
+    const shown = stationKey.split(',');
 
     const unsubItems = base44.entities.OrderItem.subscribe((evt) => {
       const row = flattenEvent(evt);
       if (!row?.id) return;
       setItems((prev) => {
         const idx = prev.findIndex((i) => i.id === row.id);
-        const belongsHere = row.tenant_id === tenantId && row.station === station && evt.type !== 'delete';
+        const belongsHere = row.tenant_id === tenantId && shown.includes(row.station) && evt.type !== 'delete';
         if (!belongsHere) return idx === -1 ? prev : prev.filter((i) => i.id !== row.id);
         if (idx === -1) return [...prev, row];
         const next = prev.slice();
@@ -147,7 +184,7 @@ export default function Estacion() {
       unsubItems();
       unsubOrders();
     };
-  }, [tenantId, station, validStation]);
+  }, [tenantId, stationKey, validStation]);
 
   const tablesById = useMemo(() => {
     const map = new Map();
@@ -161,9 +198,12 @@ export default function Estacion() {
     return map;
   }, [orders]);
 
-  const goalMinutes = goalMinutesFor(station, bar);
-
-  const grouped = useMemo(() => groupItemsByOrder(items), [items]);
+  const activeFilter = isCombined ? filter : 'all';
+  const grouped = useMemo(
+    () => groupItemsByOrder(linesForFilter(items, activeFilter)),
+    [items, activeFilter]
+  );
+  const emptyLabel = activeFilter === 'all' ? VIEW_TITLES[station] : FILTER_LABELS[activeFilter];
 
   // Tickets ordenados por hora de entrada — el que lleva más tiempo esperando
   // arriba, que es justo el que más urge que alguien vea.
@@ -274,8 +314,8 @@ export default function Estacion() {
   if (!validStation) {
     return (
       <div className="p-6 text-muted-foreground">
-        Estación desconocida. Usa <span className="font-mono">/estacion/kitchen</span> o{' '}
-        <span className="font-mono">/estacion/bar</span>.
+        Estación desconocida. Usa <span className="font-mono">/estacion/kitchen</span>,{' '}
+        <span className="font-mono">/estacion/bar</span> o <span className="font-mono">/estacion/todo</span>.
       </div>
     );
   }
@@ -287,11 +327,28 @@ export default function Estacion() {
   return (
     <div className="p-4 sm:p-6 pb-24 max-w-3xl mx-auto">
       <div className="flex items-center justify-between gap-3 mb-5">
-        <h1 className="font-display text-2xl font-bold">{STATION_TITLES[station]}</h1>
+        <h1 className="font-display text-2xl font-bold">{VIEW_TITLES[station]}</h1>
         <Button variant="ghost" size="icon" onClick={load} aria-label="Actualizar">
           <RotateCw className="w-5 h-5" />
         </Button>
       </div>
+
+      {isCombined && (
+        <div className="flex gap-2 flex-wrap mb-4" role="group" aria-label="Mostrar">
+          {Object.entries(FILTER_LABELS).map(([key, label]) => (
+            <Button
+              key={key}
+              type="button"
+              className="h-11 px-5"
+              variant={filter === key ? 'default' : 'outline'}
+              aria-pressed={filter === key}
+              onClick={() => setFilter(key)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -299,7 +356,7 @@ export default function Estacion() {
         </div>
       ) : tickets.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground border border-dashed border-border rounded-2xl">
-          Nada pendiente en {STATION_TITLES[station].toLowerCase()} por ahora.
+          Nada pendiente en {emptyLabel?.toLowerCase()} por ahora.
         </div>
       ) : (
         <div className="space-y-4">
@@ -311,7 +368,8 @@ export default function Estacion() {
               tablesById={tablesById}
               lines={lines}
               now={now}
-              goalMinutes={goalMinutes}
+              bar={bar}
+              showStation={isCombined}
               canOperate={canOperate}
               ackedCancelled={ackedCancelled}
               onAcknowledgeCancelled={acknowledgeCancelled}

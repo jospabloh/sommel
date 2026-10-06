@@ -20,6 +20,30 @@ export const STATION_TITLES = {
 
 export const STATIONS = ['kitchen', 'bar'];
 
+/** `/estacion/todo`: kitchen and bar on one screen, for bars where the same
+ *  counter prepares both (docs/modo-terminal-diseno.md, "Cocina y barra"). */
+export const COMBINED_VIEW = 'todo';
+
+export const VIEW_TITLES = { ...STATION_TITLES, [COMBINED_VIEW]: 'Cocina y barra' };
+
+/** The stations a route param shows, or [] for an unknown one. */
+export function stationsForView(view) {
+  if (view === COMBINED_VIEW) return [...STATIONS];
+  return STATIONS.includes(view) ? [view] : [];
+}
+
+/** The combined view's quick filter: 'all' | 'kitchen' | 'bar'. */
+export const COMBINED_FILTERS = ['all', ...STATIONS];
+
+export function normalizeCombinedFilter(value) {
+  return COMBINED_FILTERS.includes(value) ? value : 'all';
+}
+
+/** Keeps a ticket's lines that belong to the chosen filter. */
+export function linesForFilter(lines, filter) {
+  return filter === 'all' ? lines : lines.filter((l) => l.station === filter);
+}
+
 /**
  * Base44 rows come back FLAT from the SDK — `{ id, created_date,
  * updated_date, ...fields }` — from direct entity reads, `subscribe()`
@@ -103,6 +127,32 @@ export function groupItemsByOrder(items) {
     list.sort((a, b) => (a.sent_at || '').localeCompare(b.sent_at || ''));
   }
   return map;
+}
+
+/**
+ * A ticket's heat when its lines can belong to different stations: each
+ * station's lines are measured against THAT station's goal, and the ticket
+ * shows the most urgent one. With one station this is exactly
+ * `heatLevel(earliestSentAt(lines), now, goalMinutes)`.
+ */
+export function ticketHeat(lines, now, bar) {
+  // Only stations with work still open count; a station whose lines were all
+  // cancelled must not heat the ticket. With nothing open, fall back to all.
+  const active = lines.filter((l) => l.status === 'enviado' || l.status === 'listo');
+  const byStation = new Map();
+  for (const line of active.length ? active : lines) {
+    const st = STATIONS.includes(line.station) ? line.station : 'kitchen';
+    const list = byStation.get(st) || [];
+    list.push(line);
+    byStation.set(st, list);
+  }
+  let worst = { ratio: 0, level: 'ok', sentAt: null };
+  for (const [st, list] of byStation) {
+    const sentAt = earliestSentAt(list);
+    const heat = heatLevel(sentAt, now, goalMinutesFor(st, bar));
+    if (!worst.sentAt || heat.ratio > worst.ratio) worst = { ...heat, sentAt };
+  }
+  return worst;
 }
 
 /** Earliest `sent_at` among a ticket's still-active (non-cancelled) lines. */

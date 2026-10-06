@@ -589,3 +589,22 @@ su monto, y un toque guarda. Son para quien cobra cuando el cliente ya dijo
 cuánto deja: nada se sugiere ni se imprime al cliente. El contrato decía "sin
 porcentaje sugerido" y se actualizó (`docs/entrega-2-contratos.md`). El monto
 del botón es solo vista previa; el servidor calcula la propina.
+
+## Vista combinada "Cocina y barra" (2026-10-06)
+
+`/estacion/todo` muestra las dos colas en una sola pantalla, para bares donde
+la misma barra prepara las tapas. Se adelantó antes de la fase 2 del modo
+terminal (`docs/modo-terminal-diseno.md`) y usa el permiso de hoy,
+`Estaciones:operar`; la división en `Estaciones:cocina`/`Estaciones:barra` es de
+la fase 3.
+- Cada renglón lleva su etiqueta Cocina/Barra. El calor de la comanda se mide
+  por estación contra la meta de **esa** estación (`ticketHeat` en
+  `stationHelpers.js`) y la comanda muestra la peor; una estación con todo
+  cancelado no calienta la comanda.
+- Filtro rápido Todo / Cocina / Barra, recordado por equipo
+  (`sommel-station-filter`).
+- Una ruta desconocida no muestra todas las estaciones: `stationsForView`
+  devuelve `[]`.
+- Pruebas: `base44/tests/station_view_test.ts`. Vista revisada con el build
+  local contra el backend real, a 390 y 1440 px, en claro y en oscuro.
+- No verificado: el tiempo real con dos pantallas abiertas a la vez.
