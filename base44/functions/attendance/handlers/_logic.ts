@@ -297,3 +297,17 @@ export function buildCorrection(
   }
   return patch;
 }
+
+/** Who the checador shows. With `Asistencia:ver_equipo` (bar admins by
+ *  default) the whole team, for the shared tablet; without it only the person
+ *  signed in, so a staff session never lists the team. */
+export function rosterFor<T extends { user_id: string }>(people: T[], selfId: string | null | undefined, seeTeam: boolean): T[] {
+  if (seeTeam) return people;
+  return people.filter((p) => !!selfId && p.user_id === selfId);
+}
+
+/** A punch for someone else needs `Asistencia:ver_equipo`; anyone may punch
+ *  for themselves (still with their own PIN). */
+export function canPunchFor(targetId: string, selfId: string | null | undefined, seeTeam: boolean): boolean {
+  return seeTeam || (!!selfId && targetId === selfId);
+}

@@ -1,6 +1,8 @@
-// Checador de entrada y salida con PIN (contrato §5). Pensado para una tablet
-// compartida: cuadrícula de nombres, teclado grande, confirmación de unos
-// segundos y de vuelta a la cuadrícula. Todo pasa por callFn('attendance', ...).
+// Checador de entrada y salida con PIN (contrato §5). Con Asistencia:ver_equipo
+// (admins por defecto) es la tablet compartida: cuadrícula de nombres, teclado
+// grande, confirmación y de vuelta a la cuadrícula. Sin ese permiso el servidor
+// solo devuelve a quien inició sesión y la pantalla abre directo su teclado.
+// Todo pasa por callFn('attendance', ...).
 import React, { useCallback, useEffect, useState } from 'react';
 import { Fingerprint, KeyRound, RefreshCw } from 'lucide-react';
 import { callFn } from '@/lib/api';
@@ -20,6 +22,7 @@ export default function Checador() {
   const canPunch = can('Asistencia:checar');
 
   const [people, setPeople] = useState(null);
+  const [seeTeam, setSeeTeam] = useState(false);
   const [error, setError] = useState(null);
   const [picked, setPicked] = useState(null); // persona con el teclado abierto
   const [result, setResult] = useState(null); // respuesta de punch
@@ -30,6 +33,7 @@ export default function Checador() {
     try {
       const res = await callFn('attendance', 'roster');
       setPeople(res.people || []);
+      setSeeTeam(!!res.see_team);
     } catch (err) {
       setError(err.message || 'No se pudo cargar el equipo');
     }
@@ -59,18 +63,27 @@ export default function Checador() {
   }
 
   const me = people?.find((p) => p.user_id === user?.id);
+  // Without the team permission there is only one person: the one signed in.
+  const solo = !!people && !seeTeam;
+  const current = picked ?? (solo ? me : null);
 
   let body;
   if (result) {
     body = <PunchSuccess result={result} onDone={backToGrid} />;
-  } else if (picked) {
+  } else if (solo && !me) {
+    body = (
+      <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+        Tu usuario no aparece en el equipo de este bar. Pide a quien administra el bar que te agregue.
+      </div>
+    );
+  } else if (current) {
     body = (
       <PunchEntry
-        person={picked}
-        onBack={() => setPicked(null)}
+        person={current}
+        onBack={solo ? undefined : () => setPicked(null)}
         onDone={setResult}
         onNeedPin={() => setPinOpen(true)}
-        isSelf={picked.user_id === user?.id}
+        isSelf={current.user_id === user?.id}
       />
     );
   } else if (error) {
@@ -98,9 +111,13 @@ export default function Checador() {
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="font-display text-2xl sm:text-3xl font-semibold">Checador</h1>
-          <p className="text-muted-foreground mt-0.5">Toca tu nombre y escribe tu PIN para registrar entrada o salida.</p>
+          <p className="text-muted-foreground mt-0.5">
+            {solo
+              ? 'Escribe tu PIN para registrar tu entrada o salida.'
+              : 'Toca tu nombre y escribe tu PIN para registrar entrada o salida.'}
+          </p>
         </div>
-        {!picked && !result ? (
+        {!result && (solo || !picked) ? (
           <>
             <Button type="button" variant="outline" className="h-11" onClick={() => setPinOpen(true)}>
               <KeyRound className="w-4 h-4" /> <span className="hidden min-[420px]:inline">Mi PIN</span>

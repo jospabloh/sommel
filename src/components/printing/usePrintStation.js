@@ -8,6 +8,14 @@
 // Two ways out to paper. With a USB printer connected (WebUSB) the job goes
 // straight to it as ESC/POS: no driver, no dialog, and a failure is a real
 // failure. Without one, the old path: paint the print area and window.print().
+//
+// One instance for the whole app (PrintStationProvider in Layout). A device
+// with a USB printer prints from ANY screen, and auto print defaults to on
+// there: a ticket asked for from Cobro must come out without anyone opening
+// Impresión. Without a USB printer it only works while Impresión is open
+// (`pageOpen`), since window.print() would pop a dialog in the middle of a
+// sale. A Web Lock keeps two tabs of the same device from printing the same
+// job.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { base44 } from '@/api/base44Client';
@@ -24,13 +32,24 @@ function nextFrame() {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
-export default function usePrintStation(tenantId) {
+const PRINT_LOCK = 'sommel-print-station';
+
+/** Runs `fn` while holding the device-wide print lock; skips if another tab
+ *  holds it (that tab is printing). Without Web Locks it just runs. */
+async function withPrintLock(fn) {
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    return navigator.locks.request(PRINT_LOCK, { ifAvailable: true }, (lock) => (lock ? fn() : undefined));
+  }
+  return fn();
+}
+
+export default function usePrintStation(tenantId, { allowed = true, pageOpen = false } = {}) {
   const [deviceId] = useState(getDeviceId);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [lastSync, setLastSync] = useState(null);
-  const [auto, setAutoState] = useState(readAutoPref);
+  const [autoPref, setAutoState] = useState(readAutoPref);
   const [busy, setBusy] = useState(false);
   const [paperJob, setPaperJob] = useState(null);
   const busyRef = useRef(false);
@@ -58,6 +77,11 @@ export default function usePrintStation(tenantId) {
     };
   }, [setPrinter]);
 
+  // Work only where it can print: a USB printer here, or the Impresión page.
+  const enabled = allowed && !!tenantId && (!!usb || pageOpen);
+  // Unset preference: on with a USB printer (it is the caja), off otherwise.
+  const auto = autoPref ?? !!usb;
+
   const load = useCallback(async () => {
     try {
       const { jobs: rows } = await callFn('printing', 'queue', { include_done: true });
@@ -72,15 +96,16 @@ export default function usePrintStation(tenantId) {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return undefined;
     load();
     const t = setInterval(load, POLL_MS);
     return () => clearInterval(t);
-  }, [load]);
+  }, [enabled, load]);
 
   // Realtime: subscribe() is not filtered by the server, so only events of
   // this bar trigger a (debounced) reload.
   useEffect(() => {
-    if (!tenantId) return undefined;
+    if (!enabled) return undefined;
     let timer = null;
     const unsub = base44.entities.PrintJob.subscribe((evt) => {
       const row = eventRow(evt);
@@ -92,7 +117,7 @@ export default function usePrintStation(tenantId) {
       clearTimeout(timer);
       if (typeof unsub === 'function') unsub();
     };
-  }, [tenantId, load]);
+  }, [enabled, tenantId, load]);
 
   const setAuto = useCallback((on) => {
     setAutoState(on);
@@ -156,8 +181,10 @@ export default function usePrintStation(tenantId) {
     busyRef.current = true;
     setBusy(true);
     try {
-      const { job } = await callFn('printing', 'claimNext', { device_id: deviceId });
-      if (job) await paintAndPrint(job);
+      await withPrintLock(async () => {
+        const { job } = await callFn('printing', 'claimNext', { device_id: deviceId });
+        if (job) await paintAndPrint(job);
+      });
     } catch (err) {
       toast({ title: 'No se pudo tomar el trabajo', description: err.message, variant: 'destructive' });
     } finally {
@@ -169,9 +196,11 @@ export default function usePrintStation(tenantId) {
 
   // Auto print: whenever the queue shows a waiting job and nothing is in flight.
   const hasPending = jobs.some((j) => j.status === 'pendiente');
+  // Off the Impresión page only the USB path prints (no dialog mid-sale).
+  const canAutoPrint = enabled && auto && (!!usb || pageOpen);
   useEffect(() => {
-    if (auto && hasPending && !busyRef.current) printNext();
-  }, [auto, hasPending, jobs, printNext]);
+    if (canAutoPrint && hasPending && !busyRef.current) printNext();
+  }, [canAutoPrint, hasPending, jobs, printNext]);
 
   const act = useCallback(
     async (fn, okTitle) => {
