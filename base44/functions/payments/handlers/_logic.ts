@@ -31,6 +31,17 @@ export function resolveMethod(methods: MethodDef[] | null | undefined, key: unkn
   return found;
 }
 
+/** True when a live (not voided) payment used a cash method. The print station
+ *  opens the cash drawer for that ticket; a card-only sale never does. */
+export function hasCashPayment(
+  payments: Array<{ method?: string | null; voided_at?: string | null }>,
+  methods: MethodDef[] | null | undefined,
+): boolean {
+  const cash = new Set((methods ?? []).filter((m) => m?.is_cash && m.key).map((m) => m.key));
+  if (cash.size === 0) cash.add('efectivo');
+  return (payments ?? []).some((p) => !p?.voided_at && !!p?.method && cash.has(p.method));
+}
+
 /** Σ amount of live (not voided) payments. */
 export function paidTotal(payments: Array<{ amount?: number | null; voided_at?: string | null }>): number {
   return (payments ?? []).reduce(

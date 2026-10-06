@@ -1,9 +1,10 @@
 // Estación de impresión (contrato Entrega 2, sección 6). Pensada para dejarse
-// abierta en la laptop de caja: reclama los trabajos de la cola, los pinta en
-// un área de 58 mm y confirma con el servidor. Nunca escribe entidades
-// directo; todo pasa por la función `printing`.
+// abierta en la laptop de caja: reclama los trabajos de la cola, los imprime
+// y confirma con el servidor. Con una impresora conectada por USB los manda
+// directo (sin driver ni cuadro de impresión); si no, usa el cuadro del
+// navegador. Nunca escribe entidades directo; todo pasa por `printing`.
 import React from 'react';
-import { Printer, RefreshCw } from 'lucide-react';
+import { Printer, RefreshCw, Usb, Unplug, Wallet } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -24,6 +25,48 @@ function Section({ title, hint, count, children }) {
       {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
       {children}
     </section>
+  );
+}
+
+function PrinterCard({ station }) {
+  const { usbSupported, printer, printerName, connectPrinter, disconnectPrinter, testPrint, openDrawer, busy } = station;
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-3">
+      <div className="flex items-start gap-3">
+        <Usb className={`w-5 h-5 mt-0.5 shrink-0 ${printer ? 'text-primary' : 'text-muted-foreground'}`} />
+        <div className="min-w-0">
+          <p className="font-medium">{printer ? `Impresora conectada: ${printerName}` : 'Impresora por USB'}</p>
+          <p className="text-sm text-muted-foreground">
+            {!usbSupported
+              ? 'Este navegador no conecta impresoras USB. Abre Sommel en Google Chrome o Microsoft Edge; mientras tanto se imprime con el cuadro de impresión.'
+              : printer
+                ? 'Los tickets salen directo en esta impresora, sin cuadro de impresión. Si se cobró en efectivo, se abre el cajón.'
+                : 'Conecta la impresora de tickets por USB y elígela una vez. No necesitas instalar nada; este equipo la recuerda.'}
+          </p>
+        </div>
+      </div>
+      {usbSupported && (
+        <div className="flex flex-wrap gap-2">
+          {printer ? (
+            <>
+              <Button size="sm" variant="outline" onClick={testPrint} disabled={busy}>
+                <Printer /> Imprimir prueba
+              </Button>
+              <Button size="sm" variant="outline" onClick={openDrawer} disabled={busy}>
+                <Wallet /> Abrir cajón
+              </Button>
+              <Button size="sm" variant="ghost" onClick={disconnectPrinter} disabled={busy}>
+                <Unplug /> Desconectar
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" onClick={connectPrinter}>
+              <Usb /> Conectar impresora
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -89,7 +132,9 @@ export default function Impresion() {
         {loadError && <p className="text-sm text-destructive">No se pudo actualizar la cola: {loadError}</p>}
       </div>
 
-      <KioskInstructions />
+      <PrinterCard station={station} />
+
+      {!station.printer && <KioskInstructions />}
 
       {loading ? (
         <div className="space-y-2">
