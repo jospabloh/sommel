@@ -12,6 +12,7 @@ import { isPlatformUser, canManageBar } from '@/lib/rbac';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Layout from '@/components/Layout';
+import TerminalGate from '@/components/terminal/TerminalGate';
 import Menu from '@/pages/Menu';
 import Mesas from '@/pages/Mesas';
 import Orden from '@/pages/Orden';
@@ -143,6 +144,8 @@ const AuthenticatedApp = () => {
       <Route element={<ProtectedRoute unauthenticatedElement={<RedirectToLogin />} />}>
         <Route path="/onboarding" element={<OnboardingRoute />} />
         <Route element={<RequireTenant />}>
+          {/* Terminal mode: a terminal shows "¿Quién eres?" until a PIN unlocks it. */}
+          <Route element={<TerminalGate />}>
           <Route element={<Layout />}>
             <Route path="/" element={<Navigate to="/mesas" replace />} />
             <Route path="/menu" element={<Menu />} />
@@ -188,6 +191,7 @@ const AuthenticatedApp = () => {
             <Route path="/about" element={<About />} />
             <Route path="/staff" element={<Staff />} />
             <Route path="/super-admin" element={<SuperAdmin />} />
+          </Route>
           </Route>
         </Route>
       </Route>

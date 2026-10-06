@@ -1,7 +1,9 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
 import { loginPath, isAuthPath } from '@/lib/loginPath';
+import { getTerminalState, subscribeTerminal } from '@/lib/terminal/terminalStore';
+import { effectiveUser, isTerminalAccount } from '@/lib/terminal/terminalUser';
 
 const AuthContext = createContext();
 
@@ -123,9 +125,18 @@ export const AuthProvider = ({ children }) => {
     window.location.assign(loginPath());
   };
 
+  // Terminal mode: on a terminal, `user` is whoever unlocked it with their
+  // PIN (or the bare terminal account while locked); `account` is always the
+  // signed-in Base44 user.
+  const terminal = useSyncExternalStore(subscribeTerminal, getTerminalState);
+  const shownUser = useMemo(() => effectiveUser(user, terminal), [user, terminal]);
+
   return (
     <AuthContext.Provider value={{ 
-      user, 
+      user: shownUser,
+      account: user,
+      isTerminal: isTerminalAccount(user),
+      terminal,
       isAuthenticated, 
       isLoadingAuth,
       isLoadingPublicSettings,

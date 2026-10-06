@@ -8,6 +8,7 @@
 // error shape (`ApiError`) instead of each page re-parsing
 // `err.response?.data?.error` by hand.
 import { base44 } from '@/api/base44Client';
+import { currentPass, lockTerminal, markRevoked } from '@/lib/terminal/terminalStore';
 
 export class ApiError extends Error {
   /**
@@ -37,12 +38,17 @@ export class ApiError extends Error {
  */
 export async function callFn(endpoint, action, payload = {}) {
   try {
-    const res = await base44.functions.invoke(endpoint, { action, ...payload });
+    // Terminal mode: the person who unlocked this terminal travels with every
+    // call; the server checks it and acts as that person.
+    const pass = currentPass();
+    const res = await base44.functions.invoke(endpoint, { action, ...payload, ...(pass ? { terminal_pass: pass } : {}) });
     return res?.data ?? {};
   } catch (err) {
     const status = err?.response?.status ?? 0;
     const data = err?.response?.data;
     const code = data?.code || 'unknown_error';
+    if (code === 'terminal_locked') lockTerminal();
+    if (code === 'terminal_revoked') markRevoked();
     const message = data?.error || err?.message || 'Error de red';
     throw new ApiError(status, code, message, data);
   }

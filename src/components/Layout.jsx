@@ -4,12 +4,13 @@ import { useAuth } from '@/lib/AuthContext';
 import {
   LayoutGrid, GlassWater, ChefHat, Beer, Users, Building2, LogOut,
   Clock, Package, BarChart3, Printer, Settings, Fingerprint, CalendarCheck,
-  ShieldCheck, LifeBuoy, Info, UserCircle, Layers,
+  ShieldCheck, LifeBuoy, Info, UserCircle, Layers, Lock,
 } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
 import LicenseBanner from '@/components/LicenseBanner';
 import ScreenControls from '@/components/ScreenControls';
+import { lockTerminal } from '@/lib/terminal/terminalStore';
 import { usePermission } from '@/lib/usePermission';
 import { isPlatformUser, isBarAdmin, barRoleOf, roleLabel } from '@/lib/rbac';
 import AppUpdateBanner from '@/components/AppUpdateBanner';
@@ -170,17 +171,35 @@ export default function Layout() {
             </div>
             <div className="hidden lg:block min-w-0">
               <p className="text-sm font-medium truncate">{displayName}</p>
-              <p className="text-xs text-muted-foreground truncate">{roleLabel(user)}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {roleLabel(user)}
+                {user?.terminal ? ` · Terminal ${user.terminal.name}` : ''}
+              </p>
             </div>
           </div>
           <ScreenControls />
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          >
-            <LogOut className="w-5 h-5 shrink-0" />
-            <span className="hidden lg:block">Cerrar sesión</span>
-          </button>
+          {user?.terminal ? (
+            // On a terminal, signing out would undo the terminal itself: the
+            // person just hands it over, and it asks "¿Quién eres?" again.
+            <button
+              type="button"
+              onClick={lockTerminal}
+              title="Cambiar usuario"
+              aria-label="Cambiar usuario"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+            >
+              <Lock className="w-5 h-5 shrink-0" />
+              <span className="hidden lg:block">Cambiar usuario</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+            >
+              <LogOut className="w-5 h-5 shrink-0" />
+              <span className="hidden lg:block">Cerrar sesión</span>
+            </button>
+          )}
         </div>
       </aside>
       <main className="flex-1 min-w-0 overflow-auto pb-20">
