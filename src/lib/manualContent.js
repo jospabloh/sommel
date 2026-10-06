@@ -196,6 +196,10 @@ export const MANUAL_SECTIONS = [
     keywords: ['ticket', 'impresora', 'termica', 'reimprimir', 'laptop', '58 mm', 'corte'],
     items: [
       {
+        q: '¿Puedo tener una impresora en la cocina sin computadora?',
+        a: 'Sí, si es una impresora Star con CloudPRNT (por ejemplo TSP143IV o mC-Print3). En Impresión, el administrador toca Agregar en "Impresoras en red", elige qué imprime, y escribe en la configuración de la impresora la URL, el usuario y la contraseña que Sommel le muestra. La impresora se conecta sola por internet. Otras impresoras de red, que no son Star con CloudPRNT, se conectan por USB a una computadora o terminal.',
+      },
+      {
         q: '¿Cómo funciona la impresión?',
         a: 'Los tickets y cortes se mandan a una cola. La laptop de caja tiene abierta la pantalla de Impresión, recoge cada trabajo y lo manda a la impresora de 58 mm.',
       },

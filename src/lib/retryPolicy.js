@@ -15,7 +15,7 @@ export const READ_ACTIONS = {
   stations: ['getConfig'],
   shifts: ['list', 'current'],
   security: ['listAlerts', 'listPhotos', 'getPhoto', 'approvers', 'listApprovals'],
-  printing: ['queue'],
+  printing: ['queue', 'cloudList'],
   permissions: ['getProfile', 'getPerson'],
   inventory: ['list', 'movements'],
   manageStaff: ['list'],

@@ -1036,3 +1036,44 @@ correo". José probó en una PC activada como terminal que el desbloqueo con PIN
 funciona, con una persona **con** correo (antes del #43 no se podía agregar a
 nadie sin correo). Después, el mismo día, José desbloqueó la terminal con una
 persona **sin** correo creada desde Staff: funciona. Fase 2b cerrada.
+
+## Impresoras en red: Star CloudPRNT (2026-10-06)
+
+**Una página web no puede imprimir en una impresora de red** (el navegador no
+abre conexiones al puerto 9100, y Base44 vive en internet, no en la red del
+bar). Decisión de José: nada que instalar en el bar. La única impresora de red
+que cumple eso es la que **le pide los trabajos a Sommel ella misma**: Star
+CloudPRNT (TSP143IV, mC-Print3...). Una EC Line solo por red no puede.
+
+- Función nueva **`cloudprnt`** (22 de 40): la impresora sondea con POST
+  (`{ jobReady, mediaTypes, jobToken }`), baja el trabajo con GET (lo reclama
+  como `cloud:<id>`, relee y gana o responde 404, igual que `claimNext`) y
+  confirma con DELETE (`code` 2xx = `impreso`, si no `fallido`). Un bar
+  suspendido o en solo lectura no imprime.
+- **Autenticación:** usuario = id de la `CloudPrinter`, contraseña generada al
+  darla de alta (se muestra **una vez**; solo se guarda su SHA-256), por HTTP
+  Basic o `?id=&k=`. Base44 sí deja pasar GET, DELETE y `Authorization: Basic`
+  a una función (probado contra producción); el SDK solo acepta `Bearer`, así
+  que la función arma el cliente de servicio con una copia de la petición sin
+  ese encabezado.
+- **Cuota:** cada sondeo gasta del límite compartido de la app (ver "Prueba de
+  carga"). La impresora y el bar se cachean 20 s y `last_seen_at` se escribe a
+  lo mucho una vez por minuto: ~1 operación por sondeo. Las instrucciones piden
+  sondear cada 10 s.
+- Entidad **`CloudPrinter`** (candado de lectura y escritura a nivel entidad,
+  en el manifiesto). La administran `printing.cloudList/cloudAdd/cloudUpdate/
+  cloudRevoke` (solo `bar_admin`, `remoteOnly`, máximo 10 por bar). Quitar una
+  la marca `revoked_at`, no la borra.
+- Pantalla: Impresión → "Impresoras en red (Star CloudPRNT)", solo para el
+  admin y nunca en una terminal: alta, tipos que imprime, formato y quitar.
+- **Formato:** StarPRNT (negritas, doble alto, corte, página de códigos 858 con
+  los mismos bytes de acentos que la impresora USB) o "Texto simple" (ASCII sin
+  acentos) por si StarPRNT sale mal. El cajón (BEL) solo en un ticket con pago
+  en efectivo que no sea reimpresión.
+- Pruebas: `base44/tests/cloudprnt_test.ts`. Pantalla revisada con el build
+  local a 390/1440, claro y oscuro, con funciones simuladas.
+
+**No verificado: nada con una impresora Star real** (no hay una). Los comandos
+StarPRNT salen de la referencia de Star, no de una hoja impresa. Tampoco que la
+impresora acepte la URL con Basic sin problemas. La primera impresora que se
+conecte es la prueba; si sale basura, cambiar a "Texto simple".
