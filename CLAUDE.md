@@ -1024,3 +1024,15 @@ dominio `personal.` quedó en la base.
 **Regla:** las APIs beta de Base44 cambian sin aviso. Cuando algo que pasa por
 `provisionAccount`/`signInAs` falle con 404, revisa primero el catálogo
 (`list_api_catalog`) antes de tocar la lógica.
+
+### Fase 2b publicada y verificada (2026-10-06)
+
+Con el arreglo de `/embed-url` (PR #43) publicado, contra Sommel QA:
+`terminals.addPerson` creó la cuenta (`p-…@personal.acaciaco.com.mx`), quedó en
+Staff con su nombre, rol `staff` y el bar; `setPersonPin` funcionó;
+`setPersonPin` sobre una persona con correo dio 400 `has_own_login`; y
+`removeMember` la quitó. El bundle servido contiene "Agregar a alguien sin
+correo". José probó en una PC activada como terminal que el desbloqueo con PIN
+funciona, con una persona **con** correo (antes del #43 no se podía agregar a
+nadie sin correo). **No verificado:** el desbloqueo de una terminal con una
+persona sin correo; usa el mismo `unlock` y la misma fila `StaffPin`.
