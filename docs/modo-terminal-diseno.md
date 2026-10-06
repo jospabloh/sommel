@@ -131,6 +131,16 @@ decide entre B con mitigaciones o pedir un correo por terminal (por ejemplo
    una cortesía, que el encargado ponga su PIN ahí mismo y quede registrado
    quién autorizó.
 
+5. (Opcional) **Huella digital** con WebAuthn (passkeys): la persona registra
+   su huella en esa terminal; Sommel guarda solo una llave pública por persona y
+   terminal, nunca la huella. Usos: el admin puede exigir **huella además del
+   PIN** para cuentas con poder (admin, encargado), y la huella del encargado
+   sirve como autorización en el momento (fase 4). Funciona con Touch ID (Mac) y
+   Windows Hello (incluye lectores USB que Windows reconozca como Hello). **No**
+   funciona con un lector USB en Mac ni con lectores de checador con programa
+   propio (tipo ZKTeco): el navegador no los ve. Pendiente: modelo del lector de
+   José y en qué equipo va.
+
 ## Lo que no cambia
 
 - El admin y quien tenga acceso remoto siguen entrando con correo, en cualquier
