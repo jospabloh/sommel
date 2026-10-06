@@ -8,6 +8,9 @@ import { callFn } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/AuthContext';
+import { isBarAdmin } from '@/lib/rbac';
+import PhoneApprovalCard from '@/components/security/PhoneApprovalCard';
 
 const KIND_LABEL = {
   photo_missing: 'Sin foto',
@@ -70,6 +73,7 @@ function PhotoDialog({ photoId, onClose }) {
 
 export default function Seguridad() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [tab, setTab] = useState('alerts');
   const [alerts, setAlerts] = useState(null);
   const [photos, setPhotos] = useState(null);
@@ -125,6 +129,8 @@ export default function Seguridad() {
         Elige en <Link to="/staff" className="underline text-primary">Staff</Link> a quién se le toma foto (ícono de cámara).
         Las fotos se borran solas a los 30 días y las alertas a los 90.
       </p>
+
+      {isBarAdmin(user) ? <PhoneApprovalCard /> : null}
 
       <div className="flex flex-wrap gap-2 mb-6" role="tablist">
         {[['alerts', `Alertas${unseen ? ` (${unseen})` : ''}`], ['photos', 'Fotos'], ['approvals', 'Aprobaciones']].map(([key, label]) => (

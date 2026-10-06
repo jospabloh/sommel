@@ -9,10 +9,14 @@ import { setApprovalHandler } from '@/lib/approval/approvalBroker';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PinPad, { PIN_MIN } from '@/components/attendance/PinPad';
+import PhoneApprovalPanel from './PhoneApprovalPanel';
+import { cn } from '@/lib/utils';
 
 export default function ApprovalProvider({ children }) {
   const [request, setRequest] = useState(null); // { label, error }
   const [approvers, setApprovers] = useState(null);
+  const [qrEnabled, setQrEnabled] = useState(false);
+  const [mode, setMode] = useState('pin'); // pin | phone
   const [loadError, setLoadError] = useState(null);
   const [picked, setPicked] = useState(null);
   const [pin, setPin] = useState('');
@@ -44,6 +48,7 @@ export default function ApprovalProvider({ children }) {
       .then((r) => {
         const list = r.approvers ?? [];
         setApprovers(list);
+        setQrEnabled(!!r.qr_enabled);
         const again = request?.error ? list.find((a) => a.id === lastPickRef.current && a.has_pin) : null;
         if (again) {
           pickedRef.current = again;
@@ -55,6 +60,7 @@ export default function ApprovalProvider({ children }) {
   useEffect(() => {
     if (!open) {
       setApprovers(null);
+      setMode('pin');
       setPicked(null);
       pickedRef.current = null;
     }
@@ -74,6 +80,7 @@ export default function ApprovalProvider({ children }) {
   };
 
   const usable = (approvers ?? []).filter((a) => a.has_pin);
+  const onPhoneApproved = useCallback((requestId) => finish({ request_id: requestId }), [finish]);
 
   return (
     <>
@@ -82,9 +89,30 @@ export default function ApprovalProvider({ children }) {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-primary" /> Aprobación del encargado</DialogTitle>
-            <DialogDescription>{request?.label}. Un administrador escribe su PIN.</DialogDescription>
+            <DialogDescription>
+              {request?.label}. {mode === 'phone' ? 'Un administrador lo aprueba desde su celular.' : 'Un administrador escribe su PIN.'}
+            </DialogDescription>
           </DialogHeader>
-          {loadError ? (
+          {qrEnabled && approvers !== null && request?.action ? (
+            <div className="flex gap-2" role="tablist">
+              {[['pin', 'PIN del admin'], ['phone', 'Celular']].map(([key, text]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === key}
+                  onClick={() => setMode(key)}
+                  className={cn('flex-1 h-11 rounded-full border text-sm font-medium transition-colors',
+                    mode === key ? 'bg-primary text-primary-foreground border-primary' : 'border-border bg-card hover:bg-secondary')}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {mode === 'phone' && qrEnabled && request?.action ? (
+            <PhoneApprovalPanel action={request.action} onApproved={onPhoneApproved} />
+          ) : loadError ? (
             <p className="text-sm text-destructive" role="alert">{loadError}</p>
           ) : approvers === null ? (
             <div className="flex justify-center py-6" role="status" aria-label="Cargando"><div className="w-7 h-7 border-4 border-border border-t-primary rounded-full animate-spin" /></div>

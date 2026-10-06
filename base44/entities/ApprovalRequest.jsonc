@@ -1,0 +1,31 @@
+{
+  // Solicitud pendiente de aprobación por QR (o el reto de registrar una llave).
+  // La terminal la crea, el celular del admin la aprueba con Face ID o huella,
+  // y la acción la consume UNA vez. Caduca a los 3 minutos.
+  "name": "ApprovalRequest",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar de la solicitud. Módulo 19, candado de LECTURA y ESCRITURA a nivel entidad: las cuatro operaciones son solo de plataforma (role admin). Solo la función security la crea y la aprueba (tras verificar la firma del celular), y orders, payments y shifts la consumen al ejecutar la acción. Si se afloja la escritura, quien pide puede marcar su propia solicitud como aprobada; si se afloja la lectura, cualquiera ve el reto y las solicitudes de otros." },
+    "kind": { "type": "string", "enum": ["approve", "register"], "description": "approve = aprobar una acción; register = reto para registrar una llave" },
+    "action": { "type": ["string", "null"], "description": "Acción que se aprueba (cancel_sent_item, void_payment, cash_out, close_shift, discount)" },
+    "label": { "type": "string", "description": "Texto en español de la acción" },
+    "challenge": { "type": "string", "description": "Reto aleatorio que el celular firma (base64url)" },
+    "status": { "type": "string", "enum": ["pending", "approved", "rejected", "used", "cancelled"], "description": "Estado" },
+    "requested_by_id": { "type": "string", "description": "Quién la pidió" },
+    "requested_by_name": { "type": "string", "description": "Nombre congelado de quien la pidió" },
+    "approved_by_id": { "type": ["string", "null"], "description": "Administrador que aprobó o rechazó" },
+    "approved_by_name": { "type": ["string", "null"], "description": "Nombre congelado de quien aprobó o rechazó" },
+    "terminal_id": { "type": ["string", "null"], "description": "Terminal desde donde se pidió" },
+    "created_at": { "type": "string", "format": "date-time", "description": "Cuándo se pidió" },
+    "expires_at": { "type": "string", "format": "date-time", "description": "Hasta cuándo vale" },
+    "decided_at": { "type": ["string", "null"], "format": "date-time", "description": "Cuándo se aprobó o rechazó" },
+    "used_at": { "type": ["string", "null"], "format": "date-time", "description": "Cuándo la consumió la acción" }
+  },
+  "required": ["tenant_id", "kind", "challenge", "status", "requested_by_id", "created_at", "expires_at"],
+  "rls": {
+    "read": { "user_condition": { "role": "admin" } },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

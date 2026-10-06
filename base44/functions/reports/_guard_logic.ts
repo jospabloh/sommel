@@ -496,9 +496,11 @@ export function passEpochOf(device: { pass_epoch?: unknown } | null | undefined)
 
 /**
  * A terminal nobody unlocked may still run its print station (it prints by
- * device, not by person). That is the only permission it has.
+ * device, not by person) and its checador (each person punches with THEIR own
+ * PIN, so nobody needs to unlock the terminal just to clock in; José,
+ * 2026-10-06). Nothing else.
  */
-export const LOCKED_TERMINAL_PERMISSIONS = new Set(['Impresion:operar']);
+export const LOCKED_TERMINAL_PERMISSIONS = new Set(['Impresion:operar', 'Asistencia:checar']);
 
 /** True when a route function carries the mark set by `allowLockedTerminal()`. */
 export function routeAllowsLockedTerminal(route: unknown): boolean {

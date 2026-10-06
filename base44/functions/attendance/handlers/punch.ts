@@ -40,7 +40,9 @@ export const punch: Route = async (ctx: Ctx, body: any) => {
   const target = await loadOwned(ctx, 'User', userId);
   await requirePermission(ctx, 'Asistencia:checar');
   // Punching for someone else is a team action, not just knowing their PIN.
-  if (!canPunchFor(target.id, ctx.user?.id, await hasPermission(ctx, 'Asistencia:ver_equipo'))) {
+  // A terminal is the shared checador: anyone punches there, each with their PIN.
+  const teamDevice = !!ctx.terminal || (await hasPermission(ctx, 'Asistencia:ver_equipo'));
+  if (!canPunchFor(target.id, ctx.user?.id, teamDevice)) {
     httpError(403, 'not_self', 'Solo puedes checar con tu propio usuario');
   }
   requireWritable(ctx);

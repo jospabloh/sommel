@@ -71,7 +71,7 @@ export default function OAuthConsent() {
           return;
         }
         setInfo(data);
-      } catch (e) {
+      } catch {
         setError("No pudimos cargar la solicitud de autorización. Inténtalo de nuevo.");
       } finally {
         if (!redirecting) setChecking(false);
@@ -112,7 +112,7 @@ export default function OAuthConsent() {
         // Show a terminal reconnect state, not an impossible "try again".
         if ([400, 403, 404, 409].includes(res.status)) {
           let detail = "";
-          try { detail = (await res.json()).detail; } catch (_) { /* keep default */ }
+          try { detail = (await res.json()).detail; } catch { /* keep default */ }
           setReconnect(detail || "Esta autorización ya no se puede completar. Vuelve a conectar desde tu cliente de IA.");
           setSubmitting(false);
           return;

@@ -52,7 +52,6 @@ export default function Onboarding() {
     }
     claim();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const submit = async (e) => {

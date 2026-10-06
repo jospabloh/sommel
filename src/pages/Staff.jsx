@@ -29,7 +29,7 @@ export default function Staff() {
       const res = await base44.functions.invoke('manageStaff', { action: 'list' });
       setStaff(res.data?.staff || []);
       setInvites(res.data?.invites || []);
-    } catch (err) {
+    } catch {
       setStaff([]);
       setInvites([]);
     }

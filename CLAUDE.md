@@ -825,3 +825,49 @@ Decisión de José: el menú ya no muestra "Cocina" ni "Barra"; queda solo
 recuerda la elección por equipo. Las rutas `/estacion/kitchen` y `/estacion/bar`
 siguen abriendo directo (pantallas fijas o terminales que ya las usan). El
 manual se actualizó para decir dónde está.
+
+## Checador en la terminal (2026-10-06)
+
+Con Mesero Prueba dentro de la terminal, el checador solo mostraba a esa
+persona: la regla "cada quien se ve solo" era para celulares personales. Una
+terminal es un equipo **compartido**, así que ahí `attendance.roster` devuelve a
+todo el equipo y `attendance.punch` acepta checar a cualquiera; cada quien sigue
+necesitando **su propio PIN**. Además el checador corre con la terminal
+**bloqueada** (`LOCKED_TERMINAL_PERMISSIONS` gana `Asistencia:checar`, y
+`roster`/`punch` van con `allowLockedTerminal`): la pantalla "¿Quién eres?"
+tiene "Checar entrada o salida" (`LockChecador.jsx`), así nadie desbloquea la
+terminal solo para checar. En un celular personal no cambia nada.
+
+## Aprobación con QR y Face ID / huella (2026-10-06)
+
+Opción que el admin enciende en **Seguridad → Aprobar desde el celular**
+(`WineBar.approval_qr_enabled`, por `settings.update`; apagada por defecto). El
+PIN del admin sigue funcionando siempre.
+
+- **Registro, una vez por celular:** el admin, con su sesión normal (nunca desde
+  una terminal: `remoteOnly`), crea una llave de acceso (WebAuthn) con Face ID o
+  huella. Sommel guarda solo la mitad pública (`Passkey`, solo servicio).
+  También se registra sola la primera vez que el admin escanea un QR.
+- **Aprobar:** la ventana del encargado tiene "PIN del admin" y "Celular". El QR
+  abre `/aprobar/<id>` en el celular del admin, que ve quién pide qué y confirma
+  con Face ID o huella. `security.decideApprovalRequest` verifica la firma
+  contra la llave guardada (ES256 con WebCrypto, `_passkey_logic.ts` sin
+  imports: CBOR, COSE, DER, origen, rpId, reto, verificación de usuario y
+  contador). La terminal consulta el estado cada 3 s y repite la acción con
+  `approval: { request_id }`; `requireApproval` la consume **una vez**, solo para
+  esa acción, ese bar y quien la pidió, y hasta 2 min después de aprobarla.
+  El QR caduca a los 3 min. `ApprovalLog.method` queda `passkey`.
+- **Solo funciona en `https://sommel.acaciaco.com.mx`** (`RP_ID`,
+  `ALLOWED_ORIGINS`): una llave creada ahí no sirve en otro dominio, y abrir
+  Sommel desde otra dirección da un error claro.
+- Ojo con `callFn`: el campo `action` del cuerpo es el nombre de la acción del
+  router. Un dato llamado `action` lo pisa; por eso es `approval_action`. Lo
+  cazó la prueba de punta a punta.
+- Pruebas: `base44/tests/passkey_test.ts` juega el celular con una llave P-256
+  real (registrar, aprobar, reto viejo, otra llave, sin Face ID, sitio falso,
+  respuesta de registro reusada, contador que retrocede) más las reglas de uso
+  único. Verificado de punta a punta en Chromium con un **autenticador virtual**
+  (hace de celular con Face ID) y la verificación real del servidor corriendo
+  en Node: QR, registro, aprobación firmada y la terminal que sigue sola, a
+  390 px. **No verificado:** un iPhone o Android real, ni contra Base44
+  publicado.

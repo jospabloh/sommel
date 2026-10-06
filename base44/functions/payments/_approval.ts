@@ -15,15 +15,36 @@ import {
   lockMinutesLeft,
   needsApproval,
   parseApproval,
+  phoneApprovalProblem,
   registerFailure,
   type ApprovalAction,
+  type ParsedApproval,
 } from './_approval_logic.ts';
 
 export interface ApprovalStamp {
   action: ApprovalAction;
   approved_by_id: string;
   approved_by_name: string;
-  method: 'pin';
+  method: 'pin' | 'passkey';
+}
+
+const PHONE_PROBLEM_MESSAGE: Record<string, string> = {
+  approval_not_found: 'No se encontró la aprobación. Pide una nueva',
+  approval_mismatch: 'Esa aprobación es para otra acción. Pide una nueva',
+  approval_used: 'Esa aprobación ya se usó. Pide una nueva',
+  approval_not_approved: 'El administrador todavía no aprueba',
+  approval_expired: 'La aprobación caducó. Pide una nueva',
+};
+
+/** Consumes an approval an admin gave from the phone (single use). */
+async function usePhoneApproval(ctx: Ctx, requestId: string, action: ApprovalAction): Promise<ApprovalStamp> {
+  const [row] = await ctx.svc.entities.ApprovalRequest.filter({ id: requestId });
+  const problem = phoneApprovalProblem(row, { tenantId: ctx.tenantId, action, requesterId: ctx.self?.id, nowMs: Date.now() });
+  if (problem) httpError(problem === 'approval_not_approved' ? 409 : 403, problem, PHONE_PROBLEM_MESSAGE[problem]);
+  // Single use: mark it before the action writes. Best effort under
+  // concurrency (Base44 has no atomic compare-and-set), same as the PIN lock.
+  await ctx.svc.entities.ApprovalRequest.update(row.id, { status: 'used', used_at: new Date().toISOString() });
+  return { action, approved_by_id: row.approved_by_id, approved_by_name: row.approved_by_name ?? '', method: 'passkey' };
 }
 
 /** Null when no approval is needed (an admin is acting). Throws until a valid one arrives. */
@@ -34,8 +55,10 @@ export async function requireApproval(ctx: Ctx, body: any, action: ApprovalActio
   if (!approval) {
     httpError(403, 'approval_required', `${label} necesita la aprobación de un administrador`, { approval_action: action, approval_label: label });
   }
+  if (approval!.method === 'passkey') return await usePhoneApproval(ctx, approval!.requestId, action);
+  const pinApproval = approval as Extract<ParsedApproval, { method: 'pin' }>;
 
-  const [approver] = await ctx.svc.entities.User.filter({ id: approval!.approverId });
+  const [approver] = await ctx.svc.entities.User.filter({ id: pinApproval.approverId });
   if (!isApprover(approver, ctx.tenantId, ctx.self?.id)) {
     httpError(403, 'approver_invalid', 'Solo un administrador del bar puede aprobar');
   }
@@ -46,7 +69,7 @@ export async function requireApproval(ctx: Ctx, body: any, action: ApprovalActio
   const left = lockMinutesLeft(pinRow.locked_until, nowMs);
   if (left > 0) httpError(423, 'pin_locked', `Demasiados intentos. Vuelve a intentar en ${left} min`, { minutes_left: left });
 
-  if (!(await verifyPin(approval!.pin, pinRow.salt, pinRow.pin_hash))) {
+  if (!(await verifyPin(pinApproval.pin, pinRow.salt, pinRow.pin_hash))) {
     // Re-read right before writing, same as the checador: a parallel miss that
     // already locked the PIN wins.
     const [fresh] = await ctx.svc.entities.StaffPin.filter({ id: pinRow.id });

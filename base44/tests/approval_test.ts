@@ -39,7 +39,7 @@ Deno.test('only an admin of THIS bar approves, never a staff member, a terminal 
 });
 
 Deno.test('a malformed approval is the same as none (the server answers approval_required)', () => {
-  assertEquals(logic.parseApproval({ approver_id: 'a1', pin: '1234' }), { approverId: 'a1', pin: '1234' });
+  assertEquals(logic.parseApproval({ approver_id: 'a1', pin: '1234' }), { method: 'pin', approverId: 'a1', pin: '1234' });
   assertEquals(logic.parseApproval({ approver_id: 'a1', pin: '12' }), null);
   assertEquals(logic.parseApproval({ approver_id: 'a1', pin: 1234 }), null);
   assertEquals(logic.parseApproval({ pin: '1234' }), null);

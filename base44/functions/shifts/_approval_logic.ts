@@ -32,13 +32,41 @@ export function isValidPin(pin: unknown): pin is string {
   return typeof pin === 'string' && /^\d{4,6}$/.test(pin);
 }
 
+export type ParsedApproval =
+  | { method: 'pin'; approverId: string; pin: string }
+  | { method: 'passkey'; requestId: string };
+
 /** The approval the client sent, or null when there is none or it is malformed. */
-export function parseApproval(raw: unknown): { approverId: string; pin: string } | null {
+export function parseApproval(raw: unknown): ParsedApproval | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
+  if (typeof r.request_id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(r.request_id)) {
+    return { method: 'passkey', requestId: r.request_id };
+  }
   const approverId = typeof r.approver_id === 'string' ? r.approver_id : '';
   if (!approverId || !isValidPin(r.pin)) return null;
-  return { approverId, pin: r.pin as string };
+  return { method: 'pin', approverId, pin: r.pin as string };
+}
+
+/** After an admin approved on the phone, the action must run within this long. */
+export const APPROVED_GRACE_MS = 2 * 60_000;
+
+/**
+ * Why an approval made from the phone cannot be used for this action, or null
+ * when it can. It must be for THIS bar, THIS action, asked by THIS person,
+ * approved, not yet used, and fresh.
+ */
+export function phoneApprovalProblem(
+  row: { tenant_id?: string; kind?: string; action?: string | null; requested_by_id?: string; status?: string; decided_at?: string | null } | null | undefined,
+  opts: { tenantId: string | null; action: ApprovalAction; requesterId: string | null | undefined; nowMs: number }
+): string | null {
+  if (!row || row.tenant_id !== opts.tenantId || row.kind !== 'approve') return 'approval_not_found';
+  if (row.action !== opts.action || row.requested_by_id !== opts.requesterId) return 'approval_mismatch';
+  if (row.status === 'used') return 'approval_used';
+  if (row.status !== 'approved') return 'approval_not_approved';
+  const decided = Date.parse(row.decided_at ?? '');
+  if (Number.isNaN(decided) || opts.nowMs - decided > APPROVED_GRACE_MS) return 'approval_expired';
+  return null;
 }
 
 /** Only an admin of THIS bar approves; never a terminal account, never the person asking. */
