@@ -374,3 +374,113 @@ export function splitEqual(amount: number, parts: number): number[] {
   const rest = amount - base * parts;
   return Array.from({ length: parts }, (_, i) => base + (i < rest ? 1 : 0));
 }
+
+// ---------------------------------------------------------------------------
+// Terminal mode (docs/modo-terminal-diseno.md, phase 2a).
+//
+// A terminal is a device the bar_admin authorized. It signs in to Base44 as
+// its own account (User.app_role 'terminal', no permissions of its own). A
+// person unlocks it with their PIN and gets a short "pass" signed with that
+// device's own key; every call from the terminal carries the pass, and the
+// guard then acts AS that person. Without a valid pass the terminal can only
+// run the routes marked `allowLockedTerminal` (who am I, unlock).
+// ---------------------------------------------------------------------------
+
+export const TERMINAL_APP_ROLE = 'terminal';
+export const PASS_TTL_MS = 15 * 60_000;
+/** Bar roles a person must hold to work at a terminal. */
+export const TERMINAL_PERSON_ROLES = new Set(['bar_admin', 'staff']);
+
+function hexOf(bytes: Uint8Array): string {
+  let out = '';
+  for (const b of bytes) out += b.toString(16).padStart(2, '0');
+  return out;
+}
+
+function b64urlEncode(text: string): string {
+  let bin = '';
+  for (const b of new TextEncoder().encode(text)) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function b64urlDecode(text: string): string {
+  const bin = atob(text.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((text.length + 3) % 4));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+async function hmacHex(keyHex: string, message: string): Promise<string> {
+  const keyBytes = new Uint8Array(keyHex.length / 2);
+  for (let i = 0; i < keyBytes.length; i++) keyBytes[i] = parseInt(keyHex.slice(i * 2, i * 2 + 2), 16);
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return hexOf(new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message))));
+}
+
+function timingSafeEqualStr(a: string, b: string): boolean {
+  let diff = a.length ^ b.length;
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
+/** A fresh random key or id, hex. */
+export function randomHex(bytes: number): string {
+  return hexOf(crypto.getRandomValues(new Uint8Array(bytes)));
+}
+
+/** Signs a pass for `userId` on `deviceId`, valid until `expMs`. */
+export async function signPass(keyHex: string, deviceId: string, userId: string, expMs: number): Promise<string> {
+  const payload = b64urlEncode(JSON.stringify({ d: deviceId, u: userId, e: expMs }));
+  return `${payload}.${await hmacHex(keyHex, payload)}`;
+}
+
+/**
+ * The person a pass names, or null when it is malformed, signed with another
+ * key, for another device, or expired. Never throws.
+ */
+export async function verifyPass(
+  keyHex: unknown,
+  deviceId: string,
+  pass: unknown,
+  nowMs: number
+): Promise<{ userId: string; expMs: number } | null> {
+  if (typeof keyHex !== 'string' || !/^[0-9a-f]{64}$/.test(keyHex)) return null;
+  if (typeof pass !== 'string' || pass.length > 2048) return null;
+  const dot = pass.indexOf('.');
+  if (dot <= 0) return null;
+  const payload = pass.slice(0, dot);
+  const sig = pass.slice(dot + 1);
+  try {
+    if (!timingSafeEqualStr(await hmacHex(keyHex, payload), sig)) return null;
+    const data = JSON.parse(b64urlDecode(payload));
+    if (data?.d !== deviceId || typeof data?.u !== 'string' || !data.u) return null;
+    if (typeof data?.e !== 'number' || data.e <= nowMs) return null;
+    return { userId: data.u, expMs: data.e };
+  } catch {
+    return null;
+  }
+}
+
+/** Who may use a terminal: `{mode:'all'}` (default) or `{mode:'people', user_ids}`. */
+export function terminalAllows(allowed: unknown, userId: string): boolean {
+  const a = allowed as { mode?: unknown; user_ids?: unknown } | null | undefined;
+  if (!a || a.mode !== 'people') return true;
+  return Array.isArray(a.user_ids) && a.user_ids.includes(userId);
+}
+
+/** Whether `person` may work at `device`: same bar, a bar role, and on its list. */
+export function personMayUseTerminal(
+  person: { id?: string; tenant_id?: string | null; app_role?: string | null } | null | undefined,
+  device: { tenant_id?: string | null; allowed?: unknown } | null | undefined
+): boolean {
+  if (!person?.id || !device?.tenant_id) return false;
+  if (person.tenant_id !== device.tenant_id) return false;
+  if (!TERMINAL_PERSON_ROLES.has(String(person.app_role ?? ''))) return false;
+  return terminalAllows(device.allowed, person.id);
+}
+
+/** True when a route function carries the mark set by `allowLockedTerminal()`. */
+export function routeAllowsLockedTerminal(route: unknown): boolean {
+  return typeof route === 'function' && (route as { allowLockedTerminal?: unknown }).allowLockedTerminal === true;
+}

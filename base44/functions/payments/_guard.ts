@@ -38,6 +38,14 @@ import {
   isRateLimitError,
   tenantAccessDenied,
   routeAllowsNoTenant,
+  TERMINAL_APP_ROLE,
+  PASS_TTL_MS,
+  signPass,
+  verifyPass,
+  randomHex,
+  terminalAllows,
+  personMayUseTerminal,
+  routeAllowsLockedTerminal,
   type AppRole,
   type PaymentMethodDef,
 } from './_guard_logic.ts';
@@ -65,6 +73,12 @@ export {
   isRateLimitError,
   tenantAccessDenied,
   routeAllowsNoTenant,
+  TERMINAL_APP_ROLE,
+  PASS_TTL_MS,
+  signPass,
+  randomHex,
+  terminalAllows,
+  personMayUseTerminal,
 };
 export type { PaymentMethodDef };
 
@@ -77,6 +91,12 @@ export interface Ctx {
   appRole: AppRole | null;
   isPlatform: boolean;
   bar: any | null; // WineBar row, loaded when tenantId is set
+  // Set when the call comes from an authorized terminal (terminal mode).
+  // `device` is the stored TerminalDevice row (server-only: it holds the
+  // pass key, never return it). With a valid pass, user/self/appRole above
+  // are the PERSON who unlocked it; without one (only on routes marked
+  // `allowLockedTerminal`) they are the terminal account and appRole is null.
+  terminal: { device: any; unlocked: boolean } | null;
 }
 
 /**
@@ -95,7 +115,7 @@ export interface Ctx {
  */
 export async function requireContext(
   req: Request,
-  opts: { allowNoTenant?: boolean } = {}
+  opts: { allowNoTenant?: boolean; allowLockedTerminal?: boolean; terminalPass?: unknown } = {}
 ): Promise<Ctx> {
   const base44 = createClientFromRequest(req);
   // Fixed 2026-09-28 (D "unauthenticated calls return 500"): an
@@ -121,6 +141,10 @@ export async function requireContext(
   const [self] = await svc.entities.User.filter({ id: user.id });
   if (!self) throw new HttpError(401, 'unauthenticated', 'Usuario no encontrado');
 
+  if (self.app_role === TERMINAL_APP_ROLE) {
+    return await terminalContext(base44, svc, self, opts);
+  }
+
   const tenantId: string | null = self.tenant_id ?? null;
   const appRole: AppRole | null = self.app_role ?? null;
   // Fixed 2026-09-28: derive isPlatform from the freshly re-read `self` row,
@@ -141,7 +165,70 @@ export async function requireContext(
     bar = row ?? null;
   }
 
-  return { base44, svc, user, self, tenantId, appRole, isPlatform, bar };
+  return { base44, svc, user, self, tenantId, appRole, isPlatform, bar, terminal: null };
+}
+
+/**
+ * Context for a call signed in as a terminal account. The device must exist,
+ * belong to the terminal's bar and not be revoked. With a valid pass the call
+ * runs as the person named in it (re-read from User, and re-checked against
+ * the device's list); without one it is refused unless the route allows a
+ * locked terminal. A terminal is never the platform.
+ */
+async function terminalContext(
+  base44: Ctx['base44'],
+  svc: Ctx['svc'],
+  self: any,
+  opts: { allowLockedTerminal?: boolean; terminalPass?: unknown }
+): Promise<Ctx> {
+  const [device] = await svc.entities.TerminalDevice.filter({ account_user_id: self.id });
+  if (!device || device.revoked_at || !device.tenant_id || device.tenant_id !== self.tenant_id) {
+    throw new HttpError(401, 'terminal_revoked', 'Este equipo ya no está autorizado como terminal');
+  }
+  const [bar] = await svc.entities.WineBar.filter({ id: device.tenant_id });
+  if (!bar || bar.archived_at) {
+    throw new HttpError(401, 'terminal_revoked', 'Este equipo ya no está autorizado como terminal');
+  }
+
+  const pass = opts.terminalPass ? await verifyPass(device.pass_key, device.id, opts.terminalPass, Date.now()) : null;
+  if (pass) {
+    const [person] = await svc.entities.User.filter({ id: pass.userId });
+    if (person && personMayUseTerminal(person, device)) {
+      return {
+        base44,
+        svc,
+        user: { id: person.id, email: person.email, full_name: person.full_name },
+        self: person,
+        tenantId: device.tenant_id,
+        appRole: person.app_role as AppRole,
+        isPlatform: false,
+        bar,
+        terminal: { device, unlocked: true },
+      };
+    }
+  }
+  if (!opts.allowLockedTerminal) {
+    throw new HttpError(401, 'terminal_locked', 'La terminal está bloqueada. Pon tu PIN para continuar');
+  }
+  return {
+    base44,
+    svc,
+    user: { id: self.id, email: self.email, full_name: self.full_name },
+    self,
+    tenantId: device.tenant_id,
+    appRole: null,
+    isPlatform: false,
+    bar,
+    terminal: { device, unlocked: false },
+  };
+}
+
+/** Signs a fresh pass for `userId` on the terminal of `ctx`. */
+export async function issuePass(ctx: Ctx, userId: string): Promise<{ pass: string; expires_at: string }> {
+  const device = ctx.terminal?.device;
+  if (!device) throw new HttpError(403, 'not_terminal', 'Esta acción solo se usa desde una terminal');
+  const expMs = Date.now() + PASS_TTL_MS;
+  return { pass: await signPass(device.pass_key, device.id, userId, expMs), expires_at: new Date(expMs).toISOString() };
 }
 
 /**
@@ -203,7 +290,36 @@ export function httpError(status: number, code: string, message: string, extra?:
   throw new HttpError(status, code, message, extra);
 }
 
-export type Route = ((ctx: Ctx, body: any) => Promise<object>) & { allowNoTenant?: boolean };
+export type Route = ((ctx: Ctx, body: any) => Promise<object>) & {
+  allowNoTenant?: boolean;
+  allowLockedTerminal?: boolean;
+};
+
+/**
+ * Wraps a route that must never run from a terminal, even unlocked by an
+ * admin's PIN (account deletion, handing over the bar, editing permissions,
+ * managing terminals): those need the person's own sign-in with email.
+ */
+export function remoteOnly(route: (ctx: Ctx, body: any) => Promise<object>): Route {
+  const wrapped: Route = (ctx, body) => {
+    if (ctx.terminal) {
+      throw new HttpError(403, 'terminal_not_allowed', 'Esto no se hace desde una terminal. Entra con tu correo en otro equipo');
+    }
+    return route(ctx, body);
+  };
+  return wrapped;
+}
+
+/**
+ * Marks ONE route as runnable from a terminal that nobody has unlocked yet
+ * (terminal mode: who am I, unlock with PIN). The handler must still check
+ * `ctx.terminal` itself.
+ */
+export function allowLockedTerminal(route: (ctx: Ctx, body: any) => Promise<object>): Route {
+  const wrapped: Route = (ctx, body) => route(ctx, body);
+  wrapped.allowLockedTerminal = true;
+  return wrapped;
+}
 
 /**
  * Marks ONE route as runnable by a platform admin who has no bar (module 14).
@@ -246,7 +362,12 @@ export async function handle(req: Request, routes: Record<string, Route>): Promi
     // Module 14: no tenant means 403 `no_tenant`, except on a route that
     // opted in with `allowNoTenant(route)` (importMenu, platform-only; that
     // handler also checks ctx.isPlatform itself).
-    const ctx = await requireContext(req, { allowNoTenant: routeAllowsNoTenant(route) });
+    const ctx = await requireContext(req, {
+      allowNoTenant: routeAllowsNoTenant(route),
+      allowLockedTerminal: routeAllowsLockedTerminal(route),
+      // Terminal mode: the client sends the person's pass in the body.
+      terminalPass: body?.terminal_pass,
+    });
     const result = await route(ctx, body);
     return Response.json({ ok: true, ...result });
   } catch (error) {

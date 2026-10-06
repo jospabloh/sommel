@@ -64,7 +64,8 @@ export default async function(req: Request): Promise<Response> {
     }
 
     if (action === 'list') {
-      const users = await svc.entities.User.filter({ tenant_id: tenantId });
+      // Terminal accounts are devices managed from Ajustes > Terminales, not staff.
+      const users = (await svc.entities.User.filter({ tenant_id: tenantId })).filter((u: any) => u.app_role !== 'terminal');
       const [listBar] = await svc.entities.WineBar.filter({ id: tenantId });
       const inviteRows = await svc.entities.StaffInvite.filter({ tenant_id: tenantId, status: 'pending' });
       const now = new Date();
@@ -188,7 +189,8 @@ export default async function(req: Request): Promise<Response> {
 
       // Members come from a fresh read scoped to the caller's bar, so a
       // target from another bar simply isn't in the list (404).
-      const members = await svc.entities.User.filter({ tenant_id: tenantId });
+      // A terminal account is not a member: it can never be given a role or removed here.
+      const members = (await svc.entities.User.filter({ tenant_id: tenantId })).filter((u: any) => u.app_role !== 'terminal');
       const denial = action === 'setRole'
         ? checkSetRole({ members, targetId, newRole: body.app_role, ownerId: gateBar?.owner_id })
         : checkRemoveMember({ members, targetId, callerId: self.id, ownerId: gateBar?.owner_id });
