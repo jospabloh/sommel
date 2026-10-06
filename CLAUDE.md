@@ -869,5 +869,8 @@ PIN del admin sigue funcionando siempre.
   único. Verificado de punta a punta en Chromium con un **autenticador virtual**
   (hace de celular con Face ID) y la verificación real del servidor corriendo
   en Node: QR, registro, aprobación firmada y la terminal que sigue sola, a
-  390 px. **No verificado:** un iPhone o Android real, ni contra Base44
-  publicado.
+  390 px. Publicado el 2026-10-06 (las funciones que cambiaron se
+  redesplegaron sin error de empaquetado) y **verificado a mano por José en
+  producción** el mismo día, junto con el checador de la terminal: checar desde
+  la pantalla de bloqueo, el equipo completo con alguien dentro, y la
+  aprobación por QR con Face ID en su celular.
