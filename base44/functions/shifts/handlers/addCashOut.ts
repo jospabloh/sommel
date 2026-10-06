@@ -4,6 +4,7 @@
 import { HttpError, httpError, pickSurvivor, requirePermission, requireWritable, type Ctx, type Route } from '../_guard.ts';
 import { LogicError, validateCashOut } from './_logic.ts';
 import { findOpenShift } from './_shared.ts';
+import { recordApproval, requireApproval } from '../_approval.ts';
 
 export const addCashOut: Route = async (ctx: Ctx, body: any) => {
   await requirePermission(ctx, 'Turno:operar');
@@ -28,6 +29,10 @@ export const addCashOut: Route = async (ctx: Ctx, body: any) => {
   const existing = pickSurvivor(await sameKey());
   if (existing) return { movement: existing };
 
+  // Manager approval, after validation and the idempotent replay (a retry of a
+  // withdrawal already approved never asks again).
+  const approval = await requireApproval(ctx, body, 'cash_out');
+
   const created = await ctx.svc.entities.CashMovement.create({
     tenant_id: ctx.tenantId,
     shift_id: shift.id,
@@ -46,5 +51,6 @@ export const addCashOut: Route = async (ctx: Ctx, body: any) => {
       await ctx.svc.entities.CashMovement.update(row.id, { amount: 0, reason: 'duplicado' });
     }
   }
+  if (survivor.id === created.id) await recordApproval(ctx, approval, { targetId: created.id, detail: input.reason });
   return { movement: survivor };
 };

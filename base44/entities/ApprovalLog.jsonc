@@ -1,0 +1,27 @@
+{
+  // Bitácora de aprobaciones del encargado: una fila cada vez que un
+  // administrador aprobó con su PIN una acción de personal (cancelar un
+  // platillo enviado, anular un pago, retiro de efectivo, cerrar turno).
+  "name": "ApprovalLog",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar de la aprobación. Módulo 19, candado de LECTURA y ESCRITURA a nivel entidad: las cuatro operaciones son solo de plataforma (role admin). Solo orders, payments y shifts la crean como servicio después de verificar el PIN del administrador, y la función security la muestra al admin con Seguridad:ver. Si se afloja la escritura, quien pidió la aprobación puede borrar la fila o inventar una aprobación de otro administrador; si se afloja la lectura, el equipo ve quién aprueba qué." },
+    "action": { "type": "string", "enum": ["cancel_sent_item", "void_payment", "cash_out", "close_shift"], "description": "Qué se aprobó" },
+    "target_id": { "type": ["string", "null"], "description": "Renglón, pago, movimiento o turno afectado" },
+    "detail": { "type": "string", "description": "Texto corto en español (motivo, monto)" },
+    "requested_by_id": { "type": ["string", "null"], "description": "Quién lo pidió" },
+    "requested_by_name": { "type": "string", "description": "Nombre congelado de quien lo pidió" },
+    "approved_by_id": { "type": "string", "description": "Administrador que aprobó" },
+    "approved_by_name": { "type": "string", "description": "Nombre congelado de quien aprobó" },
+    "method": { "type": "string", "enum": ["pin", "passkey"], "description": "Cómo aprobó: PIN o llave del celular" },
+    "terminal_id": { "type": ["string", "null"], "description": "Terminal desde donde se pidió, si fue en una" },
+    "created_at": { "type": "string", "format": "date-time", "description": "Cuándo se aprobó" }
+  },
+  "required": ["tenant_id", "action", "approved_by_id", "method", "created_at"],
+  "rls": {
+    "read": { "user_condition": { "role": "admin" } },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

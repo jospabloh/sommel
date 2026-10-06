@@ -15,6 +15,7 @@ import {
 } from '../_guard.ts';
 import { LogicError, normalizeComment, redactShift, requiresComment, validateCountedCash } from './_logic.ts';
 import { computeClosingSummary, deliverCorteEmail, findOpenShift } from './_shared.ts';
+import { recordApproval, requireApproval } from '../_approval.ts';
 
 export const close: Route = async (ctx: Ctx, body: any) => {
   await requirePermission(ctx, 'Turno:operar');
@@ -50,6 +51,9 @@ export const close: Route = async (ctx: Ctx, body: any) => {
     httpError(409, 'comment_required', 'El conteo no coincide con lo esperado. Agrega un comentario para cerrar el turno');
   }
 
+  // Manager approval, after the blind-count checks (see orders.cancelItem).
+  const approval = await requireApproval(ctx, body, 'close_shift');
+
   // Someone else may have closed it while we were computing.
   const [fresh] = await ctx.svc.entities.Shift.filter({ id: shift.id });
   if (!fresh || fresh.closed_at) httpError(409, 'no_open_shift', 'Este turno ya se cerró');
@@ -65,6 +69,8 @@ export const close: Route = async (ctx: Ctx, body: any) => {
     summary,
     email_status: 'pendiente',
   });
+
+  await recordApproval(ctx, approval, { targetId: shift.id, detail: comment || 'Cierre de turno' });
 
   // The close is saved; a mail problem never reopens or fails it.
   const outcome = await deliverCorteEmail(ctx, { ...shift, ...closed, closed_at: closedAt, summary });

@@ -10,6 +10,7 @@
 import { base44 } from '@/api/base44Client';
 import { currentPass, lockTerminal, markRevoked } from '@/lib/terminal/terminalStore';
 import { isRateLimited, isRetryableRead, retryDelay } from '@/lib/retryPolicy';
+import { APPROVAL_RETRY_CODES, askForApproval, wantsApproval } from '@/lib/approval/approvalBroker';
 
 export class ApiError extends Error {
   /**
@@ -38,6 +39,31 @@ export class ApiError extends Error {
  * @throws {ApiError}
  */
 export async function callFn(endpoint, action, payload = {}) {
+  try {
+    return await callWithRetry(endpoint, action, payload);
+  } catch (err) {
+    if (!(err instanceof ApiError) || !wantsApproval(err.code, payload)) throw err;
+    return await callWithApproval(endpoint, action, payload, err);
+  }
+}
+
+// Manager approval: the server refused before writing anything, so the same
+// call is repeated with the admin's PIN until it passes or the person cancels.
+async function callWithApproval(endpoint, action, payload, first) {
+  const label = first.data?.approval_label || first.message;
+  let approval = await askForApproval({ label, error: null });
+  while (approval) {
+    try {
+      return await callWithRetry(endpoint, action, { ...payload, approval });
+    } catch (err) {
+      if (!(err instanceof ApiError) || !APPROVAL_RETRY_CODES.has(err.code)) throw err;
+      approval = await askForApproval({ label, error: err.message });
+    }
+  }
+  throw new ApiError(403, 'approval_cancelled', 'Se canceló la aprobación', null);
+}
+
+async function callWithRetry(endpoint, action, payload) {
   for (let attempt = 0; ; attempt++) {
     try {
       return await callOnce(endpoint, action, payload);

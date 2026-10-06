@@ -15,6 +15,12 @@ const KIND_LABEL = {
   off_shift_unlock: 'Sin checar',
 };
 const PHOTO_KIND = { unlock: 'Entró a terminal', punch: 'Checó' };
+const APPROVAL_LABEL = {
+  cancel_sent_item: 'Canceló un platillo enviado',
+  void_payment: 'Anuló un pago',
+  cash_out: 'Retiro de efectivo',
+  close_shift: 'Cerró el turno',
+};
 
 function when(iso) {
   if (!iso) return '';
@@ -66,6 +72,7 @@ export default function Seguridad() {
   const [tab, setTab] = useState('alerts');
   const [alerts, setAlerts] = useState(null);
   const [photos, setPhotos] = useState(null);
+  const [approvals, setApprovals] = useState(null);
   const [error, setError] = useState(null);
   const [openPhoto, setOpenPhoto] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -73,13 +80,19 @@ export default function Seguridad() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [a, p] = await Promise.all([callFn('security', 'listAlerts'), callFn('security', 'listPhotos')]);
+      const [a, p, ap] = await Promise.all([
+        callFn('security', 'listAlerts'),
+        callFn('security', 'listPhotos'),
+        callFn('security', 'listApprovals'),
+      ]);
       setAlerts(a.alerts ?? []);
       setPhotos(p.photos ?? []);
+      setApprovals(ap.approvals ?? []);
     } catch (err) {
       setError(err.message || 'No se pudo cargar');
       setAlerts([]);
       setPhotos([]);
+      setApprovals([]);
     }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -112,8 +125,8 @@ export default function Seguridad() {
         Las fotos se borran solas a los 30 días y las alertas a los 90.
       </p>
 
-      <div className="flex gap-2 mb-6" role="tablist">
-        {[['alerts', `Alertas${unseen ? ` (${unseen})` : ''}`], ['photos', 'Fotos']].map(([key, label]) => (
+      <div className="flex flex-wrap gap-2 mb-6" role="tablist">
+        {[['alerts', `Alertas${unseen ? ` (${unseen})` : ''}`], ['photos', 'Fotos'], ['approvals', 'Aprobaciones']].map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -168,6 +181,23 @@ export default function Seguridad() {
             </div>
           ))}
         </div>
+      ) : tab === 'approvals' ? (
+        approvals.length === 0 ? (
+          <p className="text-center py-16 text-muted-foreground">Sin aprobaciones todavía.</p>
+        ) : (
+          <div className="space-y-2">
+            {approvals.map((a) => (
+              <div key={a.id} className="bg-card border border-border rounded-xl p-4 space-y-1">
+                <p className="font-medium">{APPROVAL_LABEL[a.action] || a.action}</p>
+                <p className="text-sm">
+                  Pidió {a.requested_by_name || 'alguien'} · aprobó {a.approved_by_name || 'un administrador'}
+                </p>
+                {a.detail ? <p className="text-sm text-muted-foreground break-words">{a.detail}</p> : null}
+                <p className="text-xs text-muted-foreground">{when(a.created_at)}</p>
+              </div>
+            ))}
+          </div>
+        )
       ) : photos.length === 0 ? (
         <p className="text-center py-16 text-muted-foreground">Sin fotos en los últimos 30 días.</p>
       ) : (
