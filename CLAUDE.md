@@ -1151,3 +1151,21 @@ Verificado con el build local contra producción a 360, 390, 834, 1023, 1280 y
 queda bajo el selector, con o sin scroll; abierto se ve completo a 390. Las
 únicas coincidencias que marca la revisión automática son renglones del menú
 lateral ya recortados por su propio scroll, no tapados.
+
+## Seguimiento con Alby (Vindima), cliente piloto
+
+**Regla:** los plazos con Alby se cuentan desde el **último mensaje enviado sin
+respuesta**, no desde la última vez que se trabajó en Sommel. Cada vez que José
+mande algo o Alby conteste, se actualiza esta tabla con fecha y hora (hora de
+Aguascalientes, UTC-6).
+
+| Fecha | Quién | Qué | Estado |
+|---|---|---|---|
+| (anterior) 17:55 | Alby | Mandó el menú de tisanas y blends (precios $90, a granel 100 g: $245 / $195 / $100) | — |
+| 2026-10-01 (jueves) 08:15 | José | Aviso de que el checador con PIN quedó listo, más preguntas: vales como forma de pago, correos del corte de caja, permisos del equipo (descuentos, cancelar lo ya enviado, ver el corte), cerrar turno con cuentas abiertas; el resto quedó tras "Leer más" | **Entregado, sin leer y sin respuesta** (revisado 2026-10-07 15:12: 6 días 7 h) |
+
+Mientras no conteste, lo que dependa de esas respuestas usa lo que ya está
+construido: vales se dan de alta en Ajustes → Formas de pago, los correos del
+corte en Ajustes, los permisos en Permisos/Staff, y cerrar turno con cuentas
+abiertas está **bloqueado** (409 `open_orders`). Nada de eso cambia hasta que
+ella responda.
