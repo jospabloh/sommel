@@ -130,3 +130,21 @@
      for the tallest layout) plus a gap. */
   --theme-switcher-bottom: calc(var(--bottom-bar-h, 10rem) + 0.75rem);
 }
+
+/* Inside the app (Layout mounted) the switcher sits in a reserved slot of the
+   sidebar footer instead of the corner: Layout measures the slot and sets
+   data-rail-switcher plus --rail-switcher-left/-bottom. It is anchored on the
+   left so it opens over the page, not off the screen. This rule comes after
+   data-bottom-bar on purpose: in the sidebar it never meets Orden's bar. */
+:root[data-rail-switcher] {
+  --theme-switcher-bottom: var(--rail-switcher-bottom, 1rem);
+}
+:root[data-rail-switcher] [data-theme-switcher] {
+  left: var(--rail-switcher-left, 1.25rem);
+  right: auto !important;
+}
+/* PinPad keeps the corner switcher's column free on phones; with the switcher
+   in the sidebar there is nothing to keep it from. */
+:root[data-rail-switcher] .pin-pad {
+  padding-right: 0;
+}

@@ -36,13 +36,14 @@ export default function PinPad({ value, onChange, onSubmit, disabled = false, li
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  // On phones the pad spans the whole content width, so its right column
-  // ("3", "6", "9", "Listo") sat under the theme switcher's corner and a tap on
-  // "Listo" toggled the theme instead. The pad is the only thing on that edge
-  // (moving the switcher just lands it on another key), so below `sm` the pad
-  // keeps the switcher's column (40px + its 1rem offset) free.
+  // On phones the pad spans the whole width, so its right column ("3", "6",
+  // "9", "Listo") sat under the theme switcher and a tap on "Listo" toggled the
+  // theme instead. Below `sm` the pad keeps the switcher's column free. Inside
+  // Layout's page wrapper that gutter already exists, and Layout zeroes this
+  // one through the `pin-pad` class; outside it (terminal lock, approval
+  // dialog) this is the only gutter.
   return (
-    <div className="w-full max-w-xs mx-auto space-y-5 max-sm:pr-12">
+    <div className="pin-pad w-full max-w-xs mx-auto space-y-5 max-sm:pr-12">
       <div className="flex justify-center gap-3 h-6" aria-label={`${value.length} dígitos escritos`} role="img">
         {Array.from({ length: PIN_MAX }, (_, i) => (
           <span

@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import {
@@ -98,6 +98,37 @@ export default function Layout() {
   const { idleState, sessionExpired, continueSession } = useSessionManager();
   useActivityTracker(user?.tenant_id);
 
+  // Module 12: inside the app the theme switcher lives in its own slot in the
+  // sidebar footer instead of the screen corner. Below lg every page reaches
+  // the right edge, so in the corner it sat on whatever scrolled past (a table
+  // card, "Reimprimir", the PIN pad's "Listo"), and no other corner is free.
+  // The slot is reserved, so it covers nothing; the switcher still opens
+  // sideways over the page while it is being used. Screens without this
+  // layout (login, 404, the terminal lock) keep the corner.
+  const switcherSlotRef = useRef(null);
+  useEffect(() => {
+    const slot = switcherSlotRef.current;
+    if (!slot) return undefined;
+    const root = document.documentElement;
+    const sync = () => {
+      const r = slot.getBoundingClientRect();
+      root.style.setProperty('--rail-switcher-left', `${r.left}px`);
+      root.style.setProperty('--rail-switcher-bottom', `${window.innerHeight - r.bottom}px`);
+    };
+    sync();
+    root.setAttribute('data-rail-switcher', '');
+    const ro = new ResizeObserver(sync);
+    ro.observe(slot.parentElement || slot);
+    window.addEventListener('resize', sync);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', sync);
+      root.removeAttribute('data-rail-switcher');
+      root.style.removeProperty('--rail-switcher-left');
+      root.style.removeProperty('--rail-switcher-bottom');
+    };
+  }, []);
+
   const navRef = useRef(null);
   const savedScroll = useRef(readNavScroll());
   const appliedScroll = useRef(null);
@@ -170,6 +201,8 @@ export default function Layout() {
           })}
         </nav>
         <div className="p-2 lg:p-3 border-t border-sidebar-border space-y-1">
+          {/* Reserved spot for the theme switcher (see the effect above). */}
+          <div ref={switcherSlotRef} aria-hidden="true" className="h-10 w-10 mx-auto lg:mx-1" />
           {/* Who is signed in, always visible: a shared caja laptop must show
               whose session it is before anyone cobra with it. */}
           <div

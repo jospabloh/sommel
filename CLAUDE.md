@@ -1129,3 +1129,25 @@ selector no tapa ninguna tecla, con o sin scroll.
 **Sigue sin verificar:** impresora Star física, impresora USB en Windows con
 driver, cámara real, el botón "Instalar Sommel" y un registro real con el
 código de correo.
+
+## Selector de tema en la barra lateral (2026-10-07)
+
+El selector en la esquina tapaba, a 390 y 834, lo que pasaba por la columna
+derecha al hacer scroll: tarjetas de mesa, "Reimprimir", "Cancelar renglón",
+"Listo" del PIN. No había otra esquina libre y reservar esa columna en cada
+página costaba 48 px de ancho en el celular (las mesas se cortaban).
+
+**Dentro de la app vive en un lugar reservado del pie de la barra lateral**, sobre
+el nombre de quien inició sesión. `Layout` mide ese lugar, pone
+`data-rail-switcher` en `<html>` con `--rail-switcher-left/-bottom`, y
+`src/index.css` lo ancla a la izquierda (`right: auto !important`, para que se
+abra hacia la página y no fuera de la pantalla). `ThemeSwitcher.jsx` no se tocó:
+la posición es asunto de cada app. Fuera de `Layout` (login, 404, bloqueo de la
+terminal) sigue en la esquina, y ahí `PinPad` conserva su `max-sm:pr-12`, que
+`data-rail-switcher` anula dentro de la app.
+
+Verificado con el build local contra producción a 360, 390, 834, 1023, 1280 y
+1440, como staff (bar con datos) y como admin: ningún control de la página
+queda bajo el selector, con o sin scroll; abierto se ve completo a 390. Las
+únicas coincidencias que marca la revisión automática son renglones del menú
+lateral ya recortados por su propio scroll, no tapados.
