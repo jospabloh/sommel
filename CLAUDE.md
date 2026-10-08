@@ -1162,7 +1162,8 @@ Aguascalientes, UTC-6).
 | Fecha | Quién | Qué | Estado |
 |---|---|---|---|
 | (anterior) 17:55 | Alby | Mandó el menú de tisanas y blends (precios $90, a granel 100 g: $245 / $195 / $100) | — |
-| 2026-10-01 (jueves) 08:15 | José | Aviso de que el checador con PIN quedó listo, más preguntas: vales como forma de pago, correos del corte de caja, permisos del equipo (descuentos, cancelar lo ya enviado, ver el corte), cerrar turno con cuentas abiertas; el resto quedó tras "Leer más" | **Entregado, sin leer y sin respuesta** (revisado 2026-10-07 15:12: 6 días 7 h) |
+| 2026-10-01 (jueves) 08:15 | José | Aviso de que el checador con PIN quedó listo, más preguntas: vales como forma de pago, correos del corte de caja, permisos del equipo (descuentos, cancelar lo ya enviado, ver el corte), cerrar turno con cuentas abiertas; el resto quedó tras "Leer más" | Sin respuesta. Seguía sin leer el 2026-10-07 15:12 |
+| 2026-10-08 (jueves) 13:23 | José | Seguimiento corto: sin repetir las preguntas, ofrece contestar con un audio o pasar el contacto de alguien de su equipo; todo sigue funcionando mientras tanto | **Enviado, sin respuesta. El plazo cuenta desde aquí** |
 
 Mientras no conteste, lo que dependa de esas respuestas usa lo que ya está
 construido: vales se dan de alta en Ajustes → Formas de pago, los correos del
