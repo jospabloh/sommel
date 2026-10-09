@@ -12,9 +12,9 @@
  * const` lines below and the `export const CHANGELOG = [` opener exactly as
  * they are. Newest entry first. Every entry is written in user language.
  */
-export const APP_VERSION = "0.15.0";
+export const APP_VERSION = "0.15.1";
 
-export const RELEASE_DATE = "2026-09-29";
+export const RELEASE_DATE = "2026-10-09";
 
 // Public contact channels. Not secrets. The same email lives in
 // src/lib/billingNotice.js (SUPPORT_EMAIL); the WhatsApp line is the ACACIA
@@ -26,6 +26,54 @@ export const SUPPORT_WHATSAPP_URL = "https://wa.me/524498958291";
 // #14, one entry per PR, versions 0.<PR number>.0). From here on the release
 // script adds a patch entry per release.
 export const CHANGELOG = [
+  {
+    version: "0.15.1",
+    date: "2026-10-09",
+    changes: [
+      "Estándar ACACIA, ola 2: permisos, cuenta, soporte, versión, sesiones",
+      "Cuenta: Sesiones activas legible a 390 px",
+      "Programar purgeStaleSessions desde GitHub Actions",
+      "Verificación de correo por código (Registro y Login) y endurecimiento de claimInvite",
+      "acaciaControl: tickets.update, tenants.contacts y emails.sendFollowup",
+      "Soporte: conversación con ACACIA, respuestas del bar y correo al responder",
+      "createWineBar: roll back the bar if the creator cannot be attached as bar_admin",
+      "Impresión directa por USB: sin driver, con cajón de dinero",
+      "Arregla traslapes y desbordes de layout en móvil y tablet",
+      "Orden: un producto recién agregado ya no aparece dos veces",
+      "Impresión desde cualquier pantalla, propinas rápidas, checador por usuario, usuario visible y CLAUDE.md",
+      "Diseño: modo terminal (entrar con PIN en equipos autorizados)",
+      "Diseño: vista combinada \"Cocina y barra\" en el modo terminal",
+      "Vista combinada \"Cocina y barra\" (/estacion/todo)",
+      "CLAUDE.md: tiempo real de \"Cocina y barra\" verificado",
+      "Pantalla completa e \"Instalar Sommel\" en la barra lateral",
+      "Modo terminal: prueba de que el token puede crear cuentas de terminal",
+      "Modo terminal, fase 2a: entrar con PIN en equipos autorizados",
+      "Arregla el import que impedía publicar terminals y deja todas las funciones sin errores de tipos",
+      "CLAUDE.md: verificación en producción del modo terminal",
+      "Nombre propio de Sommel: \"Tu nombre\" al registrarse y el admin lo edita en Staff",
+      "Foto y alertas contra el préstamo de PIN, y concurrencia (límite de Base44)",
+      "Aprobación del encargado con PIN (cuatro acciones de personal)",
+      "Menú: una sola entrada \"Cocina y barra\"; descuentos con aprobación del encargado",
+      "Aprobación con QR y Face ID; checador de todo el equipo en la terminal",
+      "CLAUDE.md: QR con Face ID y checador de la terminal verificados en producción",
+      "Fase 3 (cocina/barra y permisos por persona) + impresora por tipo de trabajo",
+      "Fase 2b: personas sin correo + resultados de la prueba de carga",
+      "Terminales: Base44 renombró /embed-tokens a /embed-url",
+      "CLAUDE.md: fase 2b verificada en producción",
+      "CLAUDE.md: fase 2b cerrada (terminal con persona sin correo verificada)",
+      "Impresoras en red Star CloudPRNT (sin nada instalado en el bar)",
+      "CLAUDE.md: CloudPRNT simulado contra producción tras publicar",
+      "Quita super_admin del enum y registra pendientes cerrados contra producción",
+      "Checador en celular: el selector de tema ya no tapa \"Listo\"",
+      "Selector de tema en la barra lateral: ya no tapa mesas ni Reimprimir",
+      "CLAUDE.md: seguimiento con Alby",
+      "CLAUDE.md: seguimiento a Alby del 2026-10-08",
+      "CLAUDE.md: respuestas de Alby y cómo se traducen a Sommel",
+      "CLAUDE.md: mensaje a Alby sobre el cierre de turno",
+      "ci: acciones de los workflows a sus versiones en Node 24",
+      "CLAUDE.md: correos a los bares encendidos y acciones en Node 24",
+    ],
+  },
   {
     version: "0.15.0",
     date: "2026-09-29",
