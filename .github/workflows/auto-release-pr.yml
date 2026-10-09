@@ -38,10 +38,10 @@ jobs:
     if: "!startsWith(github.event.head_commit.message, 'chore: release') && !contains(github.event.head_commit.message, 'automated/release-pr') && github.actor != 'github-actions[bot]'"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # the script needs history to find the last release commit
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -54,7 +54,7 @@ jobs:
           ANTHROPIC_API_KEY_SOMMEL: ${{ secrets.ANTHROPIC_API_KEY_SOMMEL }}
         run: npm run release
       - name: Open the release PR
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.RELEASE_PR_PAT || secrets.GITHUB_TOKEN }}
           commit-message: 'chore: release and update changelog'
