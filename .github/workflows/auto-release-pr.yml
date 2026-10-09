@@ -37,6 +37,8 @@ jobs:
     # and anything the bot pushed.
     if: "!startsWith(github.event.head_commit.message, 'chore: release') && !contains(github.event.head_commit.message, 'automated/release-pr') && github.actor != 'github-actions[bot]'"
     runs-on: ubuntu-latest
+    # A stalled step otherwise runs to GitHub's 6-hour default and bills every minute.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
