@@ -1163,7 +1163,22 @@ Aguascalientes, UTC-6).
 |---|---|---|---|
 | (anterior) 17:55 | Alby | Mandó el menú de tisanas y blends (precios $90, a granel 100 g: $245 / $195 / $100) | — |
 | 2026-10-01 (jueves) 08:15 | José | Aviso de que el checador con PIN quedó listo, más preguntas: vales como forma de pago, correos del corte de caja, permisos del equipo (descuentos, cancelar lo ya enviado, ver el corte), cerrar turno con cuentas abiertas; el resto quedó tras "Leer más" | Sin respuesta. Seguía sin leer el 2026-10-07 15:12 |
-| 2026-10-08 (jueves) 13:23 | José | Seguimiento corto: sin repetir las preguntas, ofrece contestar con un audio o pasar el contacto de alguien de su equipo; todo sigue funcionando mientras tanto | **Enviado, sin respuesta. El plazo cuenta desde aquí** |
+| 2026-10-08 (jueves) 13:20 | José | Seguimiento corto: sin repetir las preguntas, ofrece contestar con un audio o pasar el contacto de alguien de su equipo | Contestado el mismo día |
+| 2026-10-08 (jueves) 16:19-16:22 | Alby | **Costos:** aún no los tiene (sigue de viaje). **Vales:** no sabe de qué tipo; algunas tarjetas de empresa/vales pasan en la terminal. **Corte de caja a:** albilda@rochavillanueva.com y vindima.ags@gmail.com. **Permisos:** el equipo no puede cancelar; descuentos solo el gerente. **Cerrar turno con cuentas abiertas:** sí, como excepción; "hay que pagarlas para hacer corte" | **Pendiente de José:** aclarar el cierre de turno y pedir costos al regreso |
+
+**Cómo se traduce a Sommel** (para cuando exista su bar; el 2026-10-09 en
+producción solo hay dos bares, los dos de prueba: Vindima todavía **no tiene
+bar** en Sommel):
+- Corte de caja: esas dos direcciones en Ajustes (`WineBar.corte_emails`).
+- Cancelar: `Comandas:cancelar_enviado` en **No** para staff en Permisos (hoy
+  viene en Sí con aprobación del admin). `Comandas:cancelar_orden` ya es No.
+- Descuentos: `Cobro:descuento` ya es No para staff por defecto; "gerente" =
+  `bar_admin`.
+- Vales que pasan por la terminal: son cobro con tarjeta. Solo hace falta una
+  forma de pago aparte si quiere verlos separados en el corte.
+- Cerrar turno con cuentas abiertas: hoy `shifts.close` lo **bloquea** (409
+  `open_orders`). Su respuesta se contradice ("sí se puede" / "hay que pagarlas
+  para hacer corte"); no se cambia nada hasta aclararlo.
 
 Mientras no conteste, lo que dependa de esas respuestas usa lo que ya está
 construido: vales se dan de alta en Ajustes → Formas de pago, los correos del
