@@ -1186,3 +1186,29 @@ construido: vales se dan de alta en Ajustes → Formas de pago, los correos del
 corte en Ajustes, los permisos en Permisos/Staff, y cerrar turno con cuentas
 abiertas está **bloqueado** (409 `open_orders`). Nada de eso cambia hasta que
 ella responda.
+
+## Correos de Mission Control a los bares, encendidos (2026-10-09)
+
+Decisión de José. `sommel` entró a `APP_MSG` de Mission Control
+(`api/_lib/messaging.js`, PR jospabloh/acacia-mission-control#123). Lo que llega
+ahora a un bar, siempre a su único contacto (`barContacts`):
+- Recordatorio de renovación (día 1) y aviso T-7: **solo** con
+  `current_period_end`. Un bar en `trial` lo tiene nulo, así que no recibe nada
+  de renovación.
+- Recordatorio de uso, al bar con licencia viva que lleva tiempo sin entrar.
+- Comunicados manuales, seguimiento desde Licencias y gracias por el pago.
+
+**Sigue sin existir, y es el hueco que importa:** ningún correo avisa que la
+prueba de 30 días se acaba, y no hay correos de ciclo de vida (solo lectura,
+bloqueo). Los dos dependen de `lifecycle` en `licenseControl.js` de Mission
+Control, que espera los nombres de plan. Hoy los dos bares vivos son de prueba,
+con contactos de José.
+
+## CI: acciones de GitHub en Node 24 (2026-10-09)
+
+`checkout`, `setup-node` y `upload-artifact` en v7, `create-pull-request` en v8,
+smoke en Node 22 (PR #57). Tras el merge, la smoke y el Auto Release corrieron en
+verde con las versiones nuevas. `ubuntu-latest` pasa a Ubuntu 26.04 el
+2026-10-19; Playwright 1.63 ya trae sus dependencias. El Auto Release abre su PR
+desde que se activó "Allow GitHub Actions to create and approve pull requests"
+(el 2026-10-09); antes nunca lo había logrado.
