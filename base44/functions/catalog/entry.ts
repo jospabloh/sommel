@@ -5,6 +5,8 @@ import { deleteCategory } from './handlers/deleteCategory.ts';
 import { upsertProduct } from './handlers/upsertProduct.ts';
 import { toggleProduct } from './handlers/toggleProduct.ts';
 import { importMenu } from './handlers/importMenu.ts';
+import { upsertExtra } from './handlers/upsertExtra.ts';
+import { deleteExtra } from './handlers/deleteExtra.ts';
 
 // Router for the `catalog` endpoint (entrega-1-contratos.md §4). `handle`
 // (from `./_guard.ts`, the canonical copy — never edited here) parses the
@@ -18,6 +20,8 @@ export default function (req: Request): Promise<Response> {
     deleteCategory,
     upsertProduct,
     toggleProduct,
+    upsertExtra,
+    deleteExtra,
     // Module 14: the only route a platform admin with no bar may call.
     importMenu: allowNoTenant(importMenu),
   });

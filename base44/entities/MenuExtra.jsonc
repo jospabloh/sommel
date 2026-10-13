@@ -1,0 +1,37 @@
+{
+  // Extra con precio que se suma a un renglón (Shot extra, Leche de almendra...).
+  // Distinto de Product.modifiers (sin precio). Un extra no tiene costo. Escritura
+  // solo vía la función `catalog` (el cliente nunca escribe entidades directo).
+  "name": "MenuExtra",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string", "description": "WineBar dueño de este extra" },
+    "name": { "type": "string", "description": "Nombre del extra (p.ej. 'Shot extra')" },
+    "price": { "type": "integer", "default": 0, "description": "Precio en centavos MXN que se suma al precio unitario del renglón. Entero, 0 o más. Los extras no tienen costo." },
+    "applies_to": {
+      "type": "string",
+      "enum": ["all", "products"],
+      "default": "all",
+      "description": "'all' ofrece el extra en todos los productos; 'products' solo en los listados en product_ids"
+    },
+    "product_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Ids de Product a los que aplica cuando applies_to es 'products'; vacío en otro caso"
+    },
+    "active": { "type": "boolean", "default": true, "description": "Si se ofrece al tomar la comanda. Un extra inactivo no se puede agregar a renglones nuevos; los renglones viejos conservan el suyo congelado" },
+    "sort": { "type": "number", "default": 0, "description": "Orden de aparición" }
+  },
+  "required": ["tenant_id", "name"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.tenant_id": "{{user.data.tenant_id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "create": { "user_condition": { "role": "admin" } },
+    "update": { "user_condition": { "role": "admin" } },
+    "delete": { "user_condition": { "role": "admin" } }
+  }
+}

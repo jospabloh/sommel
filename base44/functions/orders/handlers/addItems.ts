@@ -1,6 +1,6 @@
 // orders.addItems — entrega-1-contratos.md §4 "orders".
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCosts, type Ctx, type Route } from '../_guard.ts';
-import { LogicError, resolveItemPricing, validateQty, isOrderOpen } from './_logic.ts';
+import { LogicError, resolveItemPricing, resolveExtras, withExtras, validateQty, isOrderOpen } from './_logic.ts';
 import { recomputeOrderTotals } from './_shared.ts';
 
 export const addItems: Route = async (ctx: Ctx, body: any) => {
@@ -23,13 +23,23 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
 
   // Resolve every line against the STORED Product before writing anything —
   // one bad line fails the whole call instead of leaving a partial add.
+  // The tenant's extras are read ONCE per call, and only when some line asks
+  // for one (Base44's app-wide rate limit is tight). The tenant comes from the
+  // STORED order, never the body.
+  const wantsExtras = items.some((raw: any) => raw?.extras != null && !(Array.isArray(raw.extras) && raw.extras.length === 0));
+  const extrasCatalog: any[] = wantsExtras
+    ? await ctx.svc.entities.MenuExtra.filter({ tenant_id: order.tenant_id })
+    : [];
+
   const resolved: any[] = [];
   for (const raw of items) {
     if (!raw?.product_id) httpError(400, 'product_required', 'Cada renglón necesita un producto');
     const product = await loadOwned(ctx, 'Product', raw.product_id);
     try {
       const qty = validateQty(raw.qty);
-      const pricing = resolveItemPricing(product, { variant: raw.variant, modifiers: raw.modifiers });
+      const base = resolveItemPricing(product, { variant: raw.variant, modifiers: raw.modifiers });
+      // unit_price = base + extras; unit_cost stays the base cost.
+      const pricing = withExtras(base, resolveExtras(extrasCatalog, raw.product_id, raw.extras, order.tenant_id));
       resolved.push({
         product_id: raw.product_id,
         qty,
@@ -64,6 +74,7 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
       ...(line.unit_cost == null ? {} : { unit_cost: line.unit_cost }),
       qty: line.qty,
       modifiers: line.modifiers,
+      extras: line.extras,
       notes: line.notes,
       station: line.station,
       status: 'nuevo',

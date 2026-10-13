@@ -10,10 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Minus, Plus } from 'lucide-react';
 import { formatMXN } from '@/lib/money';
+import { extrasTotal } from '@/lib/extras';
 
 export default function VariantModifierSheet({ product, open, onOpenChange, onConfirm, submitting }) {
   const [variant, setVariant] = useState(null);
   const [modifiers, setModifiers] = useState([]);
+  const [extraIds, setExtraIds] = useState([]);
   const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState('');
 
@@ -21,6 +23,7 @@ export default function VariantModifierSheet({ product, open, onOpenChange, onCo
     if (open) {
       setVariant(null);
       setModifiers([]);
+      setExtraIds([]);
       setQty(1);
       setNotes('');
     }
@@ -31,11 +34,17 @@ export default function VariantModifierSheet({ product, open, onOpenChange, onCo
     () => product?.variants?.find((v) => v.key === variant) ?? null,
     [product, variant]
   );
-  const unitPrice = chosenVariant ? chosenVariant.price : product?.price ?? 0;
+  const offeredExtras = product?.offered_extras ?? [];
+  // Preview only: the server prices the line (base + extras) and is the one that counts.
+  const unitPrice = (chosenVariant ? chosenVariant.price : product?.price ?? 0) + extrasTotal(offeredExtras, extraIds);
   const canConfirm = !needsVariant || !!variant;
 
   const toggleModifier = (key) => {
     setModifiers((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  };
+
+  const toggleExtra = (id) => {
+    setExtraIds((prev) => (prev.includes(id) ? prev.filter((k) => k !== id) : [...prev, id]));
   };
 
   const handleConfirm = () => {
@@ -44,6 +53,7 @@ export default function VariantModifierSheet({ product, open, onOpenChange, onCo
       product_id: product.id,
       variant: needsVariant ? variant : undefined,
       modifiers,
+      extras: extraIds,
       qty,
       notes: notes.trim(),
     });
@@ -96,6 +106,31 @@ export default function VariantModifierSheet({ product, open, onOpenChange, onCo
                       onCheckedChange={() => toggleModifier(m.key)}
                     />
                     <span className="text-sm">{m.label || m.key}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {offeredExtras.length > 0 && (
+            <div>
+              <div className="text-sm font-medium mb-2">Extras</div>
+              <div className="space-y-2">
+                {offeredExtras.map((x) => (
+                  <label
+                    key={x.id}
+                    htmlFor={`extra-${x.id}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 cursor-pointer has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Checkbox
+                        id={`extra-${x.id}`}
+                        checked={extraIds.includes(x.id)}
+                        onCheckedChange={() => toggleExtra(x.id)}
+                      />
+                      <span className="text-sm truncate">{x.name}</span>
+                    </div>
+                    <span className="text-sm text-muted-foreground shrink-0">+{formatMXN(x.price)}</span>
                   </label>
                 ))}
               </div>

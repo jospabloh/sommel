@@ -45,6 +45,7 @@ export interface MemberLike {
  */
 export const EXPORT_ENTITIES = [
   'Category',
+  'MenuExtra',
   'Product',
   'BarTable',
   'Order',

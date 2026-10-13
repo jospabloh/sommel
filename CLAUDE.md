@@ -1361,3 +1361,81 @@ completa" sigue la propina general de siempre (`setTip`).
 - Pruebas: `base44/tests/payment_tip_test.ts`. Esquema: `Payment.tip` nuevo (se
   sincroniza de GitHub; publicar después del sync). **No verificado:** un cobro
   real dividido con propinas contra Base44, y la pantalla de cobro a 390 px.
+
+## Extras con precio (2026-10-13)
+
+Pedido de José: cada producto puede ofrecer extras con precio (Shot extra $15,
+Leche de almendra $10), se crean donde se crea el menú y aplican a un producto
+concreto o a todos. Los extras tienen **precio y ningún costo** (confirmado por
+José). **Código en el repo; nada publicado ni verificado en vivo.**
+
+**Es un concepto aparte de `Product.modifiers`**, que sigue igual (key/label,
+gratis, definido dentro de cada producto).
+
+- **Entidad `MenuExtra`** (`tenant_id`, `name`, `price` en centavos, `applies_to`
+  `all|products`, `product_ids`, `active`, `sort`). RLS idéntica a `Category`
+  (lectura del inquilino más rama de plataforma; create/update/delete solo
+  `role:admin`). No entra al manifiesto de bloqueos: `Category` tampoco está ahí y
+  no hay campo ni operación con candado propio. `OrderItem.extras` guarda
+  `{id, name, price}` **congelado** al agregar el renglón.
+- **`catalog.upsertExtra` / `deleteExtra`**: mismos guardias y orden que
+  `upsertProduct` (`loadOwned` al editar, `Menú:editar`, `requireWritable`,
+  validar, escribir). Nombre 1 a 60 caracteres, precio entero 0 a 1,000,000
+  centavos, `product_ids` solo con `products` (con `all` se guarda `[]`), sin
+  duplicados, y cada id debe ser un `Product` del inquilino (una sola lectura
+  filtrada por inquilino; un id ajeno responde 404 igual que uno inexistente).
+  `listProducts` devuelve también `extras` (los inactivos solo con
+  `include_inactive`, que ya usa el editor del menú); si leer `MenuExtra` falla
+  responde `extras: []` para no tumbar el menú.
+- **`orders.addItems` acepta `extras: [ids]` por renglón.** Lee los `MenuExtra`
+  del inquilino de la **orden almacenada** una sola vez por llamada, y solo si
+  algún renglón pide extras. `resolveExtras` (`orders/handlers/_logic.ts`, puro)
+  rechaza con 400: `extra_not_found` (id desconocido, no cadena o de otro bar),
+  `extra_inactive`, `extra_not_applicable`, `extra_duplicate`, `extras_invalid`
+  (no es lista o más de 20) e `invalid_price` (un extra guardado con precio roto
+  nunca se cobra como 0).
+- **Reglas que no se rompen:** `unit_price` del renglón = precio base (variante o
+  producto) + suma de los extras, así que totales, pagos, división de cuenta y
+  reportes funcionan sin tocarlos. `unit_cost` sigue siendo el costo base: los
+  extras no tienen costo, y por eso no hay nada que redactar sin `Menú:ver_costos`.
+  El cliente solo manda ids; nombre y precio salen siempre del registro guardado.
+  **`updateItem` no acepta cambios de extras** (nunca reprecia): para otro extra se
+  quita el renglón y se agrega de nuevo. El precio de la hoja de opciones es solo
+  vista previa.
+- **Cliente.** Menú gana la pestaña **Extras** (`ExtrasSection`, `ExtraFormDialog`,
+  con el mismo `Menú:editar`; quien solo ve el menú la ve sin botones): lista con
+  precio y "Todos los productos" / "N productos", alta y edición (precio en pesos
+  convertido a centavos por `pesosInputToCents`, que rechaza 3 decimales en vez de
+  redondear), selector de productos con búsqueda, interruptor de activo y borrar
+  con confirmación. `ProductPicker` toma los extras de la misma respuesta de
+  `listProducts` (cero peticiones nuevas) y `VariantModifierSheet` los muestra con
+  "+$15.00" y los suma al precio del botón. Esa hoja ya se abría siempre al elegir
+  un producto, así que un producto sin variantes ni modificadores pero con extras
+  no necesitó cambio de flujo. Los extras salen en el renglón de la orden, en la
+  división de cuenta, en cocina y barra (`lineSubtitle`, igual que los
+  modificadores) y en el ticket como subrenglón `  + Shot extra`.
+  `MenuExtra` entra a la exportación de datos de la cuenta. Manual: sección
+  "Menú y extras".
+- **Pruebas:** `base44/tests/menu_extras_test.ts` (28): aplica a todos, a un
+  producto, no aplica, inactivo, id desconocido y ajeno, duplicado, suma,
+  `unit_price = base + extras` con y sin variante, `unit_cost` intacto, totales,
+  normalización y validación del catálogo, ticket y ayudantes del cliente.
+
+**Orden de despliegue (importa):** los esquemas de entidades se sincronizan desde
+GitHub `main`, así que **`MenuExtra` y `OrderItem.extras` tienen que estar en el
+esquema desplegado antes de publicar las funciones** (releer con
+`list_entity_schemas`). Con las funciones nuevas y sin `OrderItem.extras`, Base44
+descarta el campo en silencio (el renglón se guarda con el precio sumado pero sin
+mostrar sus extras); sin `MenuExtra`, `upsertExtra` falla y `addItems` con extras
+responde 500. Luego publicar funciones y sitio. Verificar por contenido: llamar
+`catalog` con `{action:'upsertExtra'}` sin sesión debe dar 401 (no `unknown
+action`), y buscar "Nuevo extra" en el bundle servido.
+
+**Verificado:** `npm run lint` (22 de 40 endpoints, 35 bloqueos), `build`,
+`validate:rls` (27 entidades, 14 con inquilino; la cifra 19/13 de arriba ya estaba
+vieja), `validate:tenant-roles`, `check:guards` (50, sin deriva),
+`check:functions`, `deno test` con el comando de CI (609/0) y `deno lint` limpio.
+**No verificado:** nada contra Base44 (los `entry.ts` importan `npm:@base44/sdk`);
+las pantallas (Menú > Extras, la hoja de opciones con extras, la orden, cocina y
+barra) a 390/834/1440 en claro y oscuro; un ticket impreso con extras en papel; una
+sesión de staff sin `Menú:editar` viendo la pestaña Extras de solo lectura.

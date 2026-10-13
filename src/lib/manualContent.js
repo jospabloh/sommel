@@ -42,6 +42,34 @@ export const MANUAL_SECTIONS = [
     ],
   },
   {
+    id: 'menu',
+    title: 'Menú y extras',
+    summary: 'Productos, categorías y extras con precio.',
+    keywords: ['extra', 'extras', 'shot', 'leche', 'adicional', 'complemento', 'precio', 'producto', 'categoria'],
+    items: [
+      {
+        q: '¿Cómo creo un extra con precio?',
+        a: 'Entra a Menú y toca la pestaña Extras. Toca Extra, escribe el nombre (por ejemplo, Shot extra) y su precio, y guarda. Cuando alguien tome una orden, el extra aparece como opción con su precio.',
+      },
+      {
+        q: '¿Cómo hago que un extra solo salga en algunos productos?',
+        a: 'Al crear o editar el extra elige Solo algunos productos y marca los que quieras. Con Todos los productos, el extra se ofrece en todo el menú.',
+      },
+      {
+        q: '¿Cómo agrego un extra a un renglón de la orden?',
+        a: 'Al elegir el producto, en la hoja de opciones marca los extras que pide el cliente. El precio del renglón sube lo que cuesta cada extra, y el extra se ve debajo del producto en la orden, en cocina y barra, y en el ticket.',
+      },
+      {
+        q: '¿Cómo pauso o quito un extra?',
+        a: 'En Extras usa el interruptor para desactivarlo: deja de ofrecerse pero lo puedes volver a activar. El bote de basura lo elimina. Las órdenes que ya lo llevaban no cambian.',
+      },
+      {
+        q: '¿En qué se diferencia un extra de un modificador?',
+        a: 'Un modificador (por ejemplo, sin hielo) no cuesta nada y se define dentro de cada producto. Un extra tiene precio, se crea en la pestaña Extras y puede servir para varios productos.',
+      },
+    ],
+  },
+  {
     id: 'cocina-barra',
     title: 'Cocina y barra',
     summary: 'Las estaciones donde llegan los renglones enviados.',

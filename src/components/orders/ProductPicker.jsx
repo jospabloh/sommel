@@ -6,11 +6,13 @@ import { Wine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callFn } from '@/lib/api';
 import { formatMXN } from '@/lib/money';
+import { extrasForProduct } from '@/lib/extras';
 import { toast } from '@/components/ui/use-toast';
 
 export default function ProductPicker({ onPick }) {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [extras, setExtras] = useState([]); // priced extras ride in the same listProducts response
   const [activeCategory, setActiveCategory] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -20,11 +22,12 @@ export default function ProductPicker({ onPick }) {
     (async () => {
       setLoading(true);
       try {
-        const { categories: cats, products: prods } = await callFn('catalog', 'listProducts', {});
+        const { categories: cats, products: prods, extras: exs } = await callFn('catalog', 'listProducts', {});
         if (cancelled) return;
         const sortedCats = [...(cats || [])].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
         setCategories(sortedCats);
         setProducts(prods || []);
+        setExtras(exs || []);
         setActiveCategory(sortedCats[0]?.id ?? null);
       } catch (err) {
         toast({ title: 'No se pudo cargar el menú', description: err.message, variant: 'destructive' });
@@ -92,7 +95,7 @@ export default function ProductPicker({ onPick }) {
             <button
               key={p.id}
               type="button"
-              onClick={() => onPick(p)}
+              onClick={() => onPick({ ...p, offered_extras: extrasForProduct(extras, p.id) })}
               className="rounded-xl border border-border bg-card p-3 text-left hover:border-primary/50 active:scale-[0.98] transition-transform"
             >
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center mb-2 text-primary">
