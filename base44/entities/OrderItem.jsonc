@@ -34,6 +34,18 @@
         }
       }
     },
+    "extras": {
+      "type": "array",
+      "description": "Extras con precio elegidos para este renglón, congelados desde MenuExtra al agregarlo (id, nombre y precio en centavos). Su suma ya está incluida en unit_price; este arreglo solo sirve para mostrarlos (comanda, cocina, ticket). Los extras no tienen costo, así que unit_cost no los incluye. updateItem nunca los cambia.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "price": { "type": "integer" }
+        }
+      }
+    },
     "notes": { "type": "string", "description": "Nota libre para cocina/barra" },
     "station": { "type": "string", "enum": ["kitchen", "bar", "none"], "description": "A qué estación se envía" },
     "status": {

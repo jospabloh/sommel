@@ -24,6 +24,8 @@ export interface TicketInput {
     unit_price: number;
     status?: string | null;
     modifiers?: Array<{ label?: string; key?: string }> | null;
+    // Priced extras frozen on the line; their price is already inside unit_price.
+    extras?: Array<{ name?: string }> | null;
   }>;
   order: { subtotal: number; discount: number; discount_kind?: string | null; discount_reason?: string | null; tip: number; total: number };
   payments: Array<{ method_label?: string; method?: string; amount: number; received?: number | null; change?: number | null; voided_at?: string | null }>;
@@ -80,6 +82,11 @@ export function buildTicketLines(input: TicketInput): TicketLine[] {
     const mods = (item.modifiers ?? []).map((m) => m.label || m.key || '').filter(Boolean);
     if (mods.length) {
       for (const t of wrapText(mods.join(', '), TICKET_WIDTH - 2)) lines.push({ text: '  ' + t });
+    }
+    // One subline per extra, e.g. "  + Shot extra" (the amount is in the line total).
+    for (const e of item.extras ?? []) {
+      if (!e?.name) continue;
+      for (const t of wrapText(`+ ${e.name}`, TICKET_WIDTH - 2)) lines.push({ text: '  ' + t });
     }
   }
   lines.push(sep);

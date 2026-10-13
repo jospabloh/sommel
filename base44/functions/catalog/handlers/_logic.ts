@@ -302,3 +302,75 @@ export function normalizeSeedProduct(raw: any, categoryStationDefault: unknown):
     seasonal: !!raw?.seasonal,
   };
 }
+
+// ---------------------------------------------------------------------------
+// MenuExtra: priced add-ons (Shot extra, Leche de almendra). Separate from
+// Product.modifiers (free, no price). Extras carry a PRICE and never a cost.
+// ---------------------------------------------------------------------------
+
+export const EXTRA_NAME_MAX = 60;
+/** Sanity bound: $10,000.00 in cents. A typo of one extra zero is caught here. */
+export const EXTRA_PRICE_MAX = 1_000_000;
+export const EXTRA_PRODUCTS_MAX = 500;
+
+export interface ExtraFields {
+  name: string;
+  price: number | null;
+  applies_to: 'all' | 'products';
+  product_ids: string[];
+  active: boolean;
+  sort: number;
+}
+
+/**
+ * On update an omitted field keeps the stored value (a partial payload such
+ * as `{ id, active: false }` never wipes the rest). `product_ids` only
+ * survives when `applies_to` is 'products': an 'all' extra stores `[]`, so a
+ * stale list can never come back to life if the scope is switched later.
+ * Ids are trimmed, de-duplicated and empty strings dropped.
+ */
+export function normalizeExtraInput(body: any, existing?: any): ExtraFields {
+  const stored = existing ?? {};
+  const name = body?.name !== undefined ? str(body.name) : str(stored.name);
+  const price = body?.price !== undefined ? centsOrNull(body.price) : (stored.price ?? null);
+  const appliesInput = body?.applies_to !== undefined ? body.applies_to : stored.applies_to;
+  const applies_to: 'all' | 'products' = appliesInput === 'products' ? 'products' : 'all';
+  const idsInput = body?.product_ids !== undefined ? body.product_ids : stored.product_ids;
+  const ids = Array.isArray(idsInput)
+    ? Array.from(new Set(idsInput.map((x: unknown) => str(x)).filter(Boolean)))
+    : [];
+  const product_ids = applies_to === 'products' ? ids : [];
+  const active = body?.active !== undefined ? !!body.active : (existing ? stored.active !== false : true);
+  const sort = body?.sort !== undefined ? (intOrNull(body.sort) ?? 0) : (stored.sort ?? 0);
+  return { name, price, applies_to, product_ids, active, sort };
+}
+
+export function validateExtra(fields: ExtraFields): string | null {
+  if (!fields.name) return 'El nombre del extra es obligatorio';
+  if (fields.name.length > EXTRA_NAME_MAX) return `El nombre del extra no puede pasar de ${EXTRA_NAME_MAX} caracteres`;
+  if (fields.price === null) return 'El precio del extra debe ser un monto válido en centavos';
+  if (fields.price > EXTRA_PRICE_MAX) return 'El precio del extra es demasiado alto';
+  if (fields.applies_to === 'products') {
+    if (fields.product_ids.length === 0) return 'Elige al menos un producto o usa "Todos los productos"';
+    if (fields.product_ids.length > EXTRA_PRODUCTS_MAX) return 'Demasiados productos elegidos';
+  }
+  return null;
+}
+
+/**
+ * Every product id must be one of the tenant's own products (`ownedIds` comes
+ * from a tenant-filtered read). An id from another bar answers the same as an
+ * id that does not exist, so nothing leaks about other tenants.
+ */
+export function unknownProductIds(productIds: string[], ownedIds: Iterable<string>): string[] {
+  const owned = new Set(ownedIds);
+  return productIds.filter((id) => !owned.has(id));
+}
+
+/** Menu editors see inactive extras too (to reactivate them); everyone else only active ones. */
+export function visibleExtras(rows: any[], includeInactive: boolean): any[] {
+  return rows
+    .filter((e) => includeInactive || e.active !== false)
+    .slice()
+    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || String(a.name ?? '').localeCompare(String(b.name ?? ''), 'es'));
+}
