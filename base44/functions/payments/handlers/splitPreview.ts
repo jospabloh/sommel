@@ -1,6 +1,6 @@
 // payments.splitPreview — entrega-2-contratos.md §5. Writes nothing.
 import { loadOwned, requirePermission, httpError, splitEqual, type Ctx, type Route } from '../_guard.ts';
-import { remainingOf, splitByItems, validateParts } from './_logic.ts';
+import { billTotalForSplit, remainingOf, splitByItems, validateParts } from './_logic.ts';
 import { loadItems, loadPayments, rethrow } from './_shared.ts';
 
 export const splitPreview: Route = async (ctx: Ctx, body: any) => {
@@ -20,7 +20,8 @@ export const splitPreview: Route = async (ctx: Ctx, body: any) => {
       const amount = splitByItems(
         items,
         body?.item_ids,
-        { subtotal: order.subtotal ?? 0, total: order.total ?? 0 },
+        // Earlier payers' own tips are not part of the bill being divided.
+        { subtotal: order.subtotal ?? 0, total: billTotalForSplit(order, payments) },
         remaining
       );
       return { amount };

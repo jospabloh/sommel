@@ -88,6 +88,10 @@ export const MANUAL_SECTIONS = [
         a: 'En la pantalla de cobro puedes capturar la propina en monto o en porcentaje. Es opcional y se define antes del primer pago.',
       },
       {
+        q: 'Dividí la cuenta, ¿cada quien puede dejar su propina?',
+        a: 'Sí. Al dividir en partes iguales o por platillos aparece Propina de este pago: Sin, 10, 15 o 20 % de su parte, u Otra para un monto. Se suma a lo que paga esa persona y no cambia lo que deben los demás. Si la cuenta ya tenía una propina general, quítala primero.',
+      },
+      {
         q: '¿Cómo hago un descuento o una cortesía?',
         a: 'En la pantalla de cobro elige descuento o cortesía y escribe el motivo, que es obligatorio. Por defecto solo el administrador puede hacerlo, y solo antes de registrar pagos.',
       },

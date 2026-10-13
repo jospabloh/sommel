@@ -50,6 +50,56 @@ export function paidTotal(payments: Array<{ amount?: number | null; voided_at?: 
   );
 }
 
+// ---- Tip per payment (2026-10-13) ----
+// When the bill is split, each payer can leave their own tip. The tip rides
+// inside that payment's `amount` and is also stored as `Payment.tip`; the
+// order's tip is then the sum of its live payments' tips, so every existing
+// total, "falta", corte and report keeps adding up unchanged.
+
+/** Σ tip of payments that are not voided. */
+export function paymentTips(payments: Array<{ tip?: number | null; voided_at?: string | null }>): number {
+  return (payments ?? []).reduce(
+    (sum, p) => (p.voided_at ? sum : sum + (typeof p.tip === 'number' && p.tip > 0 ? p.tip : 0)),
+    0
+  );
+}
+
+/**
+ * The tip of ONE payment, over that payment's share of the bill (`portion`).
+ * `raw` is `{ pct }` or `{ amount }` (centavos), or missing for no tip.
+ */
+export function planPaymentTip(raw: unknown, portion: number): number {
+  if (raw === undefined || raw === null) return 0;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new LogicError('invalid_tip', 'Propina no válida');
+  }
+  const r = raw as { pct?: unknown; amount?: unknown };
+  return planTip({ pct: r.pct, amount: r.amount, base: portion }).tip;
+}
+
+/**
+ * Per-payment tips only work while the order's tip IS the sum of its payment
+ * tips. An order-wide tip set with setTip (a percentage, or an amount before
+ * any payment) is prorated into every share already, so adding more on top
+ * would charge it twice.
+ */
+export function canTipPerPayment(
+  order: { tip?: number | null; tip_pct?: number | null },
+  payments: Array<{ tip?: number | null; voided_at?: string | null }>
+): boolean {
+  if (typeof order.tip_pct === 'number') return false;
+  return (order.tip ?? 0) === paymentTips(payments);
+}
+
+/**
+ * The order total WITHOUT the tips already left by earlier payers: splitting
+ * by dishes prorates the rest of the bill, and must not hand one payer's tip
+ * to the next.
+ */
+export function billTotalForSplit(order: { total?: number | null }, payments: Array<{ tip?: number | null; voided_at?: string | null }>): number {
+  return Math.max(0, (order.total ?? 0) - paymentTips(payments));
+}
+
 /** What is still owed. Never negative. */
 export function remainingOf(total: number, payments: Array<{ amount?: number | null; voided_at?: string | null }>): number {
   return Math.max(0, (total || 0) - paidTotal(payments));

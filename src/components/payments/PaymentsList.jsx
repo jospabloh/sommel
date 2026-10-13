@@ -23,6 +23,7 @@ export default function PaymentsList({ payments, canVoid, onVoid }) {
                 {p.method_label || p.method}
                 {p.split_label ? ` · ${p.split_label}` : ''}
               </div>
+              {(p.tip ?? 0) > 0 && <div className="text-xs text-muted-foreground">Incluye {formatMXN(p.tip)} de propina</div>}
               {p.voided_at && p.void_reason && (
                 <div className="text-xs">Anulado: {p.void_reason}</div>
               )}
