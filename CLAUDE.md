@@ -1322,3 +1322,19 @@ Ajustes. Las dos vienen apagadas.
   mouse desplaza una lista sin abrir el botón donde empezó, mientras un toque sí
   lo abre. **No verificado:** en la pantalla táctil real, dentro de un diálogo
   real y en las pantallas con sesión.
+
+## Registro de avisos "ocupado" por equipo (2026-10-13)
+
+José vio varios "Hay muchas solicitudes seguidas" con una sola persona en la
+terminal y no se pudo saber cuándo: un 429 de la cuota de Base44 se corta antes
+de llegar a las funciones, así que **no aparece en los logs de funciones**.
+`callFn` ahora anota cada 429 (hora, pantalla, función, acción, intento) en el
+navegador (`src/lib/rateLog.js`, `sommel.rateLog`, los últimos 50) y **Acerca**
+los muestra si hay alguno. Solo cubre llamadas por `callFn`; las lecturas y
+suscripciones directas a entidades no pasan por ahí.
+
+Causa más probable del episodio del 2026-10-13 [Probable, no confirmado]: pruebas
+automáticas de navegador de Claude contra producción con la misma cuenta y bar
+que José estaba usando, a la misma hora. Por eso la regla: **una prueba
+automática no inicia sesión en producción con la cuenta de José, y si no
+necesita backend, bloquea las peticiones a Base44** (como la del modo táctil).
