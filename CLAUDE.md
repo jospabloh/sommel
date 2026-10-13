@@ -1439,3 +1439,13 @@ vieja), `validate:tenant-roles`, `check:guards` (50, sin deriva),
 las pantallas (Menú > Extras, la hoja de opciones con extras, la orden, cocina y
 barra) a 390/834/1440 en claro y oscuro; un ticket impreso con extras en papel; una
 sesión de staff sin `Menú:editar` viendo la pestaña Extras de solo lectura.
+
+### Desplazar con el dedo: encendido de fábrica y también con toque real (2026-10-13)
+
+José probó en la caja y el dedo no desplazaba: la opción venía **apagada** y solo
+atendía punteros `mouse`/`pen`. Ahora viene encendida (solo un `false` explícito
+la apaga) y atiende también `touch`, con umbral de 24 px: si el navegador hace su
+propio desplazamiento táctil, manda `pointercancel` antes y el código se hace a
+un lado, sin doble desplazamiento. Simulado en Chromium (dedo por CDP y mouse,
+arrastre de 150 px): 135 px nativo, 150 px con `touch-action: none`, 150 px con
+mouse. **No verificado** en la pantalla táctil de la caja.

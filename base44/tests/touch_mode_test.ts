@@ -3,7 +3,7 @@
 // (José, 2026-10-13). Each test says what would break for the bar.
 //   deno test --allow-env base44/tests/touch_mode_test.ts
 // @ts-ignore: plain JS module shared with the client bundle
-import { applyKey, blocksDrag, handlesPointer, keyboardFor, parseTouchPrefs, passedDragThreshold, withAccent } from '../../src/lib/touch/touchLogic.js';
+import { applyKey, blocksDrag, dragThresholdFor, handlesPointer, keyboardFor, parseTouchPrefs, passedDragThreshold, withAccent } from '../../src/lib/touch/touchLogic.js';
 
 function assertEquals(actual: unknown, expected: unknown, msg?: string) {
   const a = JSON.stringify(actual);
@@ -11,10 +11,11 @@ function assertEquals(actual: unknown, expected: unknown, msg?: string) {
   if (a !== e) throw new Error(`${msg ?? 'assertEquals'}: expected ${e}, got ${a}`);
 }
 
-Deno.test('prefs: unreadable or missing storage means everything off, never on by surprise', () => {
-  assertEquals(parseTouchPrefs(null), { dragScroll: false, keyboard: false });
-  assertEquals(parseTouchPrefs('{bad'), { dragScroll: false, keyboard: false });
-  assertEquals(parseTouchPrefs('{"keyboard":"yes","dragScroll":true}'), { dragScroll: true, keyboard: false }, 'only a real true turns it on');
+Deno.test('prefs: finger scroll is on unless this device turned it off; the keyboard is opt-in', () => {
+  assertEquals(parseTouchPrefs(null), { dragScroll: true, keyboard: false }, 'a new touch screen scrolls with the finger out of the box');
+  assertEquals(parseTouchPrefs('{bad'), { dragScroll: true, keyboard: false });
+  assertEquals(parseTouchPrefs('{"dragScroll":false}'), { dragScroll: false, keyboard: false }, 'an explicit off is kept');
+  assertEquals(parseTouchPrefs('{"keyboard":"yes"}'), { dragScroll: true, keyboard: false }, 'only a real true turns the keyboard on');
 });
 
 Deno.test('drag: a tap stays a tap; only a real movement scrolls', () => {
@@ -22,10 +23,15 @@ Deno.test('drag: a tap stays a tap; only a real movement scrolls', () => {
   assertEquals(passedDragThreshold(0, 8), true);
 });
 
-Deno.test('drag: native touch is left alone, the mouse-like finger is handled', () => {
-  assertEquals(handlesPointer('touch', 0), false, 'a real touch screen already scrolls; doubling it would jump');
-  assertEquals(handlesPointer('mouse', 0), true);
+Deno.test('drag: mouse-like fingers and real fingers both scroll; right click does not', () => {
+  assertEquals(handlesPointer('mouse', 0), true, 'a touch screen Windows reports as a mouse');
+  assertEquals(handlesPointer('touch', 0), true, 'a real finger, for boxes where the browser does not pan natively');
   assertEquals(handlesPointer('mouse', 2), false, 'right click is not a drag');
+});
+
+Deno.test('drag: a finger waits past the browser slop, so a native pan wins and nothing scrolls twice', () => {
+  assertEquals(dragThresholdFor('touch') > dragThresholdFor('mouse'), true);
+  assertEquals(passedDragThreshold(0, 12, dragThresholdFor('touch')), false);
 });
 
 Deno.test('keyboard: price and quantity fields get the number pad', () => {
