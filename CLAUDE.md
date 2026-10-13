@@ -1212,3 +1212,29 @@ verde con las versiones nuevas. `ubuntu-latest` pasa a Ubuntu 26.04 el
 2026-10-19; Playwright 1.63 ya trae sus dependencias. El Auto Release abre su PR
 desde que se activó "Allow GitHub Actions to create and approve pull requests"
 (el 2026-10-09); antes nunca lo había logrado.
+
+## Impresora USB en Windows: el navegador no la puede abrir (2026-10-13)
+
+En la terminal de caja (POS Wansoft, Windows, Chrome) la impresora de 80 mm
+aparece en el selector como "USB Printer" y se conecta, pero cada impresión
+falla. **La causa es de Windows, no del cable ni de Sommel** [Probable: no se
+vio el texto del error en `chrome://device-log`]. Windows le pone a toda
+impresora USB su controlador `usbprint.sys` en cuanto se conecta, y Chrome solo
+abre por WebUSB los dispositivos que usan WinUSB. `device.open()` responde
+`NetworkError ... Access denied`. En macOS y Linux esto no pasa, por eso la EC
+Line funcionó en la Mac. **"Sin driver" vale para Mac, Linux y ChromeOS; en
+Windows, no.**
+
+Lo que se cambió: `openErrorMessage()` (`usbPrinter.js`) separa "Access denied"
+del cable desconectado. Antes los dos decían "Revisa el cable USB". Prueba:
+`base44/tests/usb_printer_test.ts`.
+
+Lo que **no** se resolvió (decisión de José): hacer que Windows imprima.
+- Cambiar el controlador de esa impresora a WinUSB con Zadig. Es una vez por
+  equipo y conserva todo (ESC/POS directo, corte y cajón), pero Windows deja de
+  verla como impresora y se instala una herramienta.
+- Instalar el controlador del fabricante y usar el cuadro de impresión del
+  navegador, con `--kiosk-printing` para que no aparezca. El cajón depende de
+  ese controlador y el corte, del papel.
+- Una impresora de red Star CloudPRNT, que ya está construida y no necesita
+  nada en el equipo.
