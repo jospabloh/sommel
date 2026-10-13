@@ -6,12 +6,13 @@ import { useAuth } from '@/lib/AuthContext';
 import { useTerminalIdle } from '@/lib/terminal/useTerminalIdle';
 import TerminalLock from './TerminalLock';
 import TerminalRevoked from './TerminalRevoked';
+import TerminalIdleDialog from './TerminalIdleDialog';
 import PrintStationProvider from '@/components/printing/PrintStationProvider';
 
 export default function TerminalGate() {
   const { isTerminal, terminal, account } = useAuth();
   const unlocked = isTerminal && !!terminal?.pass && !terminal?.revoked;
-  useTerminalIdle(unlocked);
+  const idle = useTerminalIdle(unlocked);
   if (!isTerminal) return <Outlet />;
   if (terminal?.revoked || !account?.tenant_id) return <TerminalRevoked />;
   // Locked, the print station keeps running here (the Caja terminal is the
@@ -23,5 +24,10 @@ export default function TerminalGate() {
       </PrintStationProvider>
     );
   }
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      <TerminalIdleDialog secondsLeft={idle.secondsLeft} onKeep={idle.keepOpen} onLock={idle.lockNow} />
+    </>
+  );
 }

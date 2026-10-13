@@ -1277,3 +1277,18 @@ mismo mecanismo). Sin certificado de firma, Windows muestra SmartScreen.
 cierra el "no verificado" del `.exe`. Siguen sin probarse Windows de 32 bits,
 otros modelos de impresora y un equipo con Secure Boot estricto. SmartScreen
 seguirá apareciendo mientras no haya certificado de firma.
+
+## Terminal: "¿Mantener la sesión abierta?" antes de bloquear (2026-10-13)
+
+Decisión de José. A los 90 s sin tocar la terminal aparece
+`TerminalIdleDialog` con una cuenta regresiva de 30 s. "Sí, mantener abierta"
+reinicia los 2 minutos completos; "No, bloquear ahora" bloquea en el momento;
+si nadie responde, se bloquea a los 2 minutos, igual que antes. **El momento
+del bloqueo no cambió**: la pregunta ocupa los últimos 30 s, no los suma.
+Mientras la pregunta está en pantalla, un toque fuera del botón **no**
+reinicia el tiempo, para que una terminal desatendida se siga bloqueando.
+Lógica pura en `src/lib/terminal/idleLogic.js`, probada en
+`base44/tests/terminal_idle_test.ts`; el hook revisa cada 1 s (antes 5 s,
+solo en el navegador; la renovación del pase sigue cada 5 min).
+**No verificado:** la ventana en una terminal real a 390/1440. Solo se probó
+la lógica, y el build pasa.
