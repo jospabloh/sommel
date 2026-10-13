@@ -68,6 +68,24 @@ async function ready(device) {
   return out;
 }
 
+export const WINDOWS_DRIVER_MESSAGE =
+  'Windows tiene tomada la impresora con su propio controlador, así que el navegador no puede usarla. ' +
+  'Mientras tanto, apaga "Imprimir automáticamente" y escríbenos a soporte para dejar este equipo listo.';
+export const DISCONNECTED_MESSAGE = 'La impresora se desconectó. Revisa el cable USB y que esté encendida.';
+
+/** The cashier's message for a failure while opening the printer. Chrome
+ *  reports both a pulled cable and a printer Windows keeps for its own
+ *  driver (usbprint.sys, bound to every USB printer by default) as
+ *  NetworkError; only the second says "Access denied". Telling those apart
+ *  matters: the cable advice sends someone to replug a printer that is fine.
+ *  Returns null for errors that already carry a message for the cashier. */
+export function openErrorMessage(err) {
+  const text = `${err?.name ?? ''} ${err?.message ?? ''}`;
+  if (/access denied/i.test(text)) return WINDOWS_DRIVER_MESSAGE;
+  if (err?.name === 'NotFoundError' || err?.name === 'NetworkError') return DISCONNECTED_MESSAGE;
+  return null;
+}
+
 /** Sends bytes to the printer. Throws a message meant for the cashier. */
 export async function sendBytes(device, bytes) {
   if (!device) throw new Error('No hay impresora conectada.');
@@ -75,9 +93,9 @@ export async function sendBytes(device, bytes) {
   try {
     out = await ready(device);
   } catch (err) {
-    if (err?.name === 'NotFoundError' || err?.name === 'NetworkError') {
-      throw new Error('La impresora se desconectó. Revisa el cable USB y que esté encendida.');
-    }
+    console.warn('[usbPrinter] open failed', err?.name, err?.message);
+    const message = openErrorMessage(err);
+    if (message) throw new Error(message);
     throw err;
   }
   for (let i = 0; i < bytes.length; i += OUT_CHUNK) {
