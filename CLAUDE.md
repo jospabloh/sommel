@@ -1292,3 +1292,23 @@ Lógica pura en `src/lib/terminal/idleLogic.js`, probada en
 solo en el navegador; la renovación del pase sigue cada 5 min).
 **No verificado:** la ventana en una terminal real a 390/1440. Solo se probó
 la lógica, y el build pasa.
+
+## Módulo 30: aviso de versión nueva (2026-10-13)
+
+`src/lib/useNewVersion.js` y `src/components/UpdateBanner.jsx` son copia exacta
+de `jospabloh/acacia-app-standard` → `shared/update/`: se cambian allá y se
+copian, no se editan aquí. `<UpdateBanner />` se monta en `src/main.jsx` junto a
+`<ThemeSwitcher />`, fuera del router, así que también avisa en `/login`.
+
+Reemplaza a `AppUpdateBanner` (módulo 21, dentro de `Layout`): hacían lo mismo,
+y con los dos montados un deploy mostraba dos avisos. Se borraron
+`AppUpdateBanner.jsx`, `src/lib/updateCheck.js` y su prueba en
+`about_version_test.ts`. El nuevo compara también el CSS y avisa en el login y
+en el 404, que el viejo (montado en `Layout`) no cubría.
+
+Sin `--update-banner-top`: Sommel no tiene barra superior. **Hueco conocido:**
+bajo ~610 px la tarjeta ocupa el ancho y tapa el logo y las dos primeras
+entradas del riel izquierdo (Mesas, Menú) hasta que se pulsa *Más tarde*. Un
+desplazamiento vertical no lo arregla (el riel mide toda la altura); haría falta
+un `--update-banner-left` en el componente canónico. Este repo no tiene vitest,
+así que la prueba canónica `useNewVersion.test.js` no se copió.

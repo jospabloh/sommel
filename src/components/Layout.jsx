@@ -13,7 +13,6 @@ import ScreenControls from '@/components/ScreenControls';
 import { lockNow } from '@/lib/terminal/lockNow';
 import { usePermission } from '@/lib/usePermission';
 import { isPlatformUser, isBarAdmin, barRoleOf, roleLabel, personName } from '@/lib/rbac';
-import AppUpdateBanner from '@/components/AppUpdateBanner';
 import PrintStationProvider from '@/components/printing/PrintStationProvider';
 import ApprovalProvider from '@/components/approval/ApprovalProvider';
 import IdleWarningDialog from '@/components/IdleWarningDialog';
@@ -247,7 +246,6 @@ export default function Layout() {
       </aside>
       <main className="flex-1 min-w-0 overflow-auto pb-20">
         <LicenseBanner />
-        <AppUpdateBanner />
         <Outlet />
       </main>
       <IdleWarningDialog open={idleState === 'idle_warning'} onContinue={continueSession} />
