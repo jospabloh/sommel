@@ -1313,9 +1313,9 @@ a la derecha del menú con `--update-banner-left` (`src/index.css`): `5rem` bajo
 aplica con `:root[data-rail-switcher]`, que `Layout.jsx` pone mientras el menú
 está montado; en login y 404 el aviso queda centrado. La variable la añadió el
 estándar para este caso (antes la tarjeta tapaba el logo y las entradas Mesas y
-Menú a 390 px). **Lo que queda:** a 390 px la tarjeta mide 278 px de ancho y el
-texto se parte casi palabra por palabra (unos 250 px de alto), así que tapa más
-contenido de la página (el botón de llevar y las primeras mesas) hasta pulsar
-*Más tarde*. Si se quiere más compacta, el cambio es en el componente canónico.
+Menú a 390 px). Bajo 640 px los botones bajan a su propia fila bajo el texto
+(cambio del componente canónico, 2026-10-13): a 390 px la tarjeta mide 278 px de
+ancho y 118 de alto, antes ~250, cuando el texto se partía casi palabra por
+palabra junto a los dos botones.
 Este repo no tiene vitest, así que la prueba canónica `useNewVersion.test.js`
 no se copió.
