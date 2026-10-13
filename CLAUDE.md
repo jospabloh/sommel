@@ -1306,9 +1306,16 @@ y con los dos montados un deploy mostraba dos avisos. Se borraron
 `about_version_test.ts`. El nuevo compara también el CSS y avisa en el login y
 en el 404, que el viejo (montado en `Layout`) no cubría.
 
-Sin `--update-banner-top`: Sommel no tiene barra superior. **Hueco conocido:**
-bajo ~610 px la tarjeta ocupa el ancho y tapa el logo y las dos primeras
-entradas del riel izquierdo (Mesas, Menú) hasta que se pulsa *Más tarde*. Un
-desplazamiento vertical no lo arregla (el riel mide toda la altura); haría falta
-un `--update-banner-left` en el componente canónico. Este repo no tiene vitest,
-así que la prueba canónica `useNewVersion.test.js` no se copió.
+Sin `--update-banner-top`: Sommel no tiene barra superior. Su menú lateral
+ocupa todo el alto y sigue en pantalla en el teléfono, así que el aviso se corre
+a la derecha del menú con `--update-banner-left` (`src/index.css`): `5rem` bajo
+1024 px y `15rem` desde ahí, el ancho del `<aside>` (`w-20` / `lg:w-60`). Solo
+aplica con `:root[data-rail-switcher]`, que `Layout.jsx` pone mientras el menú
+está montado; en login y 404 el aviso queda centrado. La variable la añadió el
+estándar para este caso (antes la tarjeta tapaba el logo y las entradas Mesas y
+Menú a 390 px). **Lo que queda:** a 390 px la tarjeta mide 278 px de ancho y el
+texto se parte casi palabra por palabra (unos 250 px de alto), así que tapa más
+contenido de la página (el botón de llevar y las primeras mesas) hasta pulsar
+*Más tarde*. Si se quiere más compacta, el cambio es en el componente canónico.
+Este repo no tiene vitest, así que la prueba canónica `useNewVersion.test.js`
+no se copió.

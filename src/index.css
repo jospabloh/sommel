@@ -148,3 +148,14 @@
 :root[data-rail-switcher] .pin-pad {
   padding-right: 0;
 }
+
+/* Aviso de nueva versión (src/components/UpdateBanner.jsx, módulo 30) — sólo la
+   posición. Sommel no tiene barra superior: su menú lateral ocupa todo el alto
+   y sigue en pantalla en el teléfono, así que el aviso se corre a la derecha
+   del menú en vez de bajar. Layout.jsx pone data-rail-switcher mientras el menú
+   está montado; en login (sin menú) el aviso queda centrado. El ancho sigue al
+   del <aside>: w-20 bajo 1024px, lg:w-60 desde ahí. */
+:root[data-rail-switcher] { --update-banner-left: 5rem; }
+@media (min-width: 1024px) {
+  :root[data-rail-switcher] { --update-banner-left: 15rem; }
+}
