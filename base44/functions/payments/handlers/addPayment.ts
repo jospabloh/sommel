@@ -12,6 +12,9 @@ import {
   paidTotal,
   shouldClose,
   canCloseWithoutPayment,
+  canTipPerPayment,
+  paymentTips,
+  planPaymentTip,
 } from './_logic.ts';
 import {
   assertOrderOpen,
@@ -22,6 +25,7 @@ import {
   reconcilePayments,
   rethrow,
   setTablesStatus,
+  writeTotals,
 } from './_shared.ts';
 
 export const addPayment: Route = async (ctx: Ctx, body: any) => {
@@ -62,6 +66,9 @@ export const addPayment: Route = async (ctx: Ctx, body: any) => {
   if (!shift) httpError(409, 'no_open_shift', 'Abre el turno antes de cobrar');
 
   let method, amount, cash;
+  // `amount` is this payer's share of the bill; their own tip (if any) goes
+  // on top of it and is not limited by what is still owed.
+  let tip = 0;
   const payments = await loadPayments(ctx, order.id);
   const remaining = remainingOf(order.total ?? 0, payments);
   try {
@@ -72,10 +79,14 @@ export const addPayment: Route = async (ctx: Ctx, body: any) => {
       cash = {};
     } else {
       amount = validatePaymentAmount(body?.amount, remaining);
-      cash = computeCash(method, amount, body?.received);
+      tip = planPaymentTip(body?.tip, amount);
+      cash = computeCash(method, amount + tip, body?.received);
     }
   } catch (err) {
     rethrow(err);
+  }
+  if (tip > 0 && !canTipPerPayment(order, payments)) {
+    httpError(409, 'order_tip_set', 'Esta cuenta ya tiene una propina general. Quítala para dar propina en cada pago.');
   }
 
   const splitLabel = typeof body?.split_label === 'string' ? body.split_label.trim().slice(0, 60) : '';
@@ -85,7 +96,8 @@ export const addPayment: Route = async (ctx: Ctx, body: any) => {
     shift_id: shift.id,
     method: method.key,
     method_label: method.label,
-    amount,
+    amount: amount + tip,
+    ...(tip > 0 ? { tip } : {}),
     ...cash,
     ...(splitLabel ? { split_label: splitLabel } : {}),
     idempotency_key: key,
@@ -96,8 +108,20 @@ export const addPayment: Route = async (ctx: Ctx, body: any) => {
   // the others are voided as 'duplicado'.
   const payment = (await reconcilePayments(ctx, key)) ?? created;
 
-  const live = await loadPayments(ctx, order.id);
-  const total = order.total ?? 0;
+  let live = await loadPayments(ctx, order.id);
+  let current = order;
+  // A payment that carries a tip moves the order's tip (and total) with it.
+  // Derived from the live payments, not added to the stored value, so two
+  // payers tipping at the same time cannot overwrite each other.
+  const syncTips = async () => {
+    // canTipPerPayment was checked before writing: the order's tip is the
+    // sum of its payment tips, so recomputing it from them is exact.
+    if ((current.tip ?? 0) !== paymentTips(live)) {
+      current = await writeTotals(ctx, current, { tip_pct: null, tip: paymentTips(live) });
+    }
+  };
+  if (tip > 0) await syncTips();
+  const total = current.total ?? 0;
 
   // Two cashiers with different keys can both pass the pre-write check. If the
   // live payments now exceed the total and this one is the newest of them
@@ -112,6 +136,10 @@ export const addPayment: Route = async (ctx: Ctx, body: any) => {
         voided_by: 'sistema',
         void_reason: 'excede_total',
       });
+      if (tip > 0) {
+        live = await loadPayments(ctx, order.id);
+        await syncTips();
+      }
       httpError(409, 'amount_exceeds_remaining', 'Otra caja ya cobró esta cuenta. Devuelve el dinero recibido');
     }
   }

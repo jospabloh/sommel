@@ -14,6 +14,7 @@
     "amount": { "type": "integer", "description": "Monto del pago, en centavos MXN" },
     "received": { "type": "integer", "description": "Efectivo recibido, en centavos MXN (solo efectivo)" },
     "change": { "type": "integer", "description": "Cambio entregado, en centavos MXN (solo efectivo). Solo lo calcula el servidor" },
+    "tip": { "type": "integer", "default": 0, "description": "Propina que dejó quien hizo este pago, en centavos MXN, incluida en amount. Al dividir la cuenta cada pago lleva la suya, y Order.tip es la suma de las propinas de sus pagos vivos. Solo la calcula el servidor (payments.addPayment)" },
     "split_label": { "type": "string", "description": "Etiqueta del pago cuando la cuenta se divide en varios" },
     "idempotency_key": { "type": "string", "description": "Llave generada en el cliente; el servidor no crea dos pagos con la misma" },
     "created_by": { "type": "string", "description": "Email de quien registró el cobro" },

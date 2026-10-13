@@ -1338,3 +1338,26 @@ automáticas de navegador de Claude contra producción con la misma cuenta y bar
 que José estaba usando, a la misma hora. Por eso la regla: **una prueba
 automática no inicia sesión en producción con la cuenta de José, y si no
 necesita backend, bloquea las peticiones a Base44** (como la del modo táctil).
+
+## Propina por cada pago al dividir la cuenta (2026-10-13)
+
+Decisión de José: al dividir (partes iguales o por platillos), cada quien deja
+su propina: Sin / 10 / 15 / 20 % de **su parte** / Otra (monto). En "cuenta
+completa" sigue la propina general de siempre (`setTip`).
+
+- `addPayment` recibe `tip: { pct } | { amount }` además de `amount` (la parte de
+  la cuenta). El pago guarda `amount + tip` y `Payment.tip`; la propina no cuenta
+  contra lo que falta.
+- **`Order.tip` = suma de `Payment.tip` de los pagos vivos**, recalculada desde
+  los pagos (no sumando al valor guardado), así dos cobros a la vez no se pisan y
+  un duplicado neutralizado no cuenta dos veces. `voidPayment` la recalcula si el
+  pago anulado tenía propina. Corte, reportes y "falta" no cambiaron.
+- Solo mientras la cuenta no tenga propina general: con `tip_pct` o una propina
+  fija puesta antes de pagar responde 409 `order_tip_set` (esa ya va prorrateada
+  en cada parte; sumarle otra la cobraría dos veces). `canTipPerPayment`.
+- `splitPreview` por platillos divide sobre el total **sin** las propinas que ya
+  dejaron otros (`billTotalForSplit`); si no, el segundo pagaba parte de la
+  propina del primero.
+- Pruebas: `base44/tests/payment_tip_test.ts`. Esquema: `Payment.tip` nuevo (se
+  sincroniza de GitHub; publicar después del sync). **No verificado:** un cobro
+  real dividido con propinas contra Base44, y la pantalla de cobro a 390 px.
