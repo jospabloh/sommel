@@ -20,6 +20,7 @@ export default function Staff() {
   const { toast } = useToast();
   const [staff, setStaff] = useState(null);
   const [invites, setInvites] = useState([]);
+  const [pinLength, setPinLength] = useState(4);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [revokingId, setRevokingId] = useState(null);
@@ -35,6 +36,7 @@ export default function Staff() {
       const res = await base44.functions.invoke('manageStaff', { action: 'list' });
       setStaff(res.data?.staff || []);
       setInvites(res.data?.invites || []);
+      setPinLength(res.data?.pin_length ?? 4);
     } catch {
       setStaff([]);
       setInvites([]);
@@ -276,6 +278,7 @@ export default function Staff() {
       />
       <AddPersonDialog
         open={addingPerson}
+        pinLength={pinLength}
         onClose={() => setAddingPerson(false)}
         onSaved={async (person) => {
           setAddingPerson(false);
@@ -285,6 +288,7 @@ export default function Staff() {
       />
       <PersonPinDialog
         member={toPin}
+        pinLength={pinLength}
         onClose={() => setToPin(null)}
         onSaved={() => {
           setToPin(null);

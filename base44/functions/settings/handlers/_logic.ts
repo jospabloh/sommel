@@ -30,6 +30,8 @@ export const EDITABLE_FIELDS = [
   // Manager approval from the phone (QR + Face ID / fingerprint); off by default,
   // the admin's PIN is always available.
   'approval_qr_enabled',
+  // Length of every PIN in the bar (4 by default). The keypad signs in on the last digit.
+  'pin_length',
 ] as const;
 
 const KEY_RE = /^[a-z0-9][a-z0-9_]{0,23}$/;
@@ -154,6 +156,10 @@ export function buildSettingsPatch(body: Record<string, unknown>, currentMethods
   if ('approval_qr_enabled' in body) {
     if (typeof body.approval_qr_enabled !== 'boolean') throw new LogicError('invalid_value', 'Valor no válido');
     patch.approval_qr_enabled = body.approval_qr_enabled;
+  }
+  if ('pin_length' in body) {
+    if (body.pin_length !== 4 && body.pin_length !== 5 && body.pin_length !== 6) throw new LogicError('invalid_value', 'El PIN debe ser de 4, 5 o 6 números');
+    patch.pin_length = body.pin_length;
   }
   if (Object.keys(patch).length === 0) throw new LogicError('nothing_to_update', 'No hay cambios que guardar');
   return patch;
