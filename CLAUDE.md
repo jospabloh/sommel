@@ -1292,3 +1292,33 @@ Lógica pura en `src/lib/terminal/idleLogic.js`, probada en
 solo en el navegador; la renovación del pase sigue cada 5 min).
 **No verificado:** la ventana en una terminal real a 390/1440. Solo se probó
 la lógica, y el build pasa.
+
+## Modo pantalla táctil: teclado en pantalla y desplazar arrastrando (2026-10-13)
+
+Pedido de José para la caja táctil sin teclado. Dos opciones **por equipo**
+(`localStorage` `sommel.touch`, `src/lib/touch/touchPrefs.js`), en Ajustes →
+"Esta pantalla"; el teclado también se enciende desde el login
+(`AuthLayout`), porque sin teclado no se puede escribir el correo para llegar a
+Ajustes. Las dos vienen apagadas.
+
+- **Teclado** (`components/touch/VirtualKeyboard.jsx`, montado en `main.jsx`
+  fuera del router): sale al enfocar un campo de texto (`keyboardFor`); numérico
+  para `type=number/tel` o `inputmode` numérico. Las teclas actúan en
+  `pointerdown` con `preventDefault` + `stopPropagation`: el campo no pierde el
+  foco y un diálogo de Radix no lo toma como "clic afuera". Escribe con el setter
+  nativo + evento `input`, así los campos controlados de React se actualizan.
+  `pointer-events: auto` explícito porque un modal pone `none` en `<body>`.
+  Con el teclado abierto, `html.vkb-open` da espacio abajo y sube los diálogos
+  centrados. `´` acentúa la siguiente vocal. `data-no-vkeyboard` lo excluye.
+- **Desplazar arrastrando** (`lib/touch/dragScroll.js`): solo para punteros
+  `mouse`/`pen`; un toque táctil real ya desplaza solo. [Probable, no medido en la
+  caja] la pantalla táctil de la caja se reporta como mouse. Tras 8 px de
+  movimiento desplaza la caja con scroll más cercana y se traga el clic
+  siguiente; no arranca en campos de texto, selects, sliders ni
+  `data-no-drag-scroll`.
+- Pruebas: `base44/tests/touch_mode_test.ts`. Verificado con el build local en
+  `/login`, **sin una sola petición a Base44** (bloqueadas en la prueba), a 390 y
+  1280: el teclado escribe en el campo sin quitarle el foco, y un arrastre con
+  mouse desplaza una lista sin abrir el botón donde empezó, mientras un toque sí
+  lo abre. **No verificado:** en la pantalla táctil real, dentro de un diálogo
+  real y en las pantallas con sesión.
