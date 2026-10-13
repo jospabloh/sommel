@@ -1270,3 +1270,10 @@ Actions está sin pago). La primera corrida es en la caja Wansoft. Si falla, el
 mensaje del programa trae el error de libwdi. Tampoco se probó en Windows de
 32 bits (no corre) ni con Secure Boot estricto (Zadig sí funciona ahí, con el
 mismo mecanismo). Sin certificado de firma, Windows muestra SmartScreen.
+
+**Verificado en hardware el 2026-10-13, por José.** En la caja Wansoft
+(Windows, Chrome, impresora `vid_0471&pid_0055`) corrió
+`sommel-impresora.exe`, y después Sommel imprime y abre el cajón. Con eso se
+cierra el "no verificado" del `.exe`. Siguen sin probarse Windows de 32 bits,
+otros modelos de impresora y un equipo con Secure Boot estricto. SmartScreen
+seguirá apareciendo mientras no haya certificado de firma.
