@@ -69,8 +69,10 @@ async function ready(device) {
 }
 
 export const WINDOWS_DRIVER_MESSAGE =
-  'Windows tiene tomada la impresora con su propio controlador, así que el navegador no puede usarla. ' +
-  'Mientras tanto, apaga "Imprimir automáticamente" y escríbenos a soporte para dejar este equipo listo.';
+  'Windows tiene tomada la impresora con su propio controlador. En Impresión está el paso para prepararla, una sola vez.';
+/** err.code for a printer Windows keeps on usbprint.sys: Impresión shows the
+ *  one-time preparation guide (public/descargas/sommel-impresora.exe). */
+export const WINDOWS_DRIVER = 'windows_driver';
 export const DISCONNECTED_MESSAGE = 'La impresora se desconectó. Revisa el cable USB y que esté encendida.';
 
 /** The cashier's message for a failure while opening the printer. Chrome
@@ -86,6 +88,27 @@ export function openErrorMessage(err) {
   return null;
 }
 
+function cashierError(err) {
+  console.warn('[usbPrinter] open failed', err?.name, err?.message);
+  const message = openErrorMessage(err);
+  if (!message) return err;
+  const out = new Error(message);
+  if (message === WINDOWS_DRIVER_MESSAGE) out.code = WINDOWS_DRIVER;
+  return out;
+}
+
+/** Opens the printer without printing. Returns null when it can print, or
+ *  the cashier's error (with `code` WINDOWS_DRIVER when Windows holds it). */
+export async function checkAccess(device) {
+  if (!device) return null;
+  try {
+    await ready(device);
+    return null;
+  } catch (err) {
+    return cashierError(err);
+  }
+}
+
 /** Sends bytes to the printer. Throws a message meant for the cashier. */
 export async function sendBytes(device, bytes) {
   if (!device) throw new Error('No hay impresora conectada.');
@@ -93,10 +116,7 @@ export async function sendBytes(device, bytes) {
   try {
     out = await ready(device);
   } catch (err) {
-    console.warn('[usbPrinter] open failed', err?.name, err?.message);
-    const message = openErrorMessage(err);
-    if (message) throw new Error(message);
-    throw err;
+    throw cashierError(err);
   }
   for (let i = 0; i < bytes.length; i += OUT_CHUNK) {
     const result = await device.transferOut(out.endpointNumber, bytes.slice(i, i + OUT_CHUNK));

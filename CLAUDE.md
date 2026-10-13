@@ -1238,3 +1238,35 @@ Lo que **no** se resolvió (decisión de José): hacer que Windows imprima.
   ese controlador y el corte, del papel.
 - Una impresora de red Star CloudPRNT, que ya está construida y no necesita
   nada en el equipo.
+
+### "Preparar impresora": un paso único en Windows (2026-10-13)
+
+Decisión de José: impresión plug and play, sin pedirle al cliente que busque
+drivers. En Windows no se puede sin instalar nada [Seguro]: Windows pone
+`usbprint.sys` a toda impresora USB y el navegador no puede quitárselo.
+`chrome://device-log` en la caja Wansoft lo confirmó: `vid_0471&pid_0055 ...
+driver="usbprint"`. Lo más cerca de plug and play es un paso único que Sommel
+mismo ofrece.
+
+- `checkAccess()` (`usbPrinter.js`) abre la impresora sin imprimir, al
+  conectarla y al recargar. Si Windows la tiene tomada, el error lleva
+  `code: 'windows_driver'`.
+- Con ese código, `usePrintStation` deja `needsWindowsPrep`. La impresión
+  automática se apaga sola para que los tickets **esperen** en vez de quedar
+  todos `fallido`, e Impresión muestra `WindowsPrinterPrep.jsx`: descarga,
+  aviso de SmartScreen, "Sí", reconectar el USB y "Conectar impresora". Un
+  envío correcto lo limpia.
+- La descarga es `public/descargas/sommel-impresora.exe`, de
+  `tools/windows-printer/` (libwdi, la de Zadig, con un parche para usar el
+  WinUSB de Windows 8+ sin redistribuibles de Microsoft). Se reconstruye con
+  `tools/windows-printer/build.sh`; detalle y licencia en su README.
+- Pruebas: `base44/tests/usb_printer_test.ts`. Pantalla revisada con el build
+  local contra producción, impresora simulada bloqueada, a 390/1440 en claro y
+  oscuro.
+
+**No verificado, y es lo que importa:** el `.exe` no se ha corrido en Windows.
+Se compiló en Linux y no hay un Windows en este entorno ni en CI (la cuenta de
+Actions está sin pago). La primera corrida es en la caja Wansoft. Si falla, el
+mensaje del programa trae el error de libwdi. Tampoco se probó en Windows de
+32 bits (no corre) ni con Secure Boot estricto (Zadig sí funciona ahí, con el
+mismo mecanismo). Sin certificado de firma, Windows muestra SmartScreen.

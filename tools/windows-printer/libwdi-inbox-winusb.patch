@@ -1,0 +1,178 @@
+diff --git a/configure.ac b/configure.ac
+index 2ca98f2..7111049 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -55,9 +55,7 @@ if test "x$USER_DIR" != "x"; then
+ 	AC_DEFINE_UNQUOTED([USER_DIR], ["${USER_DIR}"], [embed user defined driver files from the following location])
+ fi
+ 
+-if test "x$USER_DIR" == "x" -a "x$WDK_DIR" == "x" -a "x$LIBUSB0_DIR" == "x" -a "x$LIBUSBK_DIR" == "x"; then
+-	AC_MSG_ERROR([One of --with-wdkdir, --with-libusb0, --with-libusbk or --with-userdir options MUST be provided.])
+-fi
++# Sommel: WinUSB is inbox on Windows 8+, no embedded driver dirs required.
+ 
+ AC_MSG_CHECKING([development environment])
+ case $host in
+diff --git a/libwdi/embedder.h b/libwdi/embedder.h
+index 0313130..e7c85ac 100644
+--- a/libwdi/embedder.h
++++ b/libwdi/embedder.h
+@@ -23,9 +23,7 @@
+ #error both 32 and 64 bit support have been disabled - check your config.h
+ #endif
+ 
+-#if !defined(WDK_DIR) && !defined(LIBUSB0_DIR) && !defined(USER_DIR) && !defined(LIBUSBK_DIR)
+-#error at least one of WDK_DIR, LIBUSB0_DIR, LIBUSBK_DIR or USER_DIR must be defined - check your config.h
+-#endif
++// Sommel: inbox WinUSB needs no embedded driver dirs.
+ 
+ // Some adjustment is needed for MSVC
+ #if defined(_MSC_VER)
+diff --git a/libwdi/libwdi.c b/libwdi/libwdi.c
+index 1501b45..a32656c 100644
+--- a/libwdi/libwdi.c
++++ b/libwdi/libwdi.c
+@@ -723,11 +723,8 @@ BOOL LIBWDI_API wdi_is_driver_supported(int driver_type, VS_FIXEDFILEINFO* drive
+ 
+ 	switch (driver_type) {
+ 	case WDI_WINUSB:
+-#if defined(WDK_DIR)
++		// Sommel: inbox WinUSB (Windows 8+), no coinstallers.
+ 		return TRUE;
+-#else
+-		return FALSE;
+-#endif
+ 	case WDI_LIBUSB0:
+ #if defined(LIBUSB0_DIR)
+ 		return (platform_arch == IMAGE_FILE_MACHINE_ARM64 || platform_arch == IMAGE_FILE_MACHINE_AMD64 || platform_arch == IMAGE_FILE_MACHINE_I386);
+diff --git a/libwdi/winusb.cat.in b/libwdi/winusb.cat.in
+index 9604596..2da3564 100644
+--- a/libwdi/winusb.cat.in
++++ b/libwdi/winusb.cat.in
+@@ -1,5 +1,2 @@
+-# List of the binaries referenced by the WinUSB inf
+-# These are used to generate and self-sign a .cat file
+-
+-WdfCoInstaller#WDF_VERSION#.dll
+-winusbcoinstaller2.dll
+\ No newline at end of file
++# List of the binaries referenced by the WinUSB inf
++# Sommel: inbox WinUSB, the inf is the only file.
+diff --git a/libwdi/winusb.inf.in b/libwdi/winusb.inf.in
+index 0c0774e..124591d 100644
+--- a/libwdi/winusb.inf.in
++++ b/libwdi/winusb.inf.in
+@@ -1,37 +1,31 @@
+ ; #INF_FILENAME#
+-; Copyright (c) 2010-2023 Pete Batard <pete@akeo.ie> (GNU LGPL)
++; Inbox WinUSB (Windows 8 and later): no coinstallers. Based on libwdi
++; (c) Pete Batard, GNU LGPL, and Microsoft's "WinUSB (Winusb.sys) Installation"
++; system-provided-class sample.
+ [Strings]
+ DeviceName = "#DEVICE_DESCRIPTION#"
+ VendorName = "#DEVICE_MANUFACTURER#"
+-SourceName = "#DEVICE_DESCRIPTION# Install Disk"
+ DeviceID   = "#DEVICE_HARDWARE_ID#"
+ DeviceGUID = "#DEVICE_INTERFACE_GUID#"
+ 
+ [Version]
+ Signature   = "$Windows NT$"
+-Class       = "USBDevice"
+-ClassGuid   = {88bae032-5a81-49f0-bc3d-a4ff138216d6}
+-Provider    = "libwdi"
++Class       = USBDevice
++ClassGuid   = {88BAE032-5A81-49f0-BC3D-A4FF138216D6}
++Provider    = "Sommel"
+ CatalogFile = #CAT_FILENAME#
+ DriverVer   = #DRIVER_DATE#, #DRIVER_VERSION#
+ 
+-[ClassInstall32]
+-Addreg = WinUSBDeviceClassReg
+-
+-[WinUSBDeviceClassReg]
+-HKR,,,0,"Universal Serial Bus devices"
+-HKR,,Icon,,-20
+-
+ [Manufacturer]
+-%VendorName% = libusbDevice_WinUSB,NTx86,NTamd64,NTarm64
++%VendorName% = Dev,NTx86,NTamd64,NTarm64
+ 
+-[libusbDevice_WinUSB.NTx86]
++[Dev.NTx86]
+ %DeviceName% = USB_Install, USB\%DeviceID%
+ 
+-[libusbDevice_WinUSB.NTamd64]
++[Dev.NTamd64]
+ %DeviceName% = USB_Install, USB\%DeviceID%
+ 
+-[libusbDevice_WinUSB.NTarm64]
++[Dev.NTarm64]
+ %DeviceName% = USB_Install, USB\%DeviceID%
+ 
+ [USB_Install]
+@@ -39,62 +33,13 @@ Include = winusb.inf
+ Needs   = WINUSB.NT
+ 
+ [USB_Install.Services]
+-Include    = winusb.inf
+-AddService = WinUSB,0x00000002,WinUSB_ServiceInstall
+-
+-[WinUSB_ServiceInstall]
+-DisplayName   = "WinUSB - Kernel Driver #DRIVER_DATE# #DRIVER_VERSION#"
+-ServiceType   = 1
+-StartType     = 3
+-ErrorControl  = 1
+-ServiceBinary = %12%\WinUSB.sys
+-
+-[USB_Install.Wdf]
+-KmdfService = WINUSB, WinUsb_Install
+-
+-[WinUSB_Install]
+-KmdfLibraryVersion = #KMDF_VERSION#
++Include = winusb.inf
++Needs   = WINUSB.NT.Services
+ 
+ [USB_Install.HW]
+ AddReg = #USE_DEVICE_INTERFACE_GUID#
+ 
+ [NoDeviceInterfaceGUID]
+-; Avoids adding a DeviceInterfaceGUID for generic driver
+ 
+ [AddDeviceInterfaceGUID]
+ HKR,,DeviceInterfaceGUIDs,0x10000,%DeviceGUID%
+-
+-[USB_Install.NTx86.CoInstallers]
+-AddReg    = CoInstallers_AddReg
+-CopyFiles = CoInstallers_CopyFiles
+-
+-[USB_Install.NTamd64.CoInstallers]
+-AddReg    = CoInstallers_AddReg
+-CopyFiles = CoInstallers_CopyFiles
+-
+-[USB_Install.NTarm64.CoInstallers]
+-;
+-
+-[CoInstallers_AddReg]
+-HKR,,CoInstallers32,0x00010000,"WdfCoInstaller#WDF_VERSION#.dll,WdfCoInstaller","WinUSBCoInstaller2.dll"
+-
+-[CoInstallers_CopyFiles]
+-WinUSBCoInstaller2.dll
+-WdfCoInstaller#WDF_VERSION#.dll
+-
+-[DestinationDirs]
+-CoInstallers_CopyFiles = 11
+-
+-[SourceDisksNames]
+-1 = %SourceName%
+-
+-[SourceDisksFiles.x86]
+-WinUSBCoInstaller2.dll = 1,x86
+-WdfCoInstaller#WDF_VERSION#.dll = 1,x86
+-
+-[SourceDisksFiles.amd64]
+-WinUSBCoInstaller2.dll = 1,amd64
+-WdfCoInstaller#WDF_VERSION#.dll = 1,amd64
+-
+-[SourceDisksFiles.arm64]
+-;
+\ No newline at end of file
