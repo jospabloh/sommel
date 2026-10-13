@@ -10,6 +10,7 @@
 import { base44 } from '@/api/base44Client';
 import { currentPass, lockTerminal, markRevoked } from '@/lib/terminal/terminalStore';
 import { isRateLimited, isRetryableRead, retryDelay } from '@/lib/retryPolicy';
+import { recordRateLimited } from '@/lib/rateLog';
 import { APPROVAL_RETRY_CODES, askForApproval, wantsApproval } from '@/lib/approval/approvalBroker';
 
 export class ApiError extends Error {
@@ -69,6 +70,9 @@ async function callWithRetry(endpoint, action, payload) {
     try {
       return await callOnce(endpoint, action, payload);
     } catch (err) {
+      if (err instanceof ApiError && isRateLimited(err.status, err.code)) {
+        recordRateLimited({ endpoint, action, attempt, path: globalThis.location?.pathname });
+      }
       // Base44's rate limit: reads wait a moment and try again; writes never.
       const wait = err instanceof ApiError && isRateLimited(err.status, err.code) && isRetryableRead(endpoint, action)
         ? retryDelay(attempt)

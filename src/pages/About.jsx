@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { CheckCircle2, ChevronDown, Heart, LifeBuoy, Mail, MessageCircle, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import UserManual from '@/components/UserManual';
+import RateLimitLog from '@/components/RateLimitLog';
 import {
   APP_VERSION,
   RELEASE_DATE,
@@ -88,6 +89,8 @@ export default function About() {
       </section>
 
       <UserManual />
+
+      <RateLimitLog />
 
       <section aria-labelledby="contacto-title" className="rounded-xl border border-border bg-card p-4 sm:p-5">
         <div className="flex items-center gap-2 mb-2">

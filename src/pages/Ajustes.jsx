@@ -11,6 +11,7 @@ import TicketForm from '@/components/settings/TicketForm';
 import PaymentMethodsCard from '@/components/settings/PaymentMethodsCard';
 import CorteEmailsCard from '@/components/settings/CorteEmailsCard';
 import TerminalsCard from '@/components/settings/TerminalsCard';
+import TouchScreenCard from '@/components/settings/TouchScreenCard';
 import { useAuth } from '@/lib/AuthContext';
 import { isBarAdmin } from '@/lib/rbac';
 
@@ -51,6 +52,10 @@ export default function Ajustes() {
           <h1 className="font-display text-2xl sm:text-3xl font-semibold">Ajustes</h1>
           <p className="text-muted-foreground mt-0.5">{bar?.name || 'Tu bar'}</p>
         </div>
+      </div>
+
+      <div className="mb-5">
+        <TouchScreenCard />
       </div>
 
       {error ? (

@@ -4,6 +4,7 @@ import App from '@/App.jsx'
 import '@/index.css'
 import { ThemeProvider } from '@/lib/ThemeContext'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
+import TouchMode from '@/components/touch/TouchMode'
 // Catches Chrome's install event on any screen, before the layout mounts.
 import '@/lib/screen/installPrompt'
 
@@ -14,5 +15,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <ThemeProvider>
     <App />
     <ThemeSwitcher />
+    <TouchMode />
   </ThemeProvider>
 )

@@ -281,7 +281,7 @@ export const MANUAL_SECTIONS = [
     id: 'ajustes',
     title: 'Ajustes del bar',
     summary: 'Datos del ticket, formas de pago y correos del corte.',
-    keywords: ['ticket', 'encabezado', 'pie', 'rfc', 'direccion', 'formas de pago', 'vales', 'correos', 'corte', 'configuracion'],
+    keywords: ['ticket', 'encabezado', 'pie', 'rfc', 'direccion', 'formas de pago', 'vales', 'correos', 'corte', 'configuracion', 'teclado', 'tactil', 'touch', 'desplazar', 'scroll'],
     items: [
       {
         q: '¿Qué puedo configurar?',
@@ -294,6 +294,10 @@ export const MANUAL_SECTIONS = [
       {
         q: 'Mi corte no me llega por correo',
         a: 'Revisa que tu correo esté en la lista de correos del corte en Ajustes. Sin destinatarios, el corte se guarda pero no se envía; puedes reenviarlo después desde Turno.',
+      },
+      {
+        q: 'Mi pantalla táctil no tiene teclado o no deja desplazar con el dedo',
+        a: 'En Ajustes, en Esta pantalla, enciende Teclado en pantalla (aparece al tocar un campo) y Desplazar arrastrando el dedo. Solo cambia ese equipo. En la pantalla de inicio de sesión también está el botón Usar teclado en pantalla, para poder escribir el correo la primera vez.',
       },
     ],
   },

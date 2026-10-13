@@ -1292,3 +1292,49 @@ Lógica pura en `src/lib/terminal/idleLogic.js`, probada en
 solo en el navegador; la renovación del pase sigue cada 5 min).
 **No verificado:** la ventana en una terminal real a 390/1440. Solo se probó
 la lógica, y el build pasa.
+
+## Modo pantalla táctil: teclado en pantalla y desplazar arrastrando (2026-10-13)
+
+Pedido de José para la caja táctil sin teclado. Dos opciones **por equipo**
+(`localStorage` `sommel.touch`, `src/lib/touch/touchPrefs.js`), en Ajustes →
+"Esta pantalla"; el teclado también se enciende desde el login
+(`AuthLayout`), porque sin teclado no se puede escribir el correo para llegar a
+Ajustes. Las dos vienen apagadas.
+
+- **Teclado** (`components/touch/VirtualKeyboard.jsx`, montado en `main.jsx`
+  fuera del router): sale al enfocar un campo de texto (`keyboardFor`); numérico
+  para `type=number/tel` o `inputmode` numérico. Las teclas actúan en
+  `pointerdown` con `preventDefault` + `stopPropagation`: el campo no pierde el
+  foco y un diálogo de Radix no lo toma como "clic afuera". Escribe con el setter
+  nativo + evento `input`, así los campos controlados de React se actualizan.
+  `pointer-events: auto` explícito porque un modal pone `none` en `<body>`.
+  Con el teclado abierto, `html.vkb-open` da espacio abajo y sube los diálogos
+  centrados. `´` acentúa la siguiente vocal. `data-no-vkeyboard` lo excluye.
+- **Desplazar arrastrando** (`lib/touch/dragScroll.js`): solo para punteros
+  `mouse`/`pen`; un toque táctil real ya desplaza solo. [Probable, no medido en la
+  caja] la pantalla táctil de la caja se reporta como mouse. Tras 8 px de
+  movimiento desplaza la caja con scroll más cercana y se traga el clic
+  siguiente; no arranca en campos de texto, selects, sliders ni
+  `data-no-drag-scroll`.
+- Pruebas: `base44/tests/touch_mode_test.ts`. Verificado con el build local en
+  `/login`, **sin una sola petición a Base44** (bloqueadas en la prueba), a 390 y
+  1280: el teclado escribe en el campo sin quitarle el foco, y un arrastre con
+  mouse desplaza una lista sin abrir el botón donde empezó, mientras un toque sí
+  lo abre. **No verificado:** en la pantalla táctil real, dentro de un diálogo
+  real y en las pantallas con sesión.
+
+## Registro de avisos "ocupado" por equipo (2026-10-13)
+
+José vio varios "Hay muchas solicitudes seguidas" con una sola persona en la
+terminal y no se pudo saber cuándo: un 429 de la cuota de Base44 se corta antes
+de llegar a las funciones, así que **no aparece en los logs de funciones**.
+`callFn` ahora anota cada 429 (hora, pantalla, función, acción, intento) en el
+navegador (`src/lib/rateLog.js`, `sommel.rateLog`, los últimos 50) y **Acerca**
+los muestra si hay alguno. Solo cubre llamadas por `callFn`; las lecturas y
+suscripciones directas a entidades no pasan por ahí.
+
+Causa más probable del episodio del 2026-10-13 [Probable, no confirmado]: pruebas
+automáticas de navegador de Claude contra producción con la misma cuenta y bar
+que José estaba usando, a la misma hora. Por eso la regla: **una prueba
+automática no inicia sesión en producción con la cuenta de José, y si no
+necesita backend, bloquea las peticiones a Base44** (como la del modo táctil).
