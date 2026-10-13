@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import JobRow from '@/components/printing/JobRow';
 import KioskInstructions from '@/components/printing/KioskInstructions';
 import CloudPrinters from '@/components/printing/CloudPrinters';
+import WindowsPrinterPrep from '@/components/printing/WindowsPrinterPrep';
 import { usePermission } from '@/lib/usePermission';
 import { BAR_ADMIN } from '@/lib/rbac';
 import { useAuth } from '@/lib/AuthContext';
@@ -31,23 +32,28 @@ function Section({ title, hint, count, children }) {
 }
 
 function PrinterCard({ station }) {
-  const { usbSupported, printer, printerName, connectPrinter, disconnectPrinter, testPrint, openDrawer, busy } = station;
+  const { usbSupported, printer, printerName, needsWindowsPrep, connectPrinter, disconnectPrinter, testPrint, openDrawer, busy } = station;
   return (
     <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-3">
       <div className="flex items-start gap-3">
         <Usb className={`w-5 h-5 mt-0.5 shrink-0 ${printer ? 'text-primary' : 'text-muted-foreground'}`} />
         <div className="min-w-0">
-          <p className="font-medium">{printer ? `Impresora conectada: ${printerName}` : 'Impresora por USB'}</p>
+          <p className="font-medium">
+            {printer ? `${needsWindowsPrep ? 'Impresora detectada' : 'Impresora conectada'}: ${printerName}` : 'Impresora por USB'}
+          </p>
           <p className="text-sm text-muted-foreground">
             {!usbSupported
               ? 'Este navegador no conecta impresoras USB. Abre Sommel en Google Chrome o Microsoft Edge; mientras tanto se imprime con el cuadro de impresión.'
-              : printer
+              : printer && needsWindowsPrep
+                ? 'Todavía no puede imprimir en esta computadora. Sigue el paso de abajo.'
+                : printer
                 ? 'Los tickets salen directo en esta impresora, sin cuadro de impresión. Si se cobró en efectivo, se abre el cajón.'
-                : 'Conecta la impresora de tickets por USB y elígela una vez. No necesitas instalar nada; este equipo la recuerda.'}
+                : 'Conecta la impresora de tickets por USB y elígela una vez; este equipo la recuerda. En Windows, la primera vez pide un paso extra.'}
           </p>
         </div>
       </div>
-      {usbSupported && (
+      {usbSupported && needsWindowsPrep && <WindowsPrinterPrep onReconnect={connectPrinter} />}
+      {usbSupported && !needsWindowsPrep && (
         <div className="flex flex-wrap gap-2">
           {printer ? (
             <>

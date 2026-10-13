@@ -5,7 +5,7 @@
 // was fine.
 //   deno test --allow-env base44/tests/usb_printer_test.ts
 // @ts-ignore: plain JS module shared with the client bundle
-import { openErrorMessage, WINDOWS_DRIVER_MESSAGE, DISCONNECTED_MESSAGE } from '../../src/components/printing/usbPrinter.js';
+import { checkAccess, openErrorMessage, WINDOWS_DRIVER, WINDOWS_DRIVER_MESSAGE, DISCONNECTED_MESSAGE } from '../../src/components/printing/usbPrinter.js';
 
 function assertEquals(actual: unknown, expected: unknown, msg?: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
@@ -26,4 +26,24 @@ Deno.test('a printer that really went away still gets the cable advice', () => {
 Deno.test('errors that already speak to the cashier pass through', () => {
   assertEquals(openErrorMessage(new Error('Ese dispositivo no acepta impresión. Elige la impresora de tickets.')), null);
   assertEquals(openErrorMessage(null), null);
+});
+
+
+Deno.test('checkAccess flags the Windows driver so Impresión shows the preparation guide', async () => {
+  const device = {
+    opened: false,
+    open: () => Promise.reject(Object.assign(new Error("Failed to execute 'open' on 'USBDevice': Access denied."), { name: 'NetworkError' })),
+  };
+  const err = await checkAccess(device);
+  assertEquals(err?.code, WINDOWS_DRIVER);
+  assertEquals(err?.message, WINDOWS_DRIVER_MESSAGE);
+});
+
+Deno.test('checkAccess on a printer that opens returns null, so auto print stays on', async () => {
+  const device = {
+    opened: true,
+    configuration: { interfaces: [{ interfaceNumber: 0, alternates: [{ endpoints: [{ direction: 'out', type: 'bulk', endpointNumber: 1 }] }] }] },
+    claimInterface: () => Promise.resolve(),
+  };
+  assertEquals(await checkAccess(device), null);
 });

@@ -23,7 +23,7 @@ import { callFn } from '@/lib/api';
 import { toast } from '@/components/ui/use-toast';
 import { eventRow, getDeviceId, jobMatchesKinds, kindsForClaim, normalizeKinds, readAutoPref, readKinds, writeAutoPref, writeKinds } from './printingHelpers';
 import { buildDrawerPulse, buildEscPos, testLines } from './escpos';
-import { choosePrinter, findPaired, forget, printerName, sendBytes, usbSupported } from './usbPrinter';
+import { WINDOWS_DRIVER, checkAccess, choosePrinter, findPaired, forget, printerName, sendBytes, usbSupported } from './usbPrinter';
 
 // Fallback poll: only when nothing (realtime, a print) reloaded the queue in
 // the last 45 s. Was 10 s; every open station spent Base44's per-app rate
@@ -60,10 +60,22 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
   const busyRef = useRef(false);
   const [usb, setUsb] = useState(null);
   const usbRef = useRef(null);
+  // Windows keeps the printer on its own driver (usbprint.sys): connected but
+  // unusable until this PC runs the one-time preparation. While true, auto
+  // print stays off so pending jobs wait instead of all turning `fallido`.
+  const [needsWindowsPrep, setNeedsWindowsPrep] = useState(false);
+  const noteResult = useCallback((err) => {
+    setNeedsWindowsPrep(err?.code === WINDOWS_DRIVER);
+  }, []);
   const setPrinter = useCallback((device) => {
     usbRef.current = device;
     setUsb(device);
-  }, []);
+    if (!device) {
+      setNeedsWindowsPrep(false);
+      return;
+    }
+    checkAccess(device).then((err) => { if (usbRef.current === device) noteResult(err); });
+  }, [noteResult]);
 
   // A printer allowed before reconnects by itself; unplugging drops it and
   // plugging it back picks it up again.
@@ -85,7 +97,7 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
   // Work only where it can print: a USB printer here, or the Impresión page.
   const enabled = allowed && !!tenantId && (!!usb || pageOpen);
   // Unset preference: on with a USB printer (it is the caja), off otherwise.
-  const auto = autoPref ?? !!usb;
+  const auto = !needsWindowsPrep && (autoPref ?? !!usb);
 
   const lastLoadRef = useRef(0);
   const load = useCallback(async () => {
@@ -167,7 +179,9 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
         try {
           // A reprint never opens the drawer: the money already went in.
           await sendBytes(device, buildEscPos(job.lines, { openDrawer: !!job.open_drawer && !job.reprint_of }));
+          noteResult(null);
         } catch (err) {
+          noteResult(err);
           await fail(job, err?.message || 'No se pudo imprimir');
           toast({ title: 'No se pudo imprimir', description: err?.message, variant: 'destructive' });
           return;
@@ -196,7 +210,7 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
         toast({ title: 'Se imprimió, pero no se pudo confirmar', description: err.message, variant: 'destructive' });
       }
     },
-    [deviceId, fail],
+    [deviceId, fail, noteResult],
   );
 
   // Claim the oldest waiting job and print it.
@@ -266,13 +280,17 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
     try {
       const device = await choosePrinter();
       if (device) {
-        setPrinter(device);
-        toast({ title: 'Impresora conectada', description: printerName(device) });
+        usbRef.current = device;
+        setUsb(device);
+        const err = await checkAccess(device);
+        noteResult(err);
+        if (err) toast({ title: 'La impresora necesita un paso más', description: err.message, variant: 'destructive' });
+        else toast({ title: 'Impresora conectada', description: printerName(device) });
       }
     } catch (err) {
       toast({ title: 'No se pudo conectar la impresora', description: err.message, variant: 'destructive' });
     }
-  }, [setPrinter]);
+  }, [noteResult]);
 
   const disconnectPrinter = useCallback(async () => {
     const device = usbRef.current;
@@ -283,11 +301,13 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
   const sendDirect = useCallback(async (bytes, okTitle) => {
     try {
       await sendBytes(usbRef.current, bytes);
+      noteResult(null);
       if (okTitle) toast({ title: okTitle });
     } catch (err) {
+      noteResult(err);
       toast({ title: 'No se pudo enviar a la impresora', description: err.message, variant: 'destructive' });
     }
-  }, []);
+  }, [noteResult]);
   const testPrint = useCallback(() => sendDirect(buildEscPos(testLines()), 'Prueba enviada'), [sendDirect]);
   const openDrawer = useCallback(() => sendDirect(buildDrawerPulse()), [sendDirect]);
 
@@ -295,6 +315,7 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
     usbSupported: usbSupported(),
     printer: usb,
     printerName: printerName(usb),
+    needsWindowsPrep,
     connectPrinter,
     disconnectPrinter,
     testPrint,
