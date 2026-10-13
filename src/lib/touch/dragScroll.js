@@ -4,7 +4,7 @@
 // With the option on, a press that moves past a few pixels scrolls the
 // nearest scrollable box (or the page) and the click that follows is
 // swallowed, so dragging across a table card does not open it.
-import { blocksDrag, handlesPointer, passedDragThreshold } from './touchLogic';
+import { blocksDrag, dragThresholdFor, handlesPointer, passedDragThreshold } from './touchLogic';
 
 const SCROLLABLE = /(auto|scroll|overlay)/;
 const FRICTION = 0.95;
@@ -51,6 +51,7 @@ export function installDragScroll() {
       id: e.pointerId, box, x: e.clientX, y: e.clientY,
       top: box.scrollTop, left: box.scrollLeft, moving: false,
       lastX: e.clientX, lastY: e.clientY, lastT: e.timeStamp, vx: 0, vy: 0,
+      threshold: dragThresholdFor(e.pointerType),
     };
   };
 
@@ -59,7 +60,7 @@ export function installDragScroll() {
     const dx = e.clientX - drag.x;
     const dy = e.clientY - drag.y;
     if (!drag.moving) {
-      if (!passedDragThreshold(dx, dy)) return;
+      if (!passedDragThreshold(dx, dy, drag.threshold)) return;
       drag.moving = true;
       document.documentElement.classList.add('drag-scrolling');
       window.getSelection?.()?.removeAllRanges();

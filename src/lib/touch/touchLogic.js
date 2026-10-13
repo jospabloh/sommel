@@ -2,14 +2,16 @@
 // on-screen keyboard. No imports: tested in Deno (base44/tests/touch_mode_test.ts).
 
 export const TOUCH_PREFS_KEY = 'sommel.touch';
-export const DEFAULT_TOUCH_PREFS = Object.freeze({ dragScroll: false, keyboard: false });
+// Drag-to-scroll is ON unless this device turned it off (José, 2026-10-13: the
+// finger has to scroll the screen without anyone finding a setting first).
+export const DEFAULT_TOUCH_PREFS = Object.freeze({ dragScroll: true, keyboard: false });
 
 /** Stored JSON -> prefs. Anything unreadable falls back to everything off. */
 export function parseTouchPrefs(raw) {
   try {
     const v = JSON.parse(raw ?? 'null');
     if (!v || typeof v !== 'object') return { ...DEFAULT_TOUCH_PREFS };
-    return { dragScroll: v.dragScroll === true, keyboard: v.keyboard === true };
+    return { dragScroll: v.dragScroll !== false, keyboard: v.keyboard === true };
   } catch {
     return { ...DEFAULT_TOUCH_PREFS };
   }
@@ -23,10 +25,21 @@ export function passedDragThreshold(dx, dy, threshold = DRAG_THRESHOLD_PX) {
   return Math.hypot(dx, dy) >= threshold;
 }
 
-/** Native touch already scrolls; drag-to-scroll is for screens that Windows
- *  reports as a mouse (or a pen). */
+/** A press only becomes a scroll after this many px. A finger needs more
+ *  than a mouse: Chrome claims a native touch pan within its own slop, sends
+ *  pointercancel, and drag-to-scroll steps aside before it moves anything. */
+export const TOUCH_DRAG_THRESHOLD_PX = 24;
+
+/** Mouse, pen and touch. For a real touch screen whose native scroll works,
+ *  the browser's pointercancel ends the drag first; when it does not (a
+ *  screen Windows reports as a mouse, or a box that blocks panning), this
+ *  is what scrolls. */
 export function handlesPointer(pointerType, button) {
-  return (pointerType === 'mouse' || pointerType === 'pen') && button === 0;
+  return (pointerType === 'mouse' || pointerType === 'pen' || pointerType === 'touch') && button === 0;
+}
+
+export function dragThresholdFor(pointerType) {
+  return pointerType === 'touch' ? TOUCH_DRAG_THRESHOLD_PX : DRAG_THRESHOLD_PX;
 }
 
 const TEXT_TYPES = new Set(['', 'text', 'search', 'email', 'password', 'tel', 'url', 'number']);

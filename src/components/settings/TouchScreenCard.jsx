@@ -38,7 +38,7 @@ export default function TouchScreenCard() {
       <Row
         id="touch-drag"
         title="Desplazar arrastrando el dedo"
-        text="Para pantallas donde el dedo selecciona texto en lugar de mover la lista."
+        text="Mover las listas arrastrando el dedo, también en pantallas que la computadora trata como mouse. Viene encendido."
         checked={prefs.dragScroll}
         onChange={(on) => setTouchPrefs({ dragScroll: on })}
       />
