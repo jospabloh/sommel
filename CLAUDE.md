@@ -1521,3 +1521,14 @@ y seguía con la versión con la que abrió. Ahora `useNewBuild`
 `TerminalLock`, y si hay versión nueva **recarga sola**, salvo mientras alguien
 teclea un PIN o checa (el bloqueo automático la regresa ahí después). La primera
 vez hay que recargar a mano para tomar este cambio.
+
+### Teclado en pantalla: franja con lo que se escribe (2026-10-13)
+
+José: el teclado tapaba el campo y no se veía lo escrito. Arriba de las teclas
+hay ahora una franja con el nombre del campo (su `<label>`, `aria-label` o
+`placeholder`) y su valor, con cursor; las contraseñas salen como puntos y el
+texto largo muestra su final. Sigue también lo que cambie el campo por su
+cuenta (evento `input`). Verificado en `/login` local sin peticiones a Base44:
+"Correo · ana@" y "Contraseña · •••". La prueba de pantalla de la caja confirmó
+el 2026-10-13 que el dedo llega como **mouse** con `maxTouchPoints` 10 (pantalla
+táctil real, convertida a mouse antes de Chrome).
