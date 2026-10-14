@@ -1798,3 +1798,18 @@ insumo, tres por movimiento y todo el historial de cada insumo).
   `recomputeOrderTotals`: ahorraba una operación, pero una propina o un
   descuento puestos desde otro equipo en ese momento se podían pisar.
 - Pruebas: `base44/tests/inventory_batch_test.ts`.
+
+## Capacidad medida y decisión de migrar (módulo 31, 2026-10-14)
+
+**Capacidad en Base44, medida:** unos 10 bares en hora pico. Base44 limita
+operaciones de entidad, y todo lo que hace una función con `asServiceRole` sale
+de una sola cubeta para toda la app (~400 por minuto, compartida por todos los
+bares). Las lecturas directas del navegador tienen su propia cubeta por usuario
+(~70 por minuto). Método y números: `docs/migracion-supabase.md` §1 y
+`acacia-app-standard` → módulo 31 (`shared/capacity/measure.mjs`). Cuenta de
+prueba para medir: `h.josepablo+sommelload@gmail.com`, staff de "Bar Onboarding
+QA" (contraseña en el scratchpad de la sesión, nunca en el repo).
+
+**Decisión de José:** Sommel se muta a Supabase (Pro) + Vercel ahora, mientras
+los datos son de prueba. Diseño, fases y lo que falta decidir:
+`docs/migracion-supabase.md`. Mientras tanto, no se venden más de ~10 bares.
