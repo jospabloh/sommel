@@ -144,7 +144,7 @@ el puente con Mission Control (mismo HMAC por app); el dominio
 
 | Fase | Qué | Cómo se verifica |
 |---|---|---|
-| 0 | Infra: organización ACACIA en Pro, proyecto `sommel` en Supabase, proyecto en Vercel, Resend | El proyecto responde; la org dice `pro` |
+| 0 | Infra: organización ACACIA (gratuita), proyecto `sommel`, proyecto en Vercel, Resend, respaldo diario con `pg_dump` | El proyecto responde; el primer respaldo existe fuera de Supabase |
 | 1 | Esquema, RLS, índices únicos, `profile`, pruebas de aislamiento en SQL | Pruebas de aislamiento en CI, verdes |
 | 2 | Capa `entities` + guard portado + los 21 routers | Las 600+ pruebas de lógica, más pruebas nuevas del guard contra un Postgres real (rama de Supabase) |
 | 3 | Cliente: supabase-js, páginas de auth, `callFn`, lecturas directas, tiempo real | Recorrido completo en el navegador contra el proyecto nuevo, a 390/834/1440 |
@@ -157,24 +157,52 @@ el puente con Mission Control (mismo HMAC por app); el dominio
 Datos: hoy solo hay datos de prueba, así que **no se migran filas**. El menú de
 Vindima se vuelve a importar desde `base44/seed/vindima-menu.json`.
 
-## 5. Costos (Supabase, 2026-10-14)
+## 5. Costos: empezar en $0 (decisión de José, 2026-10-14)
 
-- Pro: $25 USD al mes por organización, con $10 de crédito de cómputo.
-- Cada proyecto en la máquina por omisión: ~$10 USD al mes.
-- Organización ACACIA con Mission Control y Sommel: **~$35 USD al mes**.
-- No se pueden mezclar planes en una organización, y el plan gratuito permite 2
-  proyectos activos por persona en total. Por eso la estructura es: organización
-  personal gratuita para lo personal, organización ACACIA en Pro para los SaaS.
-- Plink FX dejó de usar Supabase el 2026-10-14 (acaciaco-site#263): su
-  proyecto tenía 0 usuarios.
+Con un solo cliente no se paga todavía. El plan gratuito permite 2 proyectos
+activos por persona (los pausados no cuentan). Con `plink-fx` pausado
+(2026-10-14, acaciaco-site#263 lo dejó sin Supabase) quedan: Mission Control y
+**Sommel, gratis**.
 
-## 6. Decisiones que toma José
+Qué da el plan gratuito y qué tan lejos alcanza para Sommel:
 
-1. Crear la organización "ACACIA" en Supabase y pasarla a Pro (requiere tarjeta).
-2. Transferir `acacia-mission-control` a esa organización (sin perder datos).
-3. Hosting del frontend en Vercel (donde ya vive Mission Control).
-4. Remitente de correo de Sommel en Resend (`sommel@acaciaco.com.mx` o similar).
-5. Empezar con datos limpios (sin migrar filas de prueba).
+| | Gratis | Alcanza para |
+|---|---|---|
+| Base de datos | 500 MB | Años con unos pocos bares |
+| Edge Functions | 500,000 invocaciones al mes | Unos 2 o 3 bares activos sin sondeos (el tiempo real sustituye al sondeo de 45 s de hoy) |
+| Tiempo real | 200 conexiones, 100 mensajes/s | Decenas de bares |
+| Usuarios activos | 50,000 al mes | De sobra |
+| Respaldos | **Ninguno automático** | Hay que hacerlos nosotros |
+| Pausa | Se pausa tras 7 días sin actividad | Un bar que abre a diario no se pausa |
+
+Lo que hay que poner para que gratis sea seguro:
+- **Respaldo diario propio**: `pg_dump` cada noche desde GitHub Actions, guardado
+  fuera de Supabase. Es lo que la propia documentación de Supabase pide para el
+  plan gratuito.
+- **Alarma de consumo**: un aviso cuando las invocaciones del mes pasen de 60 %.
+
+**Cuándo pagar** (Pro, $25 USD al mes, con $10 de crédito que cubre la máquina
+de Sommel; Mission Control se puede quedar en la organización gratuita):
+- cuando se acerque el tope de invocaciones o el tercer bar pagando, lo que pase
+  primero; o
+- si José decide que los respaldos diarios automáticos y sin pausa valen ya.
+
+Pasar a Pro es un clic sobre el mismo proyecto: no se migra nada. Para eso el
+proyecto de Sommel se crea en una organización "ACACIA" separada (también
+gratuita), así el día que pague, paga solo por lo que es SaaS.
+
+Proyectos pausados de la organización personal (`liuma-dev`, `fidelity-mvp`,
+`plink-fx`): José pidió borrarlos. La herramienta de Supabase de esta sesión
+puede pausar pero no borrar; se borran desde el panel (Project Settings →
+General → Delete project). Borrar es irreversible y se lleva sus respaldos.
+
+## 6. Decisiones
+
+Tomadas por José: migrar ahora con datos de prueba; empezar sin pagar.
+Por omisión, salvo que diga otra cosa: frontend en Vercel; remitente
+`sommel@acaciaco.com.mx` por Resend; datos limpios (el menú se reimporta).
+Lo único que requiere a José: crear la organización "ACACIA" (gratuita) en
+Supabase, porque una organización nueva no se puede crear desde aquí.
 
 ## 7. Riesgos conocidos
 

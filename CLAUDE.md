@@ -1810,6 +1810,6 @@ bares). Las lecturas directas del navegador tienen su propia cubeta por usuario
 prueba para medir: `h.josepablo+sommelload@gmail.com`, staff de "Bar Onboarding
 QA" (contraseña en el scratchpad de la sesión, nunca en el repo).
 
-**Decisión de José:** Sommel se migra a Supabase (Pro) + Vercel ahora, mientras
+**Decisión de José:** Sommel se migra a Supabase (empieza en el plan gratuito; Pro cuando lo justifique el consumo) + Vercel ahora, mientras
 los datos son de prueba. Diseño, fases y lo que falta decidir:
 `docs/migracion-supabase.md`. Mientras tanto, no se venden más de ~10 bares.
