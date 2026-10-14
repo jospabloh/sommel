@@ -1602,3 +1602,31 @@ dejaba todo en blanco y sin salida.
   peticiones a Base44): sin el arreglo, la prueba reproduce el blanco con
   `TypeError: Cannot read properties of null (reading 'id')`; con él, abrir y
   cerrar las dos ventanas deja la pantalla intacta y no hay errores.
+
+## Módulo 30: aviso de versión nueva (2026-10-13)
+
+`src/lib/useNewVersion.js` y `src/components/UpdateBanner.jsx` son copia exacta
+de `jospabloh/acacia-app-standard` → `shared/update/`: se cambian allá y se
+copian, no se editan aquí. `<UpdateBanner />` se monta en `src/main.jsx` junto a
+`<ThemeSwitcher />`, fuera del router, así que también avisa en `/login`.
+
+Reemplaza a `AppUpdateBanner` (módulo 21, dentro de `Layout`): hacían lo mismo,
+y con los dos montados un deploy mostraba dos avisos. Se borró
+`AppUpdateBanner.jsx`. `src/lib/updateCheck.js` y su prueba se quedan: los usa
+`useNewBuild.js` para que la terminal bloqueada se recargue sola (#71), que está
+fuera de `Layout` y no muestra el aviso. El nuevo compara también el CSS y avisa en el login y
+en el 404, que el viejo (montado en `Layout`) no cubría.
+
+Sin `--update-banner-top`: Sommel no tiene barra superior. Su menú lateral
+ocupa todo el alto y sigue en pantalla en el teléfono, así que el aviso se corre
+a la derecha del menú con `--update-banner-left` (`src/index.css`): `5rem` bajo
+1024 px y `15rem` desde ahí, el ancho del `<aside>` (`w-20` / `lg:w-60`). Solo
+aplica con `:root[data-rail-switcher]`, que `Layout.jsx` pone mientras el menú
+está montado; en login y 404 el aviso queda centrado. La variable la añadió el
+estándar para este caso (antes la tarjeta tapaba el logo y las entradas Mesas y
+Menú a 390 px). Bajo 640 px los botones bajan a su propia fila bajo el texto
+(cambio del componente canónico, 2026-10-13): a 390 px la tarjeta mide 278 px de
+ancho y 118 de alto, antes ~250, cuando el texto se partía casi palabra por
+palabra junto a los dos botones.
+Este repo no tiene vitest, así que la prueba canónica `useNewVersion.test.js`
+no se copió.

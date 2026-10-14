@@ -1,8 +1,9 @@
 // Is a newer Sommel build live than the one this tab loaded? (module 21)
-// Shared by AppUpdateBanner (inside the app) and the terminal lock screen,
-// which lives OUTSIDE Layout and so never showed the banner: a terminal left
-// locked all day kept running the build it opened with (2026-10-13, José saw
-// the old 6-dot PIN pad after the new one was published).
+// Used by the terminal lock screen, which reloads itself when this turns true.
+// The in-app notice is UpdateBanner (module 30, mounted in main.jsx); the lock
+// screen is outside Layout, and a terminal left locked all day kept running
+// the build it opened with (2026-10-13, José saw the old 6-dot PIN pad after
+// the new one was published).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ENTRY_RE, entryBundleFrom, isNewerBuild } from '@/lib/updateCheck';
 
