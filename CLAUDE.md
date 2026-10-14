@@ -1580,3 +1580,25 @@ dejaba poner propina. Ahora "Cuenta completa" también ofrece la propina de
 El servidor no cambió: `canTipPerPayment` nunca miró el modo. Prueba en
 `payment_tip_test.ts`, que además amarra la regla del cliente con la del
 servidor. **No verificado:** la pantalla en la caja.
+
+## Pantalla en blanco al cerrar "Ligar productos" (2026-10-14)
+
+José: en Inventario, abrir "Ligar productos" y cerrar dejaba la pantalla en
+blanco. **Causa:** una ventana con `open={!!item}` se sigue dibujando durante su
+animación de salida, ya con `item` en `null`, y `ProductLinkRow` leía
+`item.id`. "Historial" tenía el mismo defecto (`unitShort(item.unit)`). Y como
+la app no tenía ningún atrapa-errores de React, cualquier tronido al dibujar
+dejaba todo en blanco y sin salida.
+- `useLastValue` (`src/lib/useLastValue.js`): la ventana dibuja el último valor
+  que tuvo mientras se cierra. Se usa en `LinkProductsDialog` y `MovementsDialog`.
+  Las demás ventanas con el mismo patrón se revisaron una por una (13): o se
+  salen antes con `if (!x) return null`, o usan `x?.`, o solo leen el valor en
+  un manejador de evento.
+- `PageErrorBoundary` envuelve el `<Outlet />` de `Layout` (con
+  `key={location.pathname}`, así que cambiar de pantalla lo limpia). Un tronido
+  ahora muestra "Esta pantalla tuvo un error" con "Volver a intentar" y
+  "Recargar"; el menú sigue funcionando.
+- **Verificado** con el build local y el backend **simulado por completo** (cero
+  peticiones a Base44): sin el arreglo, la prueba reproduce el blanco con
+  `TypeError: Cannot read properties of null (reading 'id')`; con él, abrir y
+  cerrar las dos ventanas deja la pantalla intacta y no hay errores.

@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import PageErrorBoundary from '@/components/PageErrorBoundary';
 import { useAuth } from '@/lib/AuthContext';
 import {
   LayoutGrid, GlassWater, Users, Building2, LogOut,
@@ -248,7 +249,9 @@ export default function Layout() {
       <main className="flex-1 min-w-0 overflow-auto pb-20">
         <LicenseBanner />
         <AppUpdateBanner />
-        <Outlet />
+        <PageErrorBoundary key={location.pathname}>
+          <Outlet />
+        </PageErrorBoundary>
       </main>
       <IdleWarningDialog open={idleState === 'idle_warning'} onContinue={continueSession} />
       <SessionExpiredDialog open={sessionExpired} />

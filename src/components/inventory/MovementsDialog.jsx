@@ -2,27 +2,30 @@
 // redactado del servidor cuando falta Menú:ver_costos.
 import React, { useEffect, useState } from 'react';
 import { callFn } from '@/lib/api';
+import { useLastValue } from '@/lib/useLastValue';
 import { formatMXN } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { MOVEMENT_LABELS, formatSignedQty, formatWhen, unitShort } from './helpers';
 
-export default function MovementsDialog({ item, onOpenChange }) {
-  const open = !!item;
+export default function MovementsDialog({ item: itemProp, onOpenChange }) {
+  const open = !!itemProp;
+  // Last insumo shown, so the closing animation never renders with null.
+  const item = useLastValue(itemProp);
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!item) return undefined;
+    if (!itemProp) return undefined;
     let cancelled = false;
     setRows(null);
     setError(null);
-    callFn('inventory', 'movements', { item_id: item.id, limit: 50 })
+    callFn('inventory', 'movements', { item_id: itemProp.id, limit: 50 })
       .then((res) => { if (!cancelled) setRows(res.movements || []); })
       .catch((err) => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
-  }, [item]);
+  }, [itemProp]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
