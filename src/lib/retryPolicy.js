@@ -28,12 +28,13 @@ export const READ_ACTIONS = {
  * guards against doing them twice (2026-10-14, José: a 429 in the middle of a
  * cobro "no puede seguir pasando"):
  * - addPayment: the same idempotency_key answers with the payment it made;
- * - requestTicket: one ticket per order, paid amount and total (dedupe_key);
+ * - requestTicket: one ticket per order, paid amount, total and live payments (dedupe_key);
+ * - retryInventory: every inventory movement has its own idempotency key;
  * - markPrinted / markFailed: marking a job that is already marked is a no-op.
  * Never add a write here without that guarantee on the server.
  */
 export const IDEMPOTENT_WRITES = {
-  payments: ['addPayment', 'requestTicket'],
+  payments: ['addPayment', 'requestTicket', 'retryInventory'],
   printing: ['markPrinted', 'markFailed'],
 };
 

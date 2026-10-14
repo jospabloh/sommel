@@ -1630,3 +1630,45 @@ ancho y 118 de alto, antes ~250, cuando el texto se partía casi palabra por
 palabra junto a los dos botones.
 Este repo no tiene vitest, así que la prueba canónica `useNewVersion.test.js`
 no se copió.
+
+## Recorrido real de toda la app (2026-10-14): lo que encontró y lo que se arregló
+
+José señaló que el manual se escribió leyendo el código, sin usar la app. Un
+agente recorrió la app de punta a punta contra producción, **solo en el bar
+de prueba "Bar Onboarding QA"** (admin `+sommelnew`), y anotó qué hace cada
+control y qué cambia en otro lado, cada punto marcado "verificado en vivo" o
+"solo del código". Encontró 10 bugs y 18 puntos donde el manual dice otra
+cosa. **Costo:** hizo ~600 peticiones y topó el límite compartido de Base44
+varias veces; con José usando la caja eso le pudo dar avisos de "ocupado". El
+próximo recorrido así va a una hora en que nadie use Sommel.
+
+Arreglado en este cambio:
+- **Inventario descontado a medias** (el más serio). Con el límite de Base44,
+  `deductInventory` escribió 1 de 4 movimientos y no recalculó existencias, y
+  solo lo avisaba un toast. Acción nueva `payments.retryInventory`, idempotente
+  porque cada movimiento tiene su llave (`venta:`/`merma:<renglón>`). La caja la
+  llama sola 3 s después de un `inventory_warning`, y solo avisa si tampoco
+  así se completa.
+- **Ticket viejo tras anular y volver a cobrar el mismo monto:** la llave de
+  `requestTicket` ahora incluye los pagos vivos.
+- **El panel de cobro olvidaba la división al reabrirse:** la siguiente parte
+  salía sin "Parte 2 de 2" y sin su propina. Ahora `resumeSplit`
+  (`src/lib/splitResume.js`) la retoma desde las etiquetas de los pagos vivos.
+- **Categoría con estación inválida** guardada en silencio como "Ninguna":
+  ahora responde 400 `invalid_station`.
+
+Pendientes de decisión de José, **no** cambiados:
+- **Ningún flujo imprime comandas de cocina o barra.** `plan-tecnico.md` §4
+  decía que "enviar a cocina/barra" crea un trabajo de impresión, e Impresión
+  ofrece "Qué imprime este equipo: Cocina, Barra", pero `orders.send` nunca lo
+  hizo. Solo se imprimen tickets, cortes y reimpresiones.
+- Salida de efectivo sin tope ni forma de anularla (se aceptó $999,999.99).
+- Cantidad por renglón sin tope (se aceptó 1000).
+- Productos con estación "Ninguna" se envían pero ninguna estación los ve ni
+  los marca listos.
+- Menores: nombres de producto duplicados; la comanda de origen de una unión
+  queda cancelada con su total viejo y sin motivo; `markReady`/`markDelivered`
+  sobre renglones que no aplican responden 200 vacío.
+
+El detalle completo, con el manual citado, está en el informe del agente; el
+manual se reescribe con eso, en un cambio aparte.
