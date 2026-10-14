@@ -184,3 +184,20 @@ html.drag-scrolling * {
 @media (prefers-reduced-motion: reduce) {
   .pin-shake { animation: none; }
 }
+
+/* Drag-to-scroll on (touch mode): like an iPad, dragging never selects text
+   or drags a link or an image; text fields keep normal selection. */
+html.drag-scroll-on body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+html.drag-scroll-on input,
+html.drag-scroll-on textarea,
+html.drag-scroll-on [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+html.drag-scroll-on img,
+html.drag-scroll-on a {
+  -webkit-user-drag: none;
+}

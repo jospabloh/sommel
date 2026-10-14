@@ -1,14 +1,28 @@
-// Drag-to-scroll for touch screens that Windows reports as a mouse
-// (2026-10-13). A real touch screen already scrolls natively; on these the
-// finger is a mouse, so dragging selected text instead of moving the list.
-// With the option on, a press that moves past a few pixels scrolls the
-// nearest scrollable box (or the page) and the click that follows is
-// swallowed, so dragging across a table card does not open it.
-import { blocksDrag, dragThresholdFor, handlesPointer, passedDragThreshold } from './touchLogic';
+// Drag-to-scroll, iPad-like (2026-10-13). On an all-in-one touch PC Windows
+// often reports the finger as a mouse, so nothing scrolls natively and a drag
+// selects text or drags a link. This makes a press that moves scroll the box
+// under it the way an iPad does:
+//   - it follows the finger 1:1 and keeps going after a fling, slowing down on
+//     iOS's curve (touchLogic: releaseVelocity / flingDistance / flingRemaining);
+//   - a mostly vertical drag only scrolls vertically (lockAxis);
+//   - when the inner list is at its end, the drag moves its parent (canScrollBy);
+//   - the click that follows a drag is swallowed, so dragging across a table
+//     card does not open it; a tap is still a tap.
+// A real touch pointer goes through too, with a larger threshold: when the
+// browser pans natively it sends pointercancel first and this steps aside.
+import {
+  blocksDrag,
+  canScrollBy,
+  dragThresholdFor,
+  flingDistance,
+  flingRemaining,
+  handlesPointer,
+  lockAxis,
+  passedDragThreshold,
+  releaseVelocity,
+} from './touchLogic';
 
 const SCROLLABLE = /(auto|scroll|overlay)/;
-const FRICTION = 0.95;
-const MIN_SPEED = 0.02; // px per ms
 
 function describe(el) {
   return {
@@ -20,87 +34,127 @@ function describe(el) {
   };
 }
 
-function scrollParent(el) {
+const pageBox = () => document.scrollingElement || document.documentElement;
+
+function isScrollBox(n) {
+  if (n === pageBox()) return true;
+  const s = getComputedStyle(n);
+  return (SCROLLABLE.test(s.overflowY) && n.scrollHeight > n.clientHeight + 1)
+    || (SCROLLABLE.test(s.overflowX) && n.scrollWidth > n.clientWidth + 1);
+}
+
+/** Scrollable boxes from the pressed element up to the page, nearest first. */
+function scrollChain(el) {
+  const out = [];
   for (let n = el; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
-    const s = getComputedStyle(n);
-    const y = SCROLLABLE.test(s.overflowY) && n.scrollHeight > n.clientHeight + 1;
-    const x = SCROLLABLE.test(s.overflowX) && n.scrollWidth > n.clientWidth + 1;
-    if (x || y) return n;
+    if (isScrollBox(n)) out.push(n);
   }
-  return document.scrollingElement || document.documentElement;
+  out.push(pageBox());
+  return out;
+}
+
+/** Content movement (dx, dy) -> the first box in the chain that can take it. */
+function pick(chain, dx, dy) {
+  return chain.find((b) => canScrollBy(b, dx, dy)) ?? null;
 }
 
 export function installDragScroll() {
   let drag = null;
-  let momentum = 0;
+  let fling = 0;
   let swallowClick = false;
 
-  const stopMomentum = () => {
-    if (momentum) cancelAnimationFrame(momentum);
-    momentum = 0;
+  const stopFling = () => {
+    if (fling) cancelAnimationFrame(fling);
+    fling = 0;
   };
 
   const onDown = (e) => {
-    stopMomentum();
+    stopFling();
     if (!handlesPointer(e.pointerType, e.button)) return;
     const t = e.target instanceof Element ? e.target : null;
     if (!t || t.closest('[data-no-drag-scroll],[role="slider"],[contenteditable="true"]')) return;
     if (blocksDrag(describe(t))) return;
-    const box = scrollParent(t);
     drag = {
-      id: e.pointerId, box, x: e.clientX, y: e.clientY,
-      top: box.scrollTop, left: box.scrollLeft, moving: false,
-      lastX: e.clientX, lastY: e.clientY, lastT: e.timeStamp, vx: 0, vy: 0,
+      id: e.pointerId,
+      chain: scrollChain(t),
+      x0: e.clientX, y0: e.clientY,
+      x: e.clientX, y: e.clientY,
+      moving: false, axis: 'both',
       threshold: dragThresholdFor(e.pointerType),
+      samples: [{ t: e.timeStamp, x: e.clientX, y: e.clientY }],
     };
   };
 
   const onMove = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
-    const dx = e.clientX - drag.x;
-    const dy = e.clientY - drag.y;
     if (!drag.moving) {
-      if (!passedDragThreshold(dx, dy, drag.threshold)) return;
+      const dx0 = e.clientX - drag.x0;
+      const dy0 = e.clientY - drag.y0;
+      if (!passedDragThreshold(dx0, dy0, drag.threshold)) return;
       drag.moving = true;
+      drag.axis = lockAxis(dx0, dy0);
       document.documentElement.classList.add('drag-scrolling');
       window.getSelection?.()?.removeAllRanges();
     }
     e.preventDefault();
-    drag.box.scrollTop = drag.top - dy;
-    drag.box.scrollLeft = drag.left - dx;
-    const dt = Math.max(1, e.timeStamp - drag.lastT);
-    drag.vx = (e.clientX - drag.lastX) / dt;
-    drag.vy = (e.clientY - drag.lastY) / dt;
-    drag.lastX = e.clientX;
-    drag.lastY = e.clientY;
-    drag.lastT = e.timeStamp;
+    const dx = drag.axis === 'y' ? 0 : drag.x - e.clientX; // content moves opposite the finger
+    const dy = drag.axis === 'x' ? 0 : drag.y - e.clientY;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    drag.samples.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
+    if (drag.samples.length > 20) drag.samples.shift();
+    // Each step goes to the nearest box that can still move that way, so an
+    // inner list at its end hands the rest of the drag to the page.
+    if (dy) {
+      const box = pick(drag.chain, 0, dy);
+      if (box) box.scrollTop += dy;
+    }
+    if (dx) {
+      const box = pick(drag.chain, dx, 0);
+      if (box) box.scrollLeft += dx;
+    }
   };
 
-  const glide = (box, vx, vy) => {
-    let last = performance.now();
+  const glide = (chain, axis, vx, vy) => {
+    const distX = axis === 'y' ? 0 : -flingDistance(vx);
+    const distY = axis === 'x' ? 0 : -flingDistance(vy);
+    if (!distX && !distY) return;
+    const start = performance.now();
+    let doneX = 0;
+    let doneY = 0;
     const step = (now) => {
-      const dt = now - last;
-      last = now;
-      box.scrollTop -= vy * dt;
-      box.scrollLeft -= vx * dt;
-      const k = FRICTION ** (dt / 16);
-      vx *= k;
-      vy *= k;
-      momentum = Math.hypot(vx, vy) > MIN_SPEED ? requestAnimationFrame(step) : 0;
+      const left = flingRemaining(now - start);
+      const toX = distX * (1 - left) - doneX;
+      const toY = distY * (1 - left) - doneY;
+      doneX += toX;
+      doneY += toY;
+      let moved = false;
+      if (toY) {
+        const box = pick(chain, 0, toY);
+        if (box) { box.scrollTop += toY; moved = true; }
+      }
+      if (toX) {
+        const box = pick(chain, toX, 0);
+        if (box) { box.scrollLeft += toX; moved = true; }
+      }
+      const remaining = Math.max(Math.abs(distX), Math.abs(distY)) * left;
+      fling = moved && remaining > 0.5 ? requestAnimationFrame(step) : 0;
     };
-    momentum = requestAnimationFrame(step);
+    fling = requestAnimationFrame(step);
   };
 
   const onUp = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
-    const { moving, box, vx, vy, lastT } = drag;
+    const { moving, chain, axis, samples } = drag;
     drag = null;
     if (!moving) return;
     document.documentElement.classList.remove('drag-scrolling');
     swallowClick = true;
     setTimeout(() => { swallowClick = false; }, 0);
-    // A finger that stopped before lifting does not fling the list.
-    if (e.type === 'pointerup' && e.timeStamp - lastT < 80) glide(box, vx, vy);
+    if (e.type === 'pointerup') {
+      const { vx, vy } = releaseVelocity(samples, e.timeStamp);
+      glide(chain, axis, vx, vy);
+    }
   };
 
   const onClick = (e) => {
@@ -110,19 +164,29 @@ export function installDragScroll() {
     e.stopPropagation();
   };
 
+  // A mouse-like finger must not start the browser's own drag of a link or an
+  // image (the "ghost" that follows the finger instead of scrolling).
+  const onDragStart = (e) => {
+    const t = e.target instanceof Element ? e.target : null;
+    if (t && !t.closest('[draggable="true"]')) e.preventDefault();
+  };
+
   const opts = { capture: true };
+  document.documentElement.classList.add('drag-scroll-on');
   document.addEventListener('pointerdown', onDown, opts);
   document.addEventListener('pointermove', onMove, { capture: true, passive: false });
   document.addEventListener('pointerup', onUp, opts);
   document.addEventListener('pointercancel', onUp, opts);
   document.addEventListener('click', onClick, opts);
+  document.addEventListener('dragstart', onDragStart, opts);
   return () => {
-    stopMomentum();
-    document.documentElement.classList.remove('drag-scrolling');
+    stopFling();
+    document.documentElement.classList.remove('drag-scrolling', 'drag-scroll-on');
     document.removeEventListener('pointerdown', onDown, opts);
     document.removeEventListener('pointermove', onMove, opts);
     document.removeEventListener('pointerup', onUp, opts);
     document.removeEventListener('pointercancel', onUp, opts);
     document.removeEventListener('click', onClick, opts);
+    document.removeEventListener('dragstart', onDragStart, opts);
   };
 }

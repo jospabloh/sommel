@@ -4,6 +4,7 @@ import React from 'react';
 import { Hand } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { setTouchPrefs, useTouchPrefs } from '@/lib/touch/touchPrefs';
+import TouchTestPanel from './TouchTestPanel';
 
 function Row({ id, title, text, checked, onChange }) {
   return (
@@ -42,6 +43,7 @@ export default function TouchScreenCard() {
         checked={prefs.dragScroll}
         onChange={(on) => setTouchPrefs({ dragScroll: on })}
       />
+      <TouchTestPanel />
     </section>
   );
 }
