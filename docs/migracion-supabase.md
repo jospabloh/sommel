@@ -1,6 +1,6 @@
 # Migración de Sommel a Supabase + Vercel (diseño, 2026-10-14)
 
-Estado: **diseño, pendiente de aprobación de José**. Nada de esto está construido.
+Estado: **aprobado por José el 2026-10-14; en construcción.** Proyecto de Supabase: `sommel`, ref `gyzmfplevicqwbynznei`, región `us-east-2`, plan gratuito.
 Este documento es también el primer caso del módulo 31 del estándar
 (`acacia-app-standard`, "Capacidad y plataforma de backend"): lo que aprendamos
 aquí se vuelve el método para el resto del portafolio.
