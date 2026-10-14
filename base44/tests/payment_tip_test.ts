@@ -86,3 +86,27 @@ Deno.test('split by dishes does not hand an earlier payer\'s tip to the next one
   const share = splitByItems(items, ['b'], { subtotal: order.subtotal, total: billTotalForSplit(order, payments) }, remaining);
   assertEquals(share, 40000, 'B ordered $400 and owes $400, not $420');
 });
+
+// @ts-ignore: plain JS module shared with the client bundle
+import { canTipThisPayment } from '../../src/lib/paymentTipRule.js';
+
+Deno.test('a payer charged again after a void can still leave their own tip', () => {
+  // José, 2026-10-14: one part of a split bill was voided and charged again;
+  // the panel reopens on "cuenta completa", where the order-wide tip button
+  // is locked by the payment that stayed. Without this the last payer could
+  // not tip without cancelling the whole bill.
+  const order = { tip: 2550, tip_pct: null };
+  const live = [{ tip: 2550 }];
+  if (!canTipThisPayment({ mode: 'full', order, livePayments: live })) throw new Error('full mode after a payment must allow a tip');
+  // With no payment yet, "cuenta completa" uses the order-wide tip instead.
+  if (canTipThisPayment({ mode: 'full', order: { tip: 0 }, livePayments: [] })) throw new Error('full mode with no payments uses the general tip');
+  // An order-wide tip is already prorated: a second tip would double charge.
+  if (canTipThisPayment({ mode: 'equal', order: { tip: 5100, tip_pct: 10 }, livePayments: [] })) throw new Error('tip_pct blocks it');
+  if (canTipThisPayment({ mode: 'full', order: { tip: 5100 }, livePayments: [{ tip: 0 }] })) throw new Error('fixed order tip blocks it');
+  // Same rule as the server, so the panel never offers what addPayment refuses.
+  for (const [o, p] of [[order, live], [{ tip: 5100 }, [{ tip: 0 }]], [{ tip: 0, tip_pct: 10 }, []]] as const) {
+    if (canTipThisPayment({ mode: 'items', order: o, livePayments: p }) !== canTipPerPayment(o as any, p as any)) {
+      throw new Error('client and server disagree');
+    }
+  }
+});
