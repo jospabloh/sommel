@@ -308,3 +308,9 @@ export function needsQtyConfirm(qty: unknown, threshold: number, previousQty = 0
   if (confirmed || threshold <= 0) return false;
   return typeof qty === 'number' && qty > threshold && qty > previousQty;
 }
+
+/** Rows whose `field` is one of `ids`: re-narrows what an `$in` query returned (same helper as payments/_logic.ts). */
+export function narrowByField<T extends Record<string, any>>(rows: T[], field: string, ids: Iterable<string>): T[] {
+  const set = new Set(Array.from(ids, String));
+  return (rows ?? []).filter((r) => r != null && set.has(String(r[field])));
+}

@@ -1776,6 +1776,44 @@ pantalla a propósito). Pruebas nuevas: `realtime_events_test.ts`,
 `catalog_shape_test.ts`, `report_shape_test.ts`, `api_messages_test.ts`,
 `api_shape_test.ts`, `station_odd_shapes_test.ts`.
 
+## Menos operaciones por cobro (2026-10-14)
+
+Raíz de los avisos "ocupado": la cuota de Base44 es de toda la app y cuenta
+operaciones de entidad. Medido en el código, un cobro que cierra una cuenta de 4
+renglones gastaba ~39, y 29 eran de `deductInventory` (uno por producto, uno por
+insumo, tres por movimiento y todo el historial de cada insumo).
+- `deductInventory` lee con `$in` (`fetchIn` en `payments/handlers/_shared.ts`):
+  productos, insumos, movimientos existentes y de venta, la relectura de
+  duplicados y el recálculo de existencias. Cada lectura es una consulta, de 100
+  en 100. Las filas se vuelven a filtrar en memoria. Si un `$in` falla, ese
+  bloque se lee uno por uno, y lo que no se pudo leer cuenta como falla, nunca
+  como "no hay filas". Con 4 insumos baja de 29 a 14; `retryInventory` baja de
+  ~21 a ~9. `$in` sobre `id`, `idempotency_key` e `item_id` se comprobó contra el
+  backend real con consultas de solo lectura en el bar de prueba.
+- `placeOf`/`placeLabel`: una consulta para todas las mesas.
+- Estación de impresión: los eventos de un trabajo (crear, reclamar, impreso)
+  se juntan en una recarga (1.5 s, máximo 3 s). Tras imprimir no se recarga
+  aparte si la suscripción está viva.
+- **Se descartó a propósito** quitar la relectura de `Order` en
+  `recomputeOrderTotals`: ahorraba una operación, pero una propina o un
+  descuento puestos desde otro equipo en ese momento se podían pisar.
+- Pruebas: `base44/tests/inventory_batch_test.ts`.
+
+## Capacidad medida y decisión de migrar (módulo 31, 2026-10-14)
+
+**Capacidad en Base44, medida:** unos 10 bares en hora pico. Base44 limita
+operaciones de entidad, y todo lo que hace una función con `asServiceRole` sale
+de una sola cubeta para toda la app (~400 por minuto, compartida por todos los
+bares). Las lecturas directas del navegador tienen su propia cubeta por usuario
+(~70 por minuto). Método y números: `docs/migracion-supabase.md` §1 y
+`acacia-app-standard` → módulo 31 (`shared/capacity/measure.mjs`). Cuenta de
+prueba para medir: `h.josepablo+sommelload@gmail.com`, staff de "Bar Onboarding
+QA" (contraseña en el scratchpad de la sesión, nunca en el repo).
+
+**Decisión de José:** Sommel se migra a Supabase (empieza en el plan gratuito; Pro cuando lo justifique el consumo) + Vercel ahora, mientras
+los datos son de prueba. Diseño, fases y lo que falta decidir:
+`docs/migracion-supabase.md`. Mientras tanto, no se venden más de ~10 bares.
+
 ### El aviso de versión ya no tapa el banner de licencia (2026-10-14)
 
 Con sesión, el aviso del módulo 30 quedaba a 0.75 rem de arriba, justo sobre

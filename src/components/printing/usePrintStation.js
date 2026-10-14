@@ -30,7 +30,12 @@ import { WINDOWS_DRIVER, checkAccess, choosePrinter, findPaired, forget, printer
 // limit on it (2026-10-06).
 const POLL_MS = 45 * 1000;
 const POLL_TICK_MS = 15 * 1000;
-const EVENT_DEBOUNCE_MS = 300;
+// One printed job fires a burst of realtime events (create, claimed, printed).
+// Wait for the burst to settle so it costs ONE queue reload (printing.queue is
+// four filters server side), but never longer than the max wait so a steady
+// stream of events still refreshes the list (2026-10-14).
+const EVENT_DEBOUNCE_MS = 1500;
+const EVENT_MAX_WAIT_MS = 3000;
 
 function nextFrame() {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -100,6 +105,9 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
   const auto = !needsWindowsPrep && (autoPref ?? !!usb);
 
   const lastLoadRef = useRef(0);
+  // True while the PrintJob realtime subscription is live: its events already
+  // reload the queue after a print, so printNext skips its own reload then.
+  const liveRef = useRef(false);
   const load = useCallback(async () => {
     lastLoadRef.current = Date.now();
     try {
@@ -137,13 +145,23 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
   useEffect(() => {
     if (!enabled) return undefined;
     let timer = null;
+    let firstAt = 0;
+    const fire = () => {
+      timer = null;
+      firstAt = 0;
+      load();
+    };
     const unsub = base44.entities.PrintJob.subscribe((evt) => {
       const row = eventRow(evt);
       if (row?.tenant_id && row.tenant_id !== tenantId) return;
+      const now = Date.now();
+      if (timer === null) firstAt = now;
       clearTimeout(timer);
-      timer = setTimeout(load, EVENT_DEBOUNCE_MS);
+      timer = setTimeout(fire, Math.max(0, Math.min(EVENT_DEBOUNCE_MS, firstAt + EVENT_MAX_WAIT_MS - now)));
     });
+    liveRef.current = typeof unsub === 'function';
     return () => {
+      liveRef.current = false;
       clearTimeout(timer);
       if (typeof unsub === 'function') unsub();
     };
@@ -218,6 +236,10 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
+    // The claim and the print both emit PrintJob events; with the subscription
+    // live those reload the queue (debounced), so only reload here when they
+    // cannot: nothing was claimed, something failed, or no subscription.
+    let printed = false;
     try {
       await withPrintLock(async () => {
         const claimKinds = kindsForClaim(kinds);
@@ -225,14 +247,17 @@ export default function usePrintStation(tenantId, { allowed = true, pageOpen = f
           device_id: deviceId,
           ...(claimKinds ? { kinds: claimKinds } : {}),
         });
-        if (job) await paintAndPrint(job);
+        if (job) {
+          await paintAndPrint(job);
+          printed = true;
+        }
       });
     } catch (err) {
       toast({ title: 'No se pudo tomar el trabajo', description: err.message, variant: 'destructive' });
     } finally {
       busyRef.current = false;
       setBusy(false);
-      load();
+      if (!(printed && liveRef.current)) load();
     }
   }, [deviceId, kinds, paintAndPrint, load]);
 
