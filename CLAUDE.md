@@ -1813,3 +1813,29 @@ QA" (contraseña en el scratchpad de la sesión, nunca en el repo).
 **Decisión de José:** Sommel se migra a Supabase (empieza en el plan gratuito; Pro cuando lo justifique el consumo) + Vercel ahora, mientras
 los datos son de prueba. Diseño, fases y lo que falta decidir:
 `docs/migracion-supabase.md`. Mientras tanto, no se venden más de ~10 bares.
+
+## Migración a Supabase, fase 1: esquema y aislamiento (2026-10-14)
+
+`supabase/` trae el esquema (27 tablas y 3 compañeras solo del servidor para
+los costos), la RLS y `tests/isolation.sql` (1,633 aserciones desde la migración 3, en dos pasadas:
+la segunda vuelve a dar todo a `anon`/`authenticated` para probar que la RLS
+sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
+`supabase/README.md`.
+
+- **Aplicado al proyecto real** `sommel` (`gyzmfplevicqwbynznei`, plan
+  gratuito), y las 1,670 aserciones pasaron ahí. Después se releyó la base:
+  no quedó nada de la prueba y `anon` no tiene privilegios en `public`.
+- **En CI** corre el job `supabase-isolation` (Postgres 16 con
+  `tests/00_supabase_stub.sql`). El stub **nunca** se aplica a Supabase.
+- `isolation.sql` exige una base **vacía**. En cuanto el proyecto real tenga
+  datos, ya no se corre ahí: se usa una rama de Supabase o el job de CI.
+- **Migración 3 (`support_ticket` sin escritura del navegador), por la revisión
+  de Codex en #84:** en el repo y en CI (1,633 aserciones). **Pendiente en el
+  proyecto real:** las escrituras por el MCP de Supabase (`apply_migration` y
+  `execute_sql` con DDL) se quedan esperando una aprobación que no llega y
+  vencen a los 60 s sin aplicar nada (releído: sigue en la migración 2). Sin
+  riesgo mientras tanto: no hay usuarios ni datos, y sin bar
+  `app.current_tenant()` es nulo, así que la política rechaza todo alta. Se
+  aplica antes de cualquier usuario real.
+- Base44 sigue siendo producción. Nada del cliente ni de las funciones apunta
+  todavía a Supabase. Eso es la fase 2 y la 3 (`docs/migracion-supabase.md` §4).
