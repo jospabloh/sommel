@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
+import { dropNullItems } from '@/lib/apiShape';
 import { Building2, Wine, Crown, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,7 +47,8 @@ export default function SuperAdmin() {
     setLoadError('');
     try {
       const res = await base44.functions.invoke('settings', { action: 'platformListBars' });
-      setBars(res.data?.bars || []);
+      const bars = dropNullItems(res.data?.bars);
+      setBars(Array.isArray(bars) ? bars : []);
     } catch (err) {
       setBars([]);
       setLoadError(errMessage(err, 'No se pudo cargar la lista de bares'));

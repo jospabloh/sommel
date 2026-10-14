@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Wine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callFn } from '@/lib/api';
+import { cleanCatalog } from '@/lib/catalogShape';
 import { formatMXN } from '@/lib/money';
 import { extrasForProduct } from '@/lib/extras';
 import { toast } from '@/components/ui/use-toast';
@@ -22,12 +23,12 @@ export default function ProductPicker({ onPick }) {
     (async () => {
       setLoading(true);
       try {
-        const { categories: cats, products: prods, extras: exs } = await callFn('catalog', 'listProducts', {});
+        const { categories: cats, products: prods, extras: exs } = cleanCatalog(await callFn('catalog', 'listProducts', {}));
         if (cancelled) return;
-        const sortedCats = [...(cats || [])].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+        const sortedCats = [...cats].sort((a, b) => a.sort - b.sort);
         setCategories(sortedCats);
-        setProducts(prods || []);
-        setExtras(exs || []);
+        setProducts(prods);
+        setExtras(exs);
         setActiveCategory(sortedCats[0]?.id ?? null);
       } catch (err) {
         toast({ title: 'No se pudo cargar el menú', description: err.message, variant: 'destructive' });

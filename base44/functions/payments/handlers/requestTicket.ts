@@ -16,7 +16,11 @@ export const requestTicket: Route = async (ctx: Ctx, body: any) => {
     placeOf(ctx, order),
   ]);
   const paid = paidTotal(payments);
-  const dedupeKey = `ticket:${order.id}:${paid}:${order.total ?? 0}`;
+  // The live payments are part of the key: voiding one and charging the same
+  // amount another way (2026-10-14) must print the new ticket, not hand back
+  // the old one that still lists the voided payment.
+  const liveIds = payments.filter((p: any) => !p.voided_at).map((p: any) => String(p.id)).sort().join(',');
+  const dedupeKey = `ticket:${order.id}:${paid}:${order.total ?? 0}:${liveIds}`;
 
   const existing = await ctx.svc.entities.PrintJob.filter({ tenant_id: ctx.tenantId, dedupe_key: dedupeKey });
   if (existing.length > 0) return { job: pickSurvivor(existing) };

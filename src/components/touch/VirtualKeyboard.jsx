@@ -18,6 +18,8 @@ const SYMBOLS = [
   [',', '<', '>', '[', ']', '{', '}'],
 ];
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+// After a press is released, how long the click handler gets before the keyboard may hide.
+const RELEASE_GRACE_MS = 250;
 const NUMPAD = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['.', '0', 'backspace']];
 
 function describe(el) {
@@ -81,18 +83,53 @@ export default function VirtualKeyboard() {
       setSymbols(false);
       setAccent(false);
     };
+    // Losing focus must not hide the keyboard while a press is still going:
+    // tapping a dialog's button blurs the field on pointerdown, and hiding the
+    // keyboard right then moves the dialog back to the centre before the
+    // pointer is released, so the click lands on empty space and is lost
+    // (José would have to tap twice). The check waits for the release and the
+    // click that follows it.
+    let pressing = false;
+    let deferred = false;
+    let safety = 0;
+    const check = () => {
+      deferred = false;
+      clearTimeout(safety);
+      const a = document.activeElement;
+      if (!(a instanceof HTMLElement) || !keyboardFor(describe(a))) setTarget(null);
+    };
     const onOut = () => {
       // Wait a tick: focus moving to another field fires focusin right after.
       setTimeout(() => {
-        const a = document.activeElement;
-        if (!(a instanceof HTMLElement) || !keyboardFor(describe(a))) setTarget(null);
+        if (!pressing) {
+          check();
+          return;
+        }
+        deferred = true;
+        clearTimeout(safety);
+        safety = setTimeout(check, 1500); // a release we never hear about
       }, 0);
+    };
+    const onPress = () => { pressing = true; };
+    const onRelease = () => {
+      pressing = false;
+      if (deferred) {
+        clearTimeout(safety);
+        safety = setTimeout(check, RELEASE_GRACE_MS);
+      }
     };
     document.addEventListener('focusin', onIn);
     document.addEventListener('focusout', onOut);
+    document.addEventListener('pointerdown', onPress, true);
+    document.addEventListener('pointerup', onRelease, true);
+    document.addEventListener('pointercancel', onRelease, true);
     return () => {
+      clearTimeout(safety);
       document.removeEventListener('focusin', onIn);
       document.removeEventListener('focusout', onOut);
+      document.removeEventListener('pointerdown', onPress, true);
+      document.removeEventListener('pointerup', onRelease, true);
+      document.removeEventListener('pointercancel', onRelease, true);
     };
   }, []);
 

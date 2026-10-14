@@ -22,6 +22,7 @@ const APPROVAL_LABEL = {
   cancel_sent_item: 'Canceló un platillo enviado',
   void_payment: 'Anuló un pago',
   cash_out: 'Retiro de efectivo',
+  void_cash_out: 'Anuló un retiro de efectivo',
   close_shift: 'Cerró el turno',
   discount: 'Dio un descuento o cortesía',
 };

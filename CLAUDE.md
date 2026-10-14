@@ -1631,6 +1631,151 @@ palabra junto a los dos botones.
 Este repo no tiene vitest, así que la prueba canónica `useNewVersion.test.js`
 no se copió.
 
+## Recorrido real de toda la app (2026-10-14): lo que encontró y lo que se arregló
+
+José señaló que el manual se escribió leyendo el código, sin usar la app. Un
+agente recorrió la app de punta a punta contra producción, **solo en el bar
+de prueba "Bar Onboarding QA"** (admin `+sommelnew`), y anotó qué hace cada
+control y qué cambia en otro lado, cada punto marcado "verificado en vivo" o
+"solo del código". Encontró 10 bugs y 18 puntos donde el manual dice otra
+cosa. **Costo:** hizo ~600 peticiones y topó el límite compartido de Base44
+varias veces; con José usando la caja eso le pudo dar avisos de "ocupado". El
+próximo recorrido así va a una hora en que nadie use Sommel.
+
+Arreglado en este cambio:
+- **Inventario descontado a medias** (el más serio). Con el límite de Base44,
+  `deductInventory` escribió 1 de 4 movimientos y no recalculó existencias, y
+  solo lo avisaba un toast. Acción nueva `payments.retryInventory`, idempotente
+  porque cada movimiento tiene su llave (`venta:`/`merma:<renglón>`). La caja la
+  llama sola 3 s después de un `inventory_warning`, y solo avisa si tampoco
+  así se completa.
+- **Ticket viejo tras anular y volver a cobrar el mismo monto:** la llave de
+  `requestTicket` ahora incluye los pagos vivos.
+- **El panel de cobro olvidaba la división al reabrirse:** la siguiente parte
+  salía sin "Parte 2 de 2" y sin su propina. Ahora `resumeSplit`
+  (`src/lib/splitResume.js`) la retoma desde las etiquetas de los pagos vivos.
+- **Categoría con estación inválida** guardada en silencio como "Ninguna":
+  ahora responde 400 `invalid_station`.
+
+Pendientes de decisión de José, **no** cambiados:
+- **Ningún flujo imprime comandas de cocina o barra.** `plan-tecnico.md` §4
+  decía que "enviar a cocina/barra" crea un trabajo de impresión, e Impresión
+  ofrece "Qué imprime este equipo: Cocina, Barra", pero `orders.send` nunca lo
+  hizo. Solo se imprimen tickets, cortes y reimpresiones.
+- Salida de efectivo sin tope ni forma de anularla (se aceptó $999,999.99).
+- Cantidad por renglón sin tope (se aceptó 1000).
+- Productos con estación "Ninguna" se envían pero ninguna estación los ve ni
+  los marca listos.
+- Menores: nombres de producto duplicados; la comanda de origen de una unión
+  queda cancelada con su total viejo y sin motivo; `markReady`/`markDelivered`
+  sobre renglones que no aplican responden 200 vacío.
+
+El detalle completo, con el manual citado, está en el informe del agente; el
+manual se reescribe con eso, en un cambio aparte.
+
+## Ajustes → Servicio: comandas impresas, entrega sin estación y tope de retiro (2026-10-14)
+
+Decisiones de José. Las tres viven en `OperationCard.jsx` (Ajustes → Servicio),
+solo para quien edita Ajustes, y se guardan por `settings.update`.
+- **Imprimir comandas** (`WineBar.print_comandas`, apagado de fábrica). Si está
+  encendido, `orders.send` encola un `PrintJob` por estación (`cocina` o
+  `barra`), y `orders.cancelItem` uno `cambio` ("CANCELADO COCINA/BARRA", con el
+  motivo) (`orders/handlers/_comanda.ts`). Lleva cantidades grandes y nada de
+  precios. El `dedupe_key` va por los ids de los renglones, así que reenviar
+  no imprime dos veces. Es best effort: si encolar falla, la acción no falla y
+  responde `print_warning`, que Orden muestra. Lo imprime el equipo que en
+  Impresión tenga "Cocina" o "Barra"; `cambio` viaja con los dos.
+- **Entregar solos los productos sin estación**
+  (`WineBar.auto_deliver_no_station`). Al enviar, un renglón con estación
+  `none` (o sin estación) queda `entregado` en vez de `enviado`
+  (`sendStatusFor`).
+- **Tope de un retiro** (`WineBar.cash_out_max`, centavos, 0 = sin tope, de $1
+  a $1,000,000). `shifts.addCashOut` lo revisa **antes** de pedir aprobación, así
+  que ni el PIN de un admin lo pasa (`assertCashOutWithinCap`).
+- **Anular un retiro**, acción nueva `shifts.voidCashOut`: solo del turno
+  abierto, con motivo. El renglón queda en `amount 0` con
+  `voided_amount/at/by/void_reason`; nunca se borra, igual que un duplicado.
+  Sale del corte y del efectivo esperado, y Turno lo sigue mostrando tachado.
+  Al personal le pide aprobación del admin: es la sexta acción, `void_cash_out`
+  (`ApprovalLog.action` gana el valor).
+- Pruebas: `base44/tests/service_settings_test.ts`.
+
+**Verificado:** pruebas (650/0), lint, build, `check:functions`,
+`check:guards`, `validate:rls`; Ajustes y Turno con el build local y el backend
+simulado, a 390 y 1280 (los tres ajustes mandan el cambio correcto, el retiro
+anulado sale tachado con su motivo y "Anular" manda `voidCashOut`).
+**No verificado en este cambio:** una comanda impresa en papel.
+
+### Confirmar cantidades grandes (2026-10-14)
+
+Decisión de José: arriba de 20 piezas por renglón la caja pregunta "¿Seguro?",
+y el admin cambia el número en Ajustes → Servicio
+(`WineBar.qty_confirm_threshold`, 0 = nunca preguntar, máximo 999). **Lo decide
+el servidor**, así cubre cualquier pantalla y cualquier llamada:
+`orders.addItems` y `orders.updateItem` responden 409 `qty_confirm_required`
+(con `qty` y `threshold`) mientras no llegue `confirm_qty: true`. `addItems` lo
+revisa **antes** de leer productos, así preguntar no gasta lecturas.
+`updateItem` solo pregunta si la cantidad **sube** y pasa el número: bajar un
+renglón grande no pregunta. En Orden, `useQtyConfirm`
+(`components/orders/QtyConfirmDialog.jsx`) muestra "¿Seguro? Son N piezas" con
+"Sí, son N" y "Corregir", y reenvía la misma llamada confirmada. Con
+"Corregir" no se agrega nada y la hoja sigue abierta. Pruebas en
+`service_settings_test.ts`. Verificado en Orden a 390 px con el backend
+simulado: de 20 a 21 pregunta, y "Sí" reenvía con `confirm_qty`.
+
+## Barrido de endurecimiento del cliente (2026-10-14)
+
+Cuatro frentes, con un servidor simulado por completo (cero peticiones a Base44):
+respuestas mutadas (nulos, campos que faltan, listas vacías, números como texto,
+enums desconocidos), eventos de tiempo real raros, modo táctil encendido y los
+flujos de cerrar sesión / eliminar cuenta. El arnés de Playwright vive fuera del
+repo; lo que sí quedó son las pruebas de Deno y los arreglos:
+
+- **Tiempo real.** `src/lib/realtimeMerge.js` (`applyRealtimeEvent`) es la única
+  forma en que Mesas, Estación y Orden aplican un evento. Un `update` sin
+  `data` ya no saca de la lista una comanda abierta (antes se leía como "fila sin
+  estado"), un `create` sin `order_id` ya no se agrega como renglón `{ id }`, un
+  payload parcial se **mezcla** sobre lo guardado en vez de reemplazarlo, y un
+  payload `_oversize` (el servidor lo recorta y las cadenas largas llegan vacías)
+  se ignora. Probado también en Chromium con un WebSocket falso (`routeWebSocket`)
+  que habla el protocolo de socket.io: JSON roto, evento nulo, repetidos, borrados,
+  otra comanda, y después de salir de la pantalla. Un `_oversize` que sea un
+  `create` desconocido no se recupera hasta la siguiente carga: es raro y no se
+  tocó.
+- **Formas raras del servidor.** `src/lib/catalogShape.js` (menú),
+  `src/lib/reportShape.js` (reportes), y `callFn` quita los huecos (`null`) de
+  las listas de toda respuesta (`src/lib/apiShape.js`; la exportación de datos
+  queda intacta). Eso cierra la clase "un `null` dentro de una lista apaga la
+  pantalla". Además: `sent_at` que no es texto ya no truena el orden de Estación,
+  Turno/Corte, Cuenta, Impresoras en red y el checador toleran listas ausentes.
+  Hay un último atrapa-errores alrededor de toda la app (`main.jsx`), así que un
+  error fuera del Layout (login, bloqueo de terminal, el propio Layout) ya no deja
+  la página en blanco.
+- **Mensajes de error en español.** Cuando Base44 responde antes que nuestra
+  función (429, 502, sin conexión) solo hay inglés ("Request failed with status
+  code 429", "Network Error"); `friendlyHttpMessage` (`src/lib/apiMessages.js`)
+  lo dice en español. El texto propio del servidor siempre gana.
+- **Teclado en pantalla.** Tocar un botón de un diálogo con el teclado abierto
+  **perdía el clic**: `pointerdown` quitaba el foco al campo, el teclado se
+  escondía y el diálogo volvía al centro antes de soltar, así que el clic caía en
+  vacío (había que tocar dos veces). Ahora el teclado espera a que se suelte el
+  toque (y 250 ms más) antes de esconderse.
+- **Cerrar sesión.** `logout()` bloquea la terminal (el pase vive solo en memoria,
+  pero no debe esperar a la recarga) y borra el nombre pendiente de quien ya tiene
+  bar. `useSessionManager` ya no truena si `localStorage` está bloqueado (el efecto
+  vive en Layout y apagaba toda la app). El botón "Cerrar sesión" de la barra
+  no tenía nombre accesible bajo 1024 px (solo icono): ahora lleva `title` y
+  `aria-label`.
+
+**No se pudo ejercer:** una cuenta real ni Base44 publicado (el arnés es el
+servidor simulado); un dedo táctil real (el puntero táctil se simuló con ratón);
+el cierre de sesión con la red caída (el SDK navega al endpoint de logout y el
+navegador muestra su propia página de error: el token ya se borró, recargar basta);
+las pantallas de fecha y hora nativas (`datetime-local` no abre el teclado en
+pantalla a propósito). Pruebas nuevas: `realtime_events_test.ts`,
+`catalog_shape_test.ts`, `report_shape_test.ts`, `api_messages_test.ts`,
+`api_shape_test.ts`, `station_odd_shapes_test.ts`.
+
 ### El aviso de versión ya no tapa el banner de licencia (2026-10-14)
 
 Con sesión, el aviso del módulo 30 quedaba a 0.75 rem de arriba, justo sobre

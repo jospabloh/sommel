@@ -35,6 +35,7 @@ import ProductPicker from '@/components/orders/ProductPicker';
 import VariantModifierSheet from '@/components/orders/VariantModifierSheet';
 import OrderLineItem from '@/components/orders/OrderLineItem';
 import CancelItemDialog from '@/components/orders/CancelItemDialog';
+import { useQtyConfirm } from '@/components/orders/QtyConfirmDialog';
 import MoveMergeSheet from '@/components/orders/MoveMergeSheet';
 import CobroPanel from '@/components/payments/CobroPanel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -113,6 +114,7 @@ export default function Orden() {
   const [rowBusy, setRowBusy] = useState({});
   const [hiddenIds, setHiddenIds] = useState(() => new Set());
   const [cobroOpen, setCobroOpen] = useState(false);
+  const { withQtyConfirm, dialog: qtyConfirmDialog } = useQtyConfirm();
 
   const canEdit = can('Comandas:tomar');
   const canCancelSent = can('Comandas:cancelar_enviado');
@@ -165,10 +167,13 @@ export default function Orden() {
   const handleAddConfirm = async (payload) => {
     setAddingLine(true);
     try {
-      const { items: created } = await callFn('orders', 'addItems', {
+      const res = await withQtyConfirm((extra) => callFn('orders', 'addItems', {
         order_id: order.id,
         items: [payload],
-      });
+        ...extra,
+      }));
+      if (!res) return; // "Corregir": the sheet stays open to fix the quantity
+      const { items: created } = res;
       setItems((prev) => upsertById(prev, (created || []).map(flattenRow).filter(Boolean)));
       setConfiguring(null);
       setAddOpen(false);
@@ -195,8 +200,8 @@ export default function Orden() {
     if (qty < 1) return; // trash icon is the deliberate "remove entirely" action
     withRowBusy(item.id, async () => {
       try {
-        const { item: updated } = await callFn('orders', 'updateItem', { item_id: item.id, qty });
-        mergeItem(updated);
+        const res = await withQtyConfirm((extra) => callFn('orders', 'updateItem', { item_id: item.id, qty, ...extra }));
+        if (res) mergeItem(res.item);
       } catch (err) {
         toast({ title: 'No se pudo actualizar la cantidad', description: err.message, variant: 'destructive' });
       }
@@ -245,9 +250,10 @@ export default function Orden() {
   const handleSend = async () => {
     setSending(true);
     try {
-      const { sent } = await callFn('orders', 'send', { order_id: order.id });
+      const { sent, print_warning: printWarning } = await callFn('orders', 'send', { order_id: order.id });
       (sent || []).forEach((row) => mergeItem(row));
       toast({ title: 'Enviado a cocina y barra' });
+      if (printWarning) toast({ title: 'Comanda sin imprimir', description: printWarning, variant: 'destructive' });
     } catch (err) {
       toast({ title: 'No se pudo enviar', description: err.message, variant: 'destructive' });
     } finally {
@@ -258,12 +264,13 @@ export default function Orden() {
   const handleCancelItemConfirm = async ({ reason, prepared }) => {
     setCancelItemBusy(true);
     try {
-      const { item: updated } = await callFn('orders', 'cancelItem', {
+      const { item: updated, print_warning: printWarning } = await callFn('orders', 'cancelItem', {
         item_id: cancelItemTarget.id,
         reason,
         prepared,
       });
       mergeItem(updated);
+      if (printWarning) toast({ title: 'Aviso sin imprimir', description: printWarning, variant: 'destructive' });
       setCancelItemTarget(null);
     } catch (err) {
       toast({ title: 'No se pudo cancelar el renglón', description: err.message, variant: 'destructive' });
@@ -495,6 +502,7 @@ export default function Orden() {
         submitting={addingLine}
       />
 
+      {qtyConfirmDialog}
       <CancelItemDialog
         open={!!cancelItemTarget}
         onOpenChange={(v) => !v && setCancelItemTarget(null)}

@@ -2,7 +2,7 @@
 // comanda. TODO el dinero lo calcula el servidor (`callFn('payments', ...)`):
 // total, descuento, propina, division, cambio. Aqui solo se captura y se
 // formatea. Nunca se escribe una entidad directo.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Percent, HandCoins, Printer, AlertTriangle } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -22,6 +22,7 @@ import PaymentsList from './PaymentsList';
 import SplitSection from './SplitSection';
 import PaymentTip, { tipCentsOf, tipPayload } from './PaymentTip';
 import { canTipThisPayment as canTipPayment } from '@/lib/paymentTipRule';
+import { resumeSplit } from '@/lib/splitResume';
 import { useAttemptKey } from './useAttemptKey';
 
 function pesosString(cents) {
@@ -58,11 +59,14 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
   const [ticketBusy, setTicketBusy] = useState(false);
 
   const { keyFor, reset: resetKey } = useAttemptKey();
+  const resumedRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!orderId) return;
     try {
       const res = await callFn('payments', 'summary', { order_id: orderId });
+      // A reply with no order cannot be charged; the panel below reads `order.status`.
+      if (!res?.order || typeof res.order !== 'object') throw new Error('No se pudo cargar el cobro');
       setData(res);
       setLoadError('');
       if (res.shift_open) setNoShift(false);
@@ -82,8 +86,21 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
     setAmountStr(null);
     setReceived('');
     setPayTip({ kind: 'none' });
+    resumedRef.current = false;
+    setData(null); // resume the split from THIS opening's payments, not the last ones
     load();
   }, [open, load]);
+
+  // Pick the split back up from the live payments, once per opening.
+  useEffect(() => {
+    if (!open || !data || resumedRef.current) return;
+    resumedRef.current = true;
+    const resumed = resumeSplit((data.payments ?? []).filter((p) => !p.voided_at));
+    if (!resumed) return;
+    setMode(resumed.mode);
+    setPartsTotal(resumed.partsTotal);
+    setPartsDone(resumed.partsDone);
+  }, [open, data]);
 
   const order = data?.order;
   const remaining = data?.remaining ?? 0;
@@ -174,6 +191,24 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
     return undefined;
   };
 
+  const finishInventory = async (id) => {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    let warning = null;
+    try {
+      const again = await callFn('payments', 'retryInventory', { order_id: id });
+      warning = again.inventory_warning || null;
+    } catch (err) {
+      warning = err.message || 'No se pudo terminar el descuento de inventario';
+    }
+    if (warning) {
+      toast({
+        title: 'Cobro registrado, inventario incompleto',
+        description: `${warning} Abre Inventario y revisa las existencias de lo que se vendió.`,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handlePay = async () => {
     if (!canPay) return;
     setBusy(true);
@@ -196,7 +231,9 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
       setNoShift(false);
       setLastChange(method.is_cash ? res.change ?? 0 : null);
       if (res.inventory_warning) {
-        toast({ title: 'Cobro registrado', description: res.inventory_warning, variant: 'destructive' });
+        // Usually Base44's rate limit cut the deduction short. It is safe to
+        // finish it (idempotent per movement): retry once before warning.
+        finishInventory(orderId);
       }
       if (mode === 'equal') setPartsDone((d) => d + 1);
       if (mode === 'items') {

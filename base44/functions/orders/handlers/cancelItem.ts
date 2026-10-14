@@ -8,7 +8,7 @@
 // order could still be cancelled and its totals recomputed.
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCost, type Ctx, type Route } from '../_guard.ts';
 import { LogicError, validateReason, isOrderOpen, canCancelItem } from './_logic.ts';
-import { recomputeOrderTotals, assertTotalCoversPayments } from './_shared.ts';
+import { recomputeOrderTotals, assertTotalCoversPayments, queueComandas } from './_shared.ts';
 import { recordApproval, requireApproval } from '../_approval.ts';
 
 export const cancelItem: Route = async (ctx: Ctx, body: any) => {
@@ -50,6 +50,9 @@ export const cancelItem: Route = async (ctx: Ctx, body: any) => {
   await recomputeOrderTotals(ctx, item.order_id);
   await recordApproval(ctx, approval, { targetId: item.id, detail: `${item.name ?? 'Renglón'}: ${reason}` });
 
+  // Cancel notice for the station, when the bar prints comandas (best effort).
+  const printWarning = await queueComandas(ctx, order, [{ ...item, ...updated }], 'cancel');
+
   const canSeeCosts = await hasPermission(ctx, 'Menú:ver_costos');
-  return { item: redactItemCost(updated, canSeeCosts) };
+  return { item: redactItemCost(updated, canSeeCosts), ...(printWarning ? { print_warning: printWarning } : {}) };
 };

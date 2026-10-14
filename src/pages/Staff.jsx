@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
+import { dropNullItems } from '@/lib/apiShape';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Users, UserPlus, Mail, Clock, X, Pencil, Camera, CameraOff, SlidersHorizontal, KeyRound, UserRoundPlus } from 'lucide-react';
@@ -34,9 +35,10 @@ export default function Staff() {
   const load = async () => {
     try {
       const res = await base44.functions.invoke('manageStaff', { action: 'list' });
-      setStaff(res.data?.staff || []);
-      setInvites(res.data?.invites || []);
-      setPinLength(res.data?.pin_length ?? 4);
+      const data = dropNullItems(res.data) ?? {};
+      setStaff(Array.isArray(data.staff) ? data.staff : []);
+      setInvites(Array.isArray(data.invites) ? data.invites : []);
+      setPinLength(data.pin_length ?? 4);
     } catch {
       setStaff([]);
       setInvites([]);

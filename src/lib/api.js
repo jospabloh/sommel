@@ -11,6 +11,8 @@ import { base44 } from '@/api/base44Client';
 import { currentPass, lockTerminal, markRevoked } from '@/lib/terminal/terminalStore';
 import { isRateLimited, isRetryable, retryDelay } from '@/lib/retryPolicy';
 import { recordRateLimited } from '@/lib/rateLog';
+import { friendlyHttpMessage } from '@/lib/apiMessages';
+import { dropNullItems } from '@/lib/apiShape';
 import { APPROVAL_RETRY_CODES, askForApproval, wantsApproval } from '@/lib/approval/approvalBroker';
 
 export class ApiError extends Error {
@@ -89,14 +91,18 @@ async function callOnce(endpoint, action, payload) {
     // call; the server checks it and acts as that person.
     const pass = currentPass();
     const res = await base44.functions.invoke(endpoint, { action, ...payload, ...(pass ? { terminal_pass: pass } : {}) });
-    return res?.data ?? {};
+    const body = res?.data ?? {};
+    // The data export is a file for the owner, not a list a screen loops: keep it byte for byte.
+    return endpoint === 'account' && action === 'exportData' ? body : dropNullItems(body);
   } catch (err) {
     const status = err?.response?.status ?? 0;
     const data = err?.response?.data;
     const code = data?.code || 'unknown_error';
     if (code === 'terminal_locked') lockTerminal();
     if (code === 'terminal_revoked') markRevoked();
-    const message = data?.error || err?.message || 'Error de red';
+    // The server's own Spanish text wins; when Base44 answered first (rate
+    // limit, gateway, no connection) there is only English, so say it in Spanish.
+    const message = typeof data?.error === 'string' && data.error ? data.error : friendlyHttpMessage(status, err?.message);
     throw new ApiError(status, code, message, data);
   }
 }

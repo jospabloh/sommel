@@ -2,7 +2,7 @@
 // (how much left the drawer) and is stored NEGATIVE. Idempotent by
 // `idempotency_key`: a retry returns the same movement (§1).
 import { HttpError, httpError, pickSurvivor, requirePermission, requireWritable, type Ctx, type Route } from '../_guard.ts';
-import { LogicError, validateCashOut } from './_logic.ts';
+import { LogicError, assertCashOutWithinCap, validateCashOut } from './_logic.ts';
 import { findOpenShift } from './_shared.ts';
 import { recordApproval, requireApproval } from '../_approval.ts';
 
@@ -13,6 +13,7 @@ export const addCashOut: Route = async (ctx: Ctx, body: any) => {
   let input;
   try {
     input = validateCashOut(body);
+    assertCashOutWithinCap(input.amount, ctx.bar?.cash_out_max);
   } catch (err) {
     if (err instanceof LogicError) throw new HttpError(400, err.code, err.message);
     throw err;

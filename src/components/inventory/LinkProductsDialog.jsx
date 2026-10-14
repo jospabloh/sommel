@@ -4,6 +4,7 @@
 // al cobrar; aquí solo se configura. Productos vía callFn('catalog','listProducts').
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { callFn } from '@/lib/api';
+import { cleanCatalog } from '@/lib/catalogShape';
 import { useLastValue } from '@/lib/useLastValue';
 import { toast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -145,7 +146,7 @@ export default function LinkProductsDialog({ item: itemProp, items, onOpenChange
     setProducts(null);
     try {
       const res = await callFn('catalog', 'listProducts', {});
-      setProducts(res.products || []);
+      setProducts(cleanCatalog(res).products);
     } catch (err) {
       setError(err.message);
     }

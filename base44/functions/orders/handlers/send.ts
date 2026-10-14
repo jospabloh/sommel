@@ -2,7 +2,8 @@
 // 'nuevo' line becomes 'enviado' with sent_at = now; calling it again with
 // nothing left in 'nuevo' just returns an empty list, not an error.
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, redactItemCosts, type Ctx, type Route } from '../_guard.ts';
-import { isOrderOpen, canSendItem } from './_logic.ts';
+import { isOrderOpen, canSendItem, sendStatusFor } from './_logic.ts';
+import { queueComandas } from './_shared.ts';
 
 export const send: Route = async (ctx: Ctx, body: any) => {
   const order = await loadOwned(ctx, 'Order', body?.order_id);
@@ -19,11 +20,16 @@ export const send: Route = async (ctx: Ctx, body: any) => {
 
   const now = new Date().toISOString();
   const sent: any[] = [];
+  const autoDeliver = ctx.bar?.auto_deliver_no_station === true;
   for (const item of toSend) {
-    const updated = await ctx.svc.entities.OrderItem.update(item.id, { status: 'enviado', sent_at: now });
+    const status = sendStatusFor(item.station, autoDeliver);
+    const updated = await ctx.svc.entities.OrderItem.update(item.id, { status, sent_at: now });
     sent.push(updated);
   }
 
+  // Printed comanda, when the bar turned it on in Ajustes (best effort).
+  const printWarning = await queueComandas(ctx, order, sent, 'send');
+
   const canSeeCosts = await hasPermission(ctx, 'Menú:ver_costos');
-  return { sent: redactItemCosts(sent, canSeeCosts) };
+  return { sent: redactItemCosts(sent, canSeeCosts), ...(printWarning ? { print_warning: printWarning } : {}) };
 };

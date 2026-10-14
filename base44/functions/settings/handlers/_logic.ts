@@ -32,11 +32,28 @@ export const EDITABLE_FIELDS = [
   'approval_qr_enabled',
   // Length of every PIN in the bar (4 by default). The keypad signs in on the last digit.
   'pin_length',
+  // Print the comanda when sending to cocina/barra (and a cambio when a sent line is cancelled).
+  'print_comandas',
+  // Lines of products with no station are marked delivered when sent.
+  'auto_deliver_no_station',
+  // Maximum of ONE cash withdrawal, in centavos; 0 = no limit.
+  'cash_out_max',
+  // A line above this many pieces asks "¿Seguro?" first; 0 = never ask.
+  'qty_confirm_threshold',
 ] as const;
 
 const KEY_RE = /^[a-z0-9][a-z0-9_]{0,23}$/;
 const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]{2,}$/;
 const RFC_RE = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/;
+
+/** Cap of one cash withdrawal: whole centavos from $1 to $1,000,000; 0 (or empty) = no cap. */
+export function cashOutMax(value: unknown): number {
+  if (value === null || value === '' || value === 0) return 0;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 100 || value > 100_000_000) {
+    throw new LogicError('invalid_cash_out_max', 'El tope de retiro debe ser de $1 a $1,000,000, o vacío para no tener tope');
+  }
+  return value;
+}
 
 /** Lowercase slug from a label, e.g. "Vales de despensa" -> "vales_de_despensa". */
 export function slugifyKey(label: string): string {
@@ -160,6 +177,20 @@ export function buildSettingsPatch(body: Record<string, unknown>, currentMethods
   if ('pin_length' in body) {
     if (body.pin_length !== 4 && body.pin_length !== 5 && body.pin_length !== 6) throw new LogicError('invalid_value', 'El PIN debe ser de 4, 5 o 6 números');
     patch.pin_length = body.pin_length;
+  }
+  for (const flag of ['print_comandas', 'auto_deliver_no_station'] as const) {
+    if (flag in body) {
+      if (typeof body[flag] !== 'boolean') throw new LogicError('invalid_value', 'Valor no válido');
+      patch[flag] = body[flag];
+    }
+  }
+  if ('cash_out_max' in body) patch.cash_out_max = cashOutMax(body.cash_out_max);
+  if ('qty_confirm_threshold' in body) {
+    const v = body.qty_confirm_threshold;
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 999) {
+      throw new LogicError('invalid_qty_confirm', 'Escribe un número de 0 a 999 (0 = nunca preguntar)');
+    }
+    patch.qty_confirm_threshold = v;
   }
   if (Object.keys(patch).length === 0) throw new LogicError('nothing_to_update', 'No hay cambios que guardar');
   return patch;

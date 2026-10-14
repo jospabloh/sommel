@@ -6,6 +6,7 @@ import { BarChart3 } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { formatMXN } from '@/lib/money';
 import { usePermission } from '@/lib/usePermission';
+import { cleanReport } from '@/lib/reportShape';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,7 +66,7 @@ export default function Reportes() {
     setError(null);
     try {
       const res = await callFn('reports', 'summary', range);
-      if (seq === requestSeq.current) setData(res);
+      if (seq === requestSeq.current) setData(cleanReport(res));
     } catch (err) {
       if (seq === requestSeq.current) {
         setData(null);

@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Package, Plus, RotateCw, AlertTriangle } from 'lucide-react';
 import { callFn } from '@/lib/api';
+import { cleanCatalog } from '@/lib/catalogShape';
 import { usePermission } from '@/lib/usePermission';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,7 +58,7 @@ export default function Inventario() {
     callFn('catalog', 'listProducts', {})
       .then((res) => {
         const counts = {};
-        (res.products || []).forEach((p) => {
+        cleanCatalog(res).products.forEach((p) => {
           if (p.track_inventory && p.inventory_item_id) counts[p.inventory_item_id] = (counts[p.inventory_item_id] || 0) + 1;
         });
         setLinkCounts(counts);

@@ -110,3 +110,21 @@ Deno.test('a payer charged again after a void can still leave their own tip', ()
     }
   }
 });
+
+// @ts-ignore: plain JS module shared with the client bundle
+import { resumeSplit } from '../../src/lib/splitResume.js';
+
+Deno.test('reopening the cobro panel picks the split back up where it was', () => {
+  // José, 2026-10-14: after a void (or just closing the panel) the next part
+  // lost its "Parte 2 de 2" label and its own tip, because the panel started
+  // over on "Cuenta completa".
+  const r = resumeSplit([{ split_label: 'Parte 1 de 3' }]);
+  if (!r || r.mode !== 'equal' || r.partsTotal !== 3 || r.partsDone !== 1) throw new Error(JSON.stringify(r));
+  // A voided part is not in the live list, so it is charged again as itself.
+  const again = resumeSplit([{ split_label: 'Parte 2 de 2' }]);
+  if (!again || again.partsDone !== 1 || again.partsTotal !== 2) throw new Error(JSON.stringify(again));
+  if (resumeSplit([{ split_label: 'Por platillos' }])?.mode !== 'items') throw new Error('by dishes');
+  // Nothing split yet, or every part already paid: nothing to resume.
+  if (resumeSplit([]) !== null || resumeSplit([{ split_label: null }]) !== null) throw new Error('no split');
+  if (resumeSplit([{ split_label: 'Parte 1 de 2' }, { split_label: 'Parte 2 de 2' }]) !== null) throw new Error('done');
+});

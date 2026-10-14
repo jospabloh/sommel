@@ -71,7 +71,7 @@ export async function createTicket({ kind, subject, body }, { tenantId, email })
 export async function listBarTickets(tenantId) {
   if (!tenantId) return [];
   const rows = await base44.entities.SupportTicket.filter({ tenant_id: tenantId }, '-created_date', 100);
-  return Array.isArray(rows) ? rows : [];
+  return Array.isArray(rows) ? rows.filter((r) => r && typeof r === 'object') : [];
 }
 
 /**

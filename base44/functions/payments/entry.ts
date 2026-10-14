@@ -11,6 +11,7 @@ import { splitPreview } from './handlers/splitPreview.ts';
 import { addPayment } from './handlers/addPayment.ts';
 import { voidPayment } from './handlers/voidPayment.ts';
 import { requestTicket } from './handlers/requestTicket.ts';
+import { retryInventory } from './handlers/retryInventory.ts';
 
 export default function (req: Request): Promise<Response> {
   return handle(req, {
@@ -21,5 +22,6 @@ export default function (req: Request): Promise<Response> {
     addPayment,
     voidPayment,
     requestTicket,
+    retryInventory,
   });
 }

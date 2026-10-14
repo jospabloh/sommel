@@ -14,7 +14,8 @@ import { Button } from '@/components/ui/button';
 import { formatMXN } from '@/lib/money';
 import TableMap from '@/components/orders/TableMap';
 import TableFormDialog from '@/components/orders/TableFormDialog';
-import { flattenRow, flattenEvent } from '@/components/orders/helpers';
+import { flattenRow } from '@/components/orders/helpers';
+import { applyRealtimeEvent } from '@/lib/realtimeMerge';
 
 export default function Mesas() {
   const { user } = useAuth();
@@ -62,33 +63,13 @@ export default function Mesas() {
     if (!tenantId) return undefined;
 
     const unsubTables = base44.entities.BarTable.subscribe((evt) => {
-      const row = flattenEvent(evt);
-      if (!row?.id || row.tenant_id !== tenantId) {
-        if (evt.type === 'delete') setTables((prev) => prev.filter((t) => t.id !== evt.id));
-        return;
-      }
-      setTables((prev) => {
-        if (evt.type === 'delete') return prev.filter((t) => t.id !== row.id);
-        const idx = prev.findIndex((t) => t.id === row.id);
-        if (idx === -1) return [...prev, row];
-        const next = prev.slice();
-        next[idx] = row;
-        return next;
-      });
+      setTables((prev) => applyRealtimeEvent(prev, evt, (t) => t.tenant_id === tenantId));
     });
 
     const unsubOrders = base44.entities.Order.subscribe((evt) => {
-      const row = flattenEvent(evt);
-      if (!row?.id) return;
-      setOpenOrders((prev) => {
-        const idx = prev.findIndex((o) => o.id === row.id);
-        const stillOpen = row.tenant_id === tenantId && row.status === 'abierta' && evt.type !== 'delete';
-        if (!stillOpen) return idx === -1 ? prev : prev.filter((o) => o.id !== row.id);
-        if (idx === -1) return [...prev, row];
-        const next = prev.slice();
-        next[idx] = row;
-        return next;
-      });
+      setOpenOrders((prev) =>
+        applyRealtimeEvent(prev, evt, (o) => o.tenant_id === tenantId && o.status === 'abierta')
+      );
     });
 
     return () => {

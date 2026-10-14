@@ -7,12 +7,13 @@
 // only the bar's admins approve. The default
 // method is the admin's PIN (the same PIN as the checador and the terminal).
 
-export type ApprovalAction = 'cancel_sent_item' | 'void_payment' | 'cash_out' | 'close_shift' | 'discount';
+export type ApprovalAction = 'cancel_sent_item' | 'void_payment' | 'cash_out' | 'void_cash_out' | 'close_shift' | 'discount';
 
 export const APPROVAL_LABELS: Record<ApprovalAction, string> = {
   cancel_sent_item: 'Cancelar un platillo ya enviado',
   void_payment: 'Anular un pago',
   cash_out: 'Retiro de efectivo',
+  void_cash_out: 'Anular un retiro de efectivo',
   close_shift: 'Cerrar el turno',
   discount: 'Un descuento o cortesía',
 };
