@@ -9,9 +9,16 @@ function assertEquals(a: unknown, b: unknown, msg?: string) {
   if (sa !== sb) throw new Error(`${msg ?? 'not equal'}: ${sa} !== ${sb}`);
 }
 
-Deno.test('null and undefined elements are removed, at any depth', () => {
-  assertEquals(dropNullItems({ ok: true, people: [null, { id: 'a', kinds: ['x', null] }, undefined] }), { ok: true, people: [{ id: 'a', kinds: ['x'] }] });
-  assertEquals(dropNullItems({ a: { b: [[null, 1], null] } }), { a: { b: [[1]] } });
+Deno.test('holes in a list of records are removed, at any depth', () => {
+  assertEquals(dropNullItems({ ok: true, people: [null, { id: 'a', kinds: ['x'] }, undefined] }), { ok: true, people: [{ id: 'a', kinds: ['x'] }] });
+  assertEquals(dropNullItems({ a: { b: [null, { id: 1 }] } }), { a: { b: [{ id: 1 }] } });
+});
+
+Deno.test('a list of numbers keeps its nulls, so positions do not shift', () => {
+  // An hour with no sales is a null at its position; dropping it would move
+  // every later hour one slot earlier.
+  assertEquals(dropNullItems({ by_hour: [null, 1200, null, 300] }), { by_hour: [null, 1200, null, 300] });
+  assertEquals(dropNullItems({ kinds: ['x', null] }), { kinds: ['x', null] });
 });
 
 Deno.test('values that are not holes pass through untouched', () => {
