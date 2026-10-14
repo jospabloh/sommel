@@ -154,8 +154,13 @@
    screen on phones, so the notice shifts right of the menu instead of down.
    Layout.jsx sets data-rail-switcher while the menu is mounted; on login (no
    menu) the notice stays centred. The offset follows the <aside> width: w-20
-   below 1024px, lg:w-60 from there. */
-:root[data-rail-switcher] { --update-banner-left: 5rem; }
+   below 1024px, lg:w-60 from there. LicenseBanner (top of <main>) publishes its
+   height as --license-banner-h, so the notice sits under it instead of covering
+   the trial or suspension message; with no banner the variable is unset. */
+:root[data-rail-switcher] {
+  --update-banner-left: 5rem;
+  --update-banner-top: calc(0.75rem + var(--license-banner-h, 0px));
+}
 @media (min-width: 1024px) {
   :root[data-rail-switcher] { --update-banner-left: 15rem; }
 }

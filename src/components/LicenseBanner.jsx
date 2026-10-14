@@ -14,6 +14,7 @@ import { callFn } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { billingNotice, SUPPORT_EMAIL } from '@/lib/billingNotice';
 import { cn } from '@/lib/utils';
+import { useHeightVar } from '@/lib/useHeightVar';
 
 async function fetchBar() {
   try {
@@ -46,12 +47,17 @@ export default function LicenseBanner() {
     retry: false,
   });
 
+  // Its height feeds --update-banner-top (index.css), so the new-version
+  // notice sits under this banner instead of covering it.
+  const heightRef = useHeightVar('--license-banner-h');
+
   const notice = billingNotice(bar);
   if (!notice) return null;
   const Icon = ICONS[notice.tone];
 
   return (
     <div
+      ref={heightRef}
       role="status"
       data-license-banner={notice.kind}
       className={cn('flex items-start gap-3 border-b px-4 py-2.5 text-sm', TONES[notice.tone])}
