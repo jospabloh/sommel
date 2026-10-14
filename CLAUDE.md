@@ -1486,8 +1486,17 @@ nativo y todo depende de `dragScroll.js`, que ahora:
   (`releaseVelocity` sobre los últimos 100 ms, `flingDistance` = v × 325 ms,
   `flingRemaining` = e^(−t/325)); si el dedo se detuvo antes de soltar, no desliza;
 - fija el eje dominante (`lockAxis`: una lista vertical no se mueve de lado);
-- pasa el resto del arrastre a la caja de afuera cuando la lista llega a su final
-  (`canScrollBy`, cadena de cajas con scroll hasta la página);
+- ~~pasa el resto del arrastre a la caja de afuera cuando la lista llega a su
+  final~~ **corregido el mismo día**: así, arrastrar el menú lateral movía toda la
+  app (José). Ahora, como en iPad, el gesto se queda en la caja donde empezó
+  (`chooseBox` al pasar el umbral: la más cercana que pueda moverse en esa
+  dirección, si no la más cercana con scroll en ese eje, que solo se queda en su
+  tope), y la cadena se corta en un ancestro `fixed`/`sticky` (menú lateral,
+  diálogos), así que nada de adentro mueve lo de atrás. Simulado con el mismo
+  esquema de `Layout` (aside sticky + nav con scroll, página larga): menú arriba y
+  arrastre hacia abajo no mueve nada; subir el menú mueve 200 px el menú y 0 la
+  página; menú al final y seguir no mueve la página; arrastrar el contenido mueve
+  la página 200 px;
 - con la opción encendida (`html.drag-scroll-on`) arrastrar no selecciona texto
   ni jala imágenes o links (`user-select` y `-webkit-user-drag`, y `dragstart`
   cancelado); los campos de texto conservan la selección normal.

@@ -5,7 +5,10 @@
 //   - it follows the finger 1:1 and keeps going after a fling, slowing down on
 //     iOS's curve (touchLogic: releaseVelocity / flingDistance / flingRemaining);
 //   - a mostly vertical drag only scrolls vertically (lockAxis);
-//   - when the inner list is at its end, the drag moves its parent (canScrollBy);
+//   - like iPad, a gesture stays in the box where it started: a list at its end
+//     stops there instead of moving the page, and nothing inside a fixed or
+//     sticky panel (the sidebar menu, a dialog) moves what is behind it
+//     (José, 2026-10-13: dragging the menu moved the whole app);
 //   - the click that follows a drag is swallowed, so dragging across a table
 //     card does not open it; a tap is still a tap.
 // A real touch pointer goes through too, with a larger threshold: when the
@@ -43,19 +46,36 @@ function isScrollBox(n) {
     || (SCROLLABLE.test(s.overflowX) && n.scrollWidth > n.clientWidth + 1);
 }
 
-/** Scrollable boxes from the pressed element up to the page, nearest first. */
+/**
+ * Scrollable boxes from the pressed element up to the page, nearest first. A
+ * fixed or sticky ancestor (the sidebar, a dialog) ends the chain: what is
+ * pressed inside it never scrolls the page behind it.
+ */
 function scrollChain(el) {
   const out = [];
   for (let n = el; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
     if (isScrollBox(n)) out.push(n);
+    const pos = getComputedStyle(n).position;
+    if (pos === 'fixed' || pos === 'sticky') return out;
   }
   out.push(pageBox());
   return out;
 }
 
-/** Content movement (dx, dy) -> the first box in the chain that can take it. */
-function pick(chain, dx, dy) {
-  return chain.find((b) => canScrollBy(b, dx, dy)) ?? null;
+/** Does the box have anything to scroll on this axis at all? */
+function overflows(box, axis) {
+  const y = box.scrollHeight - box.clientHeight > 1;
+  const x = box.scrollWidth - box.clientWidth > 1;
+  return axis === 'y' ? y : axis === 'x' ? x : x || y;
+}
+
+/**
+ * The one box this gesture moves, chosen when the drag starts: the nearest
+ * one that can still move that way, else the nearest one that scrolls on that
+ * axis at all (it just stays at its end, like iPad), else none.
+ */
+function chooseBox(chain, axis, dx, dy) {
+  return chain.find((b) => canScrollBy(b, dx, dy)) ?? chain.find((b) => overflows(b, axis)) ?? null;
 }
 
 export function installDragScroll() {
@@ -93,6 +113,7 @@ export function installDragScroll() {
       if (!passedDragThreshold(dx0, dy0, drag.threshold)) return;
       drag.moving = true;
       drag.axis = lockAxis(dx0, dy0);
+      drag.box = chooseBox(drag.chain, drag.axis, drag.axis === 'y' ? 0 : -dx0, drag.axis === 'x' ? 0 : -dy0);
       document.documentElement.classList.add('drag-scrolling');
       window.getSelection?.()?.removeAllRanges();
     }
@@ -103,19 +124,14 @@ export function installDragScroll() {
     drag.y = e.clientY;
     drag.samples.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
     if (drag.samples.length > 20) drag.samples.shift();
-    // Each step goes to the nearest box that can still move that way, so an
-    // inner list at its end hands the rest of the drag to the page.
-    if (dy) {
-      const box = pick(drag.chain, 0, dy);
-      if (box) box.scrollTop += dy;
-    }
-    if (dx) {
-      const box = pick(drag.chain, dx, 0);
-      if (box) box.scrollLeft += dx;
+    if (drag.box) {
+      if (dy) drag.box.scrollTop += dy;
+      if (dx) drag.box.scrollLeft += dx;
     }
   };
 
-  const glide = (chain, axis, vx, vy) => {
+  const glide = (box, axis, vx, vy) => {
+    if (!box) return;
     const distX = axis === 'y' ? 0 : -flingDistance(vx);
     const distY = axis === 'x' ? 0 : -flingDistance(vy);
     if (!distX && !distY) return;
@@ -128,15 +144,13 @@ export function installDragScroll() {
       const toY = distY * (1 - left) - doneY;
       doneX += toX;
       doneY += toY;
-      let moved = false;
-      if (toY) {
-        const box = pick(chain, 0, toY);
-        if (box) { box.scrollTop += toY; moved = true; }
-      }
-      if (toX) {
-        const box = pick(chain, toX, 0);
-        if (box) { box.scrollLeft += toX; moved = true; }
-      }
+      const beforeTop = box.scrollTop;
+      const beforeLeft = box.scrollLeft;
+      if (toY) box.scrollTop += toY;
+      if (toX) box.scrollLeft += toX;
+      // Hitting the end stops the glide (no handing it to the page).
+      const stuck = (Math.abs(toY) >= 1 || Math.abs(toX) >= 1) && box.scrollTop === beforeTop && box.scrollLeft === beforeLeft;
+      const moved = !stuck;
       const remaining = Math.max(Math.abs(distX), Math.abs(distY)) * left;
       fling = moved && remaining > 0.5 ? requestAnimationFrame(step) : 0;
     };
@@ -145,7 +159,7 @@ export function installDragScroll() {
 
   const onUp = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
-    const { moving, chain, axis, samples } = drag;
+    const { moving, box, axis, samples } = drag;
     drag = null;
     if (!moving) return;
     document.documentElement.classList.remove('drag-scrolling');
@@ -153,7 +167,7 @@ export function installDragScroll() {
     setTimeout(() => { swallowClick = false; }, 0);
     if (e.type === 'pointerup') {
       const { vx, vy } = releaseVelocity(samples, e.timeStamp);
-      glide(chain, axis, vx, vy);
+      glide(box, axis, vx, vy);
     }
   };
 
