@@ -1775,3 +1775,26 @@ las pantallas de fecha y hora nativas (`datetime-local` no abre el teclado en
 pantalla a propósito). Pruebas nuevas: `realtime_events_test.ts`,
 `catalog_shape_test.ts`, `report_shape_test.ts`, `api_messages_test.ts`,
 `api_shape_test.ts`, `station_odd_shapes_test.ts`.
+
+## Menos operaciones por cobro (2026-10-14)
+
+Raíz de los avisos "ocupado": la cuota de Base44 es de toda la app y cuenta
+operaciones de entidad. Medido en el código, un cobro que cierra una cuenta de 4
+renglones gastaba ~39, y 29 eran de `deductInventory` (uno por producto, uno por
+insumo, tres por movimiento y todo el historial de cada insumo).
+- `deductInventory` lee con `$in` (`fetchIn` en `payments/handlers/_shared.ts`):
+  productos, insumos, movimientos existentes y de venta, la relectura de
+  duplicados y el recálculo de existencias. Cada lectura es una consulta, de 100
+  en 100. Las filas se vuelven a filtrar en memoria. Si un `$in` falla, ese
+  bloque se lee uno por uno, y lo que no se pudo leer cuenta como falla, nunca
+  como "no hay filas". Con 4 insumos baja de 29 a 14; `retryInventory` baja de
+  ~21 a ~9. `$in` sobre `id`, `idempotency_key` e `item_id` se comprobó contra el
+  backend real con consultas de solo lectura en el bar de prueba.
+- `placeOf`/`placeLabel`: una consulta para todas las mesas.
+- Estación de impresión: los eventos de un trabajo (crear, reclamar, impreso)
+  se juntan en una recarga (1.5 s, máximo 3 s). Tras imprimir no se recarga
+  aparte si la suscripción está viva.
+- **Se descartó a propósito** quitar la relectura de `Order` en
+  `recomputeOrderTotals`: ahorraba una operación, pero una propina o un
+  descuento puestos desde otro equipo en ese momento se podían pisar.
+- Pruebas: `base44/tests/inventory_batch_test.ts`.
