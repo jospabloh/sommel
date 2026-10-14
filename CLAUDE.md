@@ -1839,3 +1839,12 @@ sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
   aplica antes de cualquier usuario real.
 - Base44 sigue siendo producción. Nada del cliente ni de las funciones apunta
   todavía a Supabase. Eso es la fase 2 y la 3 (`docs/migracion-supabase.md` §4).
+
+## QA 2026-10-14: comandas y mesas (rama qa-fix-orders)
+
+- `orders.cancelOrder` ahora recalcula `subtotal/discount/tip/total` (una comanda toda cancelada vale 0), escribe `cancelled_by` en cada renglón (como `cancelItem`) y ajusta inventario con `cancelOrderInventory` (`_cancelInventory.ts`; reglas puras `planCancelOrderInventory` en `_logic.ts`): renglón preparado sin venta viva = `merma:<id>`; renglón con venta viva (cobro anulado) no preparado = `devolucion` `reversa:<id>`; con venta viva y preparado no se toca (la venta ya es la merma). Idempotente por llave; es best effort y responde `inventory_warning` si algo falla. Hay una copia mínima de la planeación de `payments` porque las funciones no pueden importarse entre sí; `Orden.jsx` aún no muestra ese aviso.
+- `orders.cancelItem`: repetir la misma cancelación (mismo motivo y misma persona) responde ok con `idempotent: true` y vuelve a recalcular totales, en vez de 409 `invalid_status`.
+- `orders.upsertTable` valida (`validateTableFields`): `seats` entero 0..99, `zone` texto, `x/y` números; si no, 400 en español. La UI manda `zone: ''` para borrar la zona.
+- `TableMap`: las mesas sin `x/y` van a la cuadrícula automática bajo el mapa (`tableLayout.js`), nunca encimadas en 0,0.
+- Pruebas: `base44/tests/cancel_order_test.ts`.
+- **No verificado:** nada contra Base44 en vivo (los `entry.ts` importan el SDK); el descuento real de inventario de un cobro anulado y luego cancelado; el mapa con mesas mixtas en pantalla. Sin desplegar.

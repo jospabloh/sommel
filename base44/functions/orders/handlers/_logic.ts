@@ -314,3 +314,126 @@ export function narrowByField<T extends Record<string, any>>(rows: T[], field: s
   const set = new Set(Array.from(ids, String));
   return (rows ?? []).filter((r) => r != null && set.has(String(r[field])));
 }
+
+// ---- QA fixes 2026-10-14 ----
+
+/**
+ * True when `cancelItem` is a repeat of a request that already wrote (a retry
+ * after a 429 that did land): same line, same reason, same person. The
+ * handler answers ok instead of 409 `invalid_status`.
+ */
+export function isRepeatedCancel(
+  item: { status?: string | null; cancel_reason?: string | null; cancelled_by?: string | null },
+  reason: string,
+  email: string | null | undefined
+): boolean {
+  return item?.status === 'cancelado' && item.cancel_reason === reason && (item.cancelled_by ?? '') === (email ?? '');
+}
+
+/** upsertTable fields: seats integer 0..99; zone string; x/y finite numbers. Undefined = not sent. */
+export function validateTableFields(body: any): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (body?.seats !== undefined) {
+    const s = body.seats;
+    if (typeof s !== 'number' || !Number.isInteger(s) || s < 0 || s > 99) {
+      throw new LogicError('invalid_seats', 'Los lugares deben ser un número entero de 0 a 99');
+    }
+    out.seats = s;
+  }
+  if (body?.zone !== undefined) {
+    if (typeof body.zone !== 'string') throw new LogicError('invalid_zone', 'La zona debe ser texto');
+    out.zone = body.zone.trim();
+  }
+  for (const k of ['x', 'y'] as const) {
+    if (body?.[k] !== undefined) {
+      if (typeof body[k] !== 'number' || !Number.isFinite(body[k])) {
+        throw new LogicError('invalid_position', 'La posición de la mesa debe ser un número');
+      }
+      out[k] = body[k];
+    }
+  }
+  return out;
+}
+
+// ---- cancelOrder inventory (mirror of payments' planInventoryMovements) ----
+// Kept here because Deno functions cannot import across directories.
+
+export interface CancelInvProduct {
+  track_inventory?: boolean | null;
+  inventory_item_id?: string | null;
+  inventory_qty?: number | null;
+  variants?: Array<{ key: string; inventory_qty?: number | null }> | null;
+}
+
+export interface CancelInvItem {
+  id: string;
+  product_id: string;
+  variant?: string | null;
+  qty?: number | null;
+  prepared?: boolean | null;
+}
+
+export interface CancelMovement {
+  inventory_item_id: string;
+  order_item_id: string;
+  type: 'merma' | 'devolucion';
+  qty: number;
+  idempotency_key: string;
+  reason: string;
+}
+
+function unitQty(product: CancelInvProduct | null | undefined, variant?: string | null): number {
+  if (!product || !product.track_inventory || !product.inventory_item_id) return 0;
+  let per: number | null | undefined = product.inventory_qty;
+  if (variant && Array.isArray(product.variants)) {
+    const v = product.variants.find((x) => x.key === variant);
+    if (v && typeof v.inventory_qty === 'number') per = v.inventory_qty;
+  }
+  return typeof per === 'number' && Number.isFinite(per) && per > 0 ? per : 0;
+}
+
+/**
+ * Inventory effect of cancelling a whole order (every line is cancelled).
+ * `ventaByItem` maps order_item_id -> its live 'venta' movement (qty != 0),
+ * left by an earlier payment that was later voided.
+ * - Line with a live sale: prepared -> the sale already is the waste, nothing;
+ *   not prepared -> 'devolucion' that gives the supply back (key reversa:<id>).
+ * - Line without a sale: prepared -> 'merma' (key merma:<id>, like cobro);
+ *   not prepared -> nothing.
+ */
+export function planCancelOrderInventory(
+  items: CancelInvItem[],
+  productsById: Record<string, CancelInvProduct | null | undefined>,
+  ventaByItem: Map<string, { qty?: number | null; item_id?: string | null }>
+): CancelMovement[] {
+  const out: CancelMovement[] = [];
+  for (const item of items) {
+    const venta = ventaByItem.get(item.id);
+    if (venta && (venta.qty ?? 0) !== 0) {
+      if (item.prepared || !venta.item_id) continue;
+      out.push({
+        inventory_item_id: venta.item_id,
+        order_item_id: item.id,
+        type: 'devolucion',
+        qty: Math.abs(venta.qty as number),
+        idempotency_key: `reversa:${item.id}`,
+        reason: 'Comanda cancelada',
+      });
+      continue;
+    }
+    if (!item.prepared) continue;
+    const product = productsById[item.product_id];
+    const per = unitQty(product, item.variant);
+    const qty = typeof item.qty === 'number' && item.qty > 0 ? item.qty : 0;
+    if (per <= 0 || qty <= 0) continue;
+    out.push({
+      inventory_item_id: product!.inventory_item_id as string,
+      order_item_id: item.id,
+      type: 'merma',
+      qty: -Math.round(per * qty * 1000) / 1000,
+      idempotency_key: `merma:${item.id}`,
+      reason: 'Cancelado ya preparado',
+    });
+  }
+  return out;
+}

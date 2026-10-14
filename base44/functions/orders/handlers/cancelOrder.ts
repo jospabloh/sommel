@@ -4,6 +4,8 @@
 // rather than assuming the table is always empty.
 import { loadOwned, requirePermission, requireWritable, httpError, HttpError, type Ctx, type Route } from '../_guard.ts';
 import { LogicError, validateReason, isOrderOpen } from './_logic.ts';
+import { previewOrderTotals } from './_shared.ts';
+import { cancelOrderInventory } from './_cancelInventory.ts';
 
 export const cancelOrder: Route = async (ctx: Ctx, body: any) => {
   const order = await loadOwned(ctx, 'Order', body?.order_id);
@@ -32,20 +34,33 @@ export const cancelOrder: Route = async (ctx: Ctx, body: any) => {
   const now = new Date().toISOString();
 
   const items = await ctx.svc.entities.OrderItem.filter({ order_id: order.id });
+  const finalItems: any[] = [];
   for (const item of items) {
-    if (item.status === 'cancelado') continue;
+    if (item.status === 'cancelado') {
+      finalItems.push(item);
+      continue;
+    }
     // Only 'listo'/'entregado' lines were actually prepared (fixed
     // 2026-09-28): canCancelItem also returns true for 'enviado' (just sent,
     // never touched by the kitchen/bar), which used to be miscounted as
     // prepared here and would overstate merma once Entrega 2 reads
     // `prepared` for waste reporting.
     const wasPrepared = item.status === 'listo' || item.status === 'entregado';
-    await ctx.svc.entities.OrderItem.update(item.id, {
+    const patch = {
       status: 'cancelado',
       cancel_reason: reason,
+      cancelled_by: ctx.user.email,
       prepared: wasPrepared,
-    });
+    };
+    await ctx.svc.entities.OrderItem.update(item.id, patch);
+    finalItems.push({ ...item, ...patch });
   }
+
+  // Every line is cancelled now: subtotal/total drop with them (2026-10-14).
+  const totals = await previewOrderTotals(ctx, order);
+  // Waste for prepared lines, and give back what an earlier (voided) payment
+  // already deducted. Best effort, idempotent by key.
+  const inventoryWarning = await cancelOrderInventory(ctx, finalItems);
 
   // Free every table this order held, regardless of `type` (fixed
   // 2026-09-28). moveTable/mergeOrders can attach a table to a 'llevar'
@@ -60,7 +75,11 @@ export const cancelOrder: Route = async (ctx: Ctx, body: any) => {
     status: 'cancelada',
     closed_at: now,
     cancel_reason: reason,
+    subtotal: totals.subtotal,
+    discount: totals.discount,
+    tip: totals.tip,
+    total: totals.total,
   });
 
-  return { order: updated, reason };
+  return { order: updated, reason, ...(inventoryWarning ? { inventory_warning: inventoryWarning } : {}) };
 };
