@@ -1,12 +1,13 @@
 // inventory.addWaste: negative movement with the current cost. Reason required.
 import { loadOwned, requirePermission, requireWritable, hasPermission, type Ctx, type Route } from '../_guard.ts';
-import { redactUnitCost, validateIdempotencyKey, validatePositiveQty, validateWasteReason } from './_logic.ts';
+import { assertNotArchived, redactUnitCost, validateIdempotencyKey, validatePositiveQty, validateWasteReason } from './_logic.ts';
 import { guardLogic, recordMovement } from './_shared.ts';
 
 export const addWaste: Route = async (ctx: Ctx, body: any) => {
   const item = await loadOwned(ctx, 'InventoryItem', body?.item_id);
   await requirePermission(ctx, 'Inventario:merma');
   requireWritable(ctx);
+  guardLogic(() => assertNotArchived(item));
 
   const qty = guardLogic(() => validatePositiveQty(body?.qty));
   const reason = guardLogic(() => validateWasteReason(body?.reason));

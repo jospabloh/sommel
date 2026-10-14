@@ -2,7 +2,7 @@
 // it with `inventory_item_id: null`). Sets Product.track_inventory; the sale
 // itself is deducted by `payments` when an order closes.
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, type Ctx, type Route } from '../_guard.ts';
-import { INVENTORY_UNITS, redactProductCosts, resolveLinkQuantities } from './_logic.ts';
+import { INVENTORY_UNITS, assertNotArchived, redactProductCosts, resolveLinkQuantities } from './_logic.ts';
 import { guardLogic } from './_shared.ts';
 
 export const linkProduct: Route = async (ctx: Ctx, body: any) => {
@@ -12,6 +12,7 @@ export const linkProduct: Route = async (ctx: Ctx, body: any) => {
 
   await requirePermission(ctx, 'Inventario:editar');
   requireWritable(ctx);
+  if (item) guardLogic(() => assertNotArchived(item));
 
   let patch: Record<string, unknown>;
   if (!item) {
