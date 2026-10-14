@@ -22,3 +22,26 @@ jobs:
       # reaches Base44, whose deploy fails silently and keeps the old code.
       - run: npm run check:functions
       - run: deno test --allow-env --allow-read=base44/entities base44/tests/ base44/functions/acaciaSign.test.ts
+  supabase-isolation:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v7
+      # Plain Postgres: the stub emulates Supabase's roles and auth schema.
+      - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/tests/00_supabase_stub.sql
+      - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261014000001_core.sql
+      - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261014000002_rls.sql
+      - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261014000003_support_ticket_server_only.sql
+      - run: psql -v ON_ERROR_STOP=1 -f supabase/tests/isolation.sql

@@ -1631,6 +1631,19 @@ palabra junto a los dos botones.
 Este repo no tiene vitest, así que la prueba canónica `useNewVersion.test.js`
 no se copió.
 
+
+### El aviso de versión ya no tapa el banner de licencia (2026-10-14)
+
+Con sesión, el aviso del módulo 30 quedaba a 0.75 rem de arriba, justo sobre
+`LicenseBanner` ("Periodo de prueba", "Solo lectura", "Suspendida"): mientras
+nadie lo cerraba, no se leía el aviso de licencia. `LicenseBanner` publica su
+alto en `--license-banner-h` (`src/lib/useHeightVar.js`, copia del de StockFlow)
+y `index.css` suma ese alto a `--update-banner-top` dentro de la app. Sin banner,
+la variable no existe y el aviso queda donde estaba. Verificado con el build
+local y la sesión real de Sommel QA a 390/834/1440, claro y oscuro: el aviso
+empieza 12 px debajo del banner en los seis casos. Sigue tapando parte del
+encabezado de la página mientras está abierto, como cualquier aviso flotante.
+
 ## Recorrido real de toda la app (2026-10-14): lo que encontró y lo que se arregló
 
 José señaló que el manual se escribió leyendo el código, sin usar la app. Un
@@ -1814,14 +1827,28 @@ QA" (contraseña en el scratchpad de la sesión, nunca en el repo).
 los datos son de prueba. Diseño, fases y lo que falta decidir:
 `docs/migracion-supabase.md`. Mientras tanto, no se venden más de ~10 bares.
 
-### El aviso de versión ya no tapa el banner de licencia (2026-10-14)
+## Migración a Supabase, fase 1: esquema y aislamiento (2026-10-14)
 
-Con sesión, el aviso del módulo 30 quedaba a 0.75 rem de arriba, justo sobre
-`LicenseBanner` ("Periodo de prueba", "Solo lectura", "Suspendida"): mientras
-nadie lo cerraba, no se leía el aviso de licencia. `LicenseBanner` publica su
-alto en `--license-banner-h` (`src/lib/useHeightVar.js`, copia del de StockFlow)
-y `index.css` suma ese alto a `--update-banner-top` dentro de la app. Sin banner,
-la variable no existe y el aviso queda donde estaba. Verificado con el build
-local y la sesión real de Sommel QA a 390/834/1440, claro y oscuro: el aviso
-empieza 12 px debajo del banner en los seis casos. Sigue tapando parte del
-encabezado de la página mientras está abierto, como cualquier aviso flotante.
+`supabase/` trae el esquema (27 tablas y 3 compañeras solo del servidor para
+los costos), la RLS y `tests/isolation.sql` (1,633 aserciones desde la migración 3, en dos pasadas:
+la segunda vuelve a dar todo a `anon`/`authenticated` para probar que la RLS
+sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
+`supabase/README.md`.
+
+- **Aplicado al proyecto real** `sommel` (`gyzmfplevicqwbynznei`, plan
+  gratuito), y las 1,670 aserciones pasaron ahí. Después se releyó la base:
+  no quedó nada de la prueba y `anon` no tiene privilegios en `public`.
+- **En CI** corre el job `supabase-isolation` (Postgres 16 con
+  `tests/00_supabase_stub.sql`). El stub **nunca** se aplica a Supabase.
+- `isolation.sql` exige una base **vacía**. En cuanto el proyecto real tenga
+  datos, ya no se corre ahí: se usa una rama de Supabase o el job de CI.
+- **Migración 3 (`support_ticket` sin escritura del navegador), por la revisión
+  de Codex en #84:** en el repo y en CI (1,633 aserciones). **Pendiente en el
+  proyecto real:** las escrituras por el MCP de Supabase (`apply_migration` y
+  `execute_sql` con DDL) se quedan esperando una aprobación que no llega y
+  vencen a los 60 s sin aplicar nada (releído: sigue en la migración 2). Sin
+  riesgo mientras tanto: no hay usuarios ni datos, y sin bar
+  `app.current_tenant()` es nulo, así que la política rechaza todo alta. Se
+  aplica antes de cualquier usuario real.
+- Base44 sigue siendo producción. Nada del cliente ni de las funciones apunta
+  todavía a Supabase. Eso es la fase 2 y la 3 (`docs/migracion-supabase.md` §4).
