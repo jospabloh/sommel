@@ -21,6 +21,7 @@ import VoidPaymentDialog from './VoidPaymentDialog';
 import PaymentsList from './PaymentsList';
 import SplitSection from './SplitSection';
 import PaymentTip, { tipCentsOf, tipPayload } from './PaymentTip';
+import { canTipThisPayment as canTipPayment } from '@/lib/paymentTipRule';
 import { useAttemptKey } from './useAttemptKey';
 
 function pesosString(cents) {
@@ -132,10 +133,8 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
   if (mode === 'items') suggested = itemsAmount ?? 0;
   const amount = amountStr !== null ? pesosToCents(Number(amountStr) || 0) : suggested;
 
-  // Tip per payment: only when the bill is split, and only while the order
-  // has no order-wide tip (that one is already prorated into every share).
-  const paymentTipsSum = livePayments.reduce((sum, p) => sum + (p.tip ?? 0), 0);
-  const canTipThisPayment = mode !== 'full' && order?.tip_pct == null && (order?.tip ?? 0) === paymentTipsSum;
+  // Tip per payment: see src/lib/paymentTipRule.js.
+  const canTipThisPayment = canTipPayment({ mode, order, livePayments });
   const tipCents = canTipThisPayment ? tipCentsOf(payTip, amount) : 0;
   const charge = amount + tipCents;
 

@@ -1568,3 +1568,15 @@ ejecutarla. Es lo normal en un límite de tasa, y los creates que importan
 se agota una ventana entera, el cobro tarda unos segundos más y, pasado el
 tope, el aviso vuelve a salir. Bajar operaciones por cobro y preguntarle a
 Base44 el límite real siguen pendientes.
+
+### Propina propia también al volver a cobrar una parte anulada (2026-10-14)
+
+José anuló una parte de una cuenta dividida y, al volver a cobrarla, ya no le
+salía la propina. El panel de cobro se reabre en "Cuenta completa", y ahí la
+propina por pago no se mostraba. El botón de propina general también estaba
+bloqueado, porque el pago que quedó vivo cuenta como cobro ya registrado. Nada
+dejaba poner propina. Ahora "Cuenta completa" también ofrece la propina de
+**ese** pago cuando la cuenta ya tiene pagos vivos (`src/lib/paymentTipRule.js`).
+El servidor no cambió: `canTipPerPayment` nunca miró el modo. Prueba en
+`payment_tip_test.ts`, que además amarra la regla del cliente con la del
+servidor. **No verificado:** la pantalla en la caja.
