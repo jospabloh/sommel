@@ -1500,3 +1500,15 @@ Simulado en Chromium con un dedo que llega como mouse, sin peticiones a Base44:
 arrastre lento de 150 px = 150 px; flick de 120 px = 433 px; lista al final pasa
 a la página (150 px); un toque abre el botón; nada queda seleccionado. **No
 verificado** en la PC táctil.
+
+### La terminal bloqueada no se actualizaba (2026-10-13)
+
+José seguía viendo el teclado viejo (6 espacios y botón) después de publicar el
+de 4 dígitos. Lo servido estaba bien (`pin-shake` en el bundle); la terminal no.
+`AppUpdateBanner` vive en `Layout`, y la pantalla bloqueada ("¿Quién eres?") está
+**fuera** de `Layout`: una terminal que pasa el día bloqueada nunca veía el aviso
+y seguía con la versión con la que abrió. Ahora `useNewBuild`
+(`src/lib/useNewBuild.js`, compartido con el aviso) corre también en
+`TerminalLock`, y si hay versión nueva **recarga sola**, salvo mientras alguien
+teclea un PIN o checa (el bloqueo automático la regresa ahí después). La primera
+vez hay que recargar a mano para tomar este cambio.

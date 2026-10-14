@@ -10,6 +10,7 @@ import PinPad, { pinLengthFrom } from '@/components/attendance/PinPad';
 import CameraPreview from '@/components/security/CameraPreview';
 import { usePhotoCapture } from '@/lib/camera/usePhotoCapture';
 import LockChecador from './LockChecador';
+import { useNewBuild } from '@/lib/useNewBuild';
 
 function unlockError(err) {
   if (err.code === 'wrong_pin') return 'PIN incorrecto';
@@ -56,6 +57,15 @@ export default function TerminalLock() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // A locked terminal is nobody's work in progress, so a newer build just
+  // loads: there is no banner out here, and without this a terminal kept the
+  // build it opened with all day. Never while someone is typing a PIN or
+  // checking in; the auto-lock brings the screen back here afterwards.
+  const newBuild = useNewBuild();
+  useEffect(() => {
+    if (newBuild && !person && !checador && !busy) window.location.reload();
+  }, [newBuild, person, checador, busy]);
 
   const pinLength = pinLengthFrom(info?.bar?.pin_length);
 
