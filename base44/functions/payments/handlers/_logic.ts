@@ -378,6 +378,87 @@ export function stockFromMovements(movements: Array<{ qty?: number | null }>): n
   return round3((movements ?? []).reduce((s, m) => s + (typeof m.qty === 'number' ? m.qty : 0), 0));
 }
 
+// ---- Batched inventory reads (2026-10-14) ----
+// Base44's rate limit is app-wide and counts entity operations, so
+// deductInventory reads with `$in` instead of one query per row. The helpers
+// below are the pure half: chunking, in-memory narrowing (a backend that
+// ignores the operator must never widen what we act on), grouping by key and
+// duplicate neutralization.
+
+/** Splits a list into chunks of at most `size` (Base44 handles ~100 ids per `$in`). */
+export function chunk<T>(list: T[], size = 100): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+/** Rows whose `field` is one of `ids`. Re-narrows what an `$in` query returned. */
+export function narrowByField<T extends Record<string, any>>(rows: T[], field: string, ids: Iterable<string>): T[] {
+  const set = new Set(Array.from(ids, String));
+  return (rows ?? []).filter((r) => r != null && set.has(String(r[field])));
+}
+
+/** Groups rows by the value of `field`. */
+export function groupByField<T extends Record<string, any>>(rows: T[], field: string): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const r of rows ?? []) {
+    if (r == null) continue;
+    const k = String(r[field]);
+    const list = out.get(k);
+    if (list) list.push(r);
+    else out.set(k, [r]);
+  }
+  return out;
+}
+
+/**
+ * Every idempotency key the existence check needs in ONE query: the planned
+ * keys plus the `venta:<line>` key of each merma (a line already deducted as
+ * a sale must not be deducted again as waste). Deduplicated.
+ */
+export function collectMovementKeys(planned: Array<{ type: string; order_item_id: string; idempotency_key: string }>): string[] {
+  const keys = new Set<string>();
+  for (const m of planned) {
+    keys.add(m.idempotency_key);
+    if (m.type === 'merma') keys.add(`venta:${m.order_item_id}`);
+  }
+  return Array.from(keys);
+}
+
+/** The key that proves a merma was already covered by a sale. */
+export function ventaKeyOf(m: { order_item_id: string }): string {
+  return `venta:${m.order_item_id}`;
+}
+
+/** True when a merma must be skipped: a 'venta' row with qty != 0 exists for its line. */
+export function mermaCoveredBySale(
+  m: { type: string; order_item_id: string },
+  rowsByKey: Map<string, Array<{ qty?: number | null }>>
+): boolean {
+  if (m.type !== 'merma') return false;
+  return (rowsByKey.get(ventaKeyOf(m)) ?? []).some((r) => (r.qty ?? 0) !== 0);
+}
+
+/**
+ * For rows sharing an idempotency key (concurrent closers can both create
+ * it), the ones to zero out: every row except the survivor chosen by `pick`
+ * (oldest created_date, id tiebreak) whose qty is not already 0. Works over a
+ * mixed batch of keys: each key is judged on its own.
+ */
+export function duplicatesToNeutralize<T extends { id: string; qty?: number | null; idempotency_key?: string | null }>(
+  rows: T[],
+  pick: (rows: T[]) => T | null | undefined
+): T[] {
+  const out: T[] = [];
+  for (const group of groupByField(rows, 'idempotency_key').values()) {
+    const survivor = pick(group);
+    for (const row of group) {
+      if (survivor && row.id !== survivor.id && row.qty !== 0) out.push(row);
+    }
+  }
+  return out;
+}
+
 /** Every 'YYYY-MM-DD HH:MM' the ticket prints, in the bar's fixed offset. */
 export function formatLocalDateTime(iso: string, offsetMin = -360): string {
   const t = Date.parse(iso);

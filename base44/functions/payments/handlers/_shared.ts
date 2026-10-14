@@ -9,7 +9,19 @@ import {
   type Ctx,
   type PaymentMethodDef,
 } from '../_guard.ts';
-import { LogicError, planInventoryMovements, stockFromMovements, type InvProduct } from './_logic.ts';
+import {
+  LogicError,
+  chunk,
+  collectMovementKeys,
+  duplicatesToNeutralize,
+  groupByField,
+  mermaCoveredBySale,
+  narrowByField,
+  planInventoryMovements,
+  stockFromMovements,
+  ventaKeyOf,
+  type InvProduct,
+} from './_logic.ts';
 
 /** LogicError (import-free) -> HttpError 400, everything else untouched. */
 export function rethrow(err: unknown): never {
@@ -72,17 +84,33 @@ export async function setTablesStatus(ctx: Ctx, order: any, status: 'available' 
   }
 }
 
+/**
+ * Names of the given tables, in the given order, in ONE `$in` query (falls
+ * back to one query per table if the operator is rejected; rows re-narrowed).
+ */
+async function tableNames(ctx: Ctx, ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  let rows: any[];
+  try {
+    rows = narrowByField(await ctx.svc.entities.BarTable.filter({ id: { $in: ids } }), 'id', ids);
+  } catch {
+    rows = [];
+    for (const id of ids) {
+      const [t] = await ctx.svc.entities.BarTable.filter({ id });
+      if (t) rows.push(t);
+    }
+  }
+  const byId = new Map<string, any>(rows.map((t: any) => [t.id, t]));
+  return ids.map((id) => byId.get(id)?.name).filter(Boolean);
+}
+
 /** Place label shared by the ticket and its queue title. */
 export async function placeOf(ctx: Ctx, order: any): Promise<{ place: string; title: string }> {
   if (order.type === 'llevar') {
     const who = order.customer_name || '';
     return { place: `Para llevar${who ? ` · ${who}` : ''}`, title: `Ticket Para llevar${who ? ` · ${who}` : ''}` };
   }
-  const names: string[] = [];
-  for (const id of order.table_ids ?? []) {
-    const [t] = await ctx.svc.entities.BarTable.filter({ id });
-    if (t?.name) names.push(t.name);
-  }
+  const names = await tableNames(ctx, order.table_ids ?? []);
   const label = names.join(' + ') || 'Mesa';
   return { place: label, title: `Ticket ${label}` };
 }
@@ -121,85 +149,136 @@ async function fetchAll(client: any, query: Record<string, unknown>): Promise<an
 }
 
 /**
+ * Reads the rows whose `field` is in `ids` with `$in`, 100 ids per query
+ * (Base44's limit is app-wide and counts operations, so this replaces one
+ * query per id). The rows are re-narrowed in memory: a backend that ignored
+ * the operator must never widen what the caller acts on. If a chunk's `$in`
+ * query throws, that chunk falls back to one query per id (slower, still
+ * correct); an id that fails even then is returned in `failed` so the caller
+ * can count it instead of silently assuming "no rows".
+ */
+async function fetchIn(
+  client: any,
+  base: Record<string, unknown>,
+  field: string,
+  ids: string[]
+): Promise<{ rows: any[]; failed: Set<string> }> {
+  const rows: any[] = [];
+  const failed = new Set<string>();
+  for (const part of chunk(ids)) {
+    try {
+      rows.push(...narrowByField(await fetchAll(client, { ...base, [field]: { $in: part } }), field, part));
+    } catch {
+      for (const id of part) {
+        try {
+          rows.push(...narrowByField(await fetchAll(client, { ...base, [field]: id }), field, [id]));
+        } catch {
+          failed.add(id);
+        }
+      }
+    }
+  }
+  return { rows, failed };
+}
+
+/**
  * Deducts inventory for a closed order: 'venta' per sold line and 'merma'
  * per cancelled line that was already prepared, idempotent by key. After the
  * writes, each touched supply's stock is recomputed as Σ qty of its
  * movements. Never throws: a failure is reported through the returned
  * warning so the payment is not rolled back (contract §5).
+ *
+ * Reads are batched with `$in` (2026-10-14): products, supplies, existing
+ * movements, the post-write duplicate check and the stock recompute are one
+ * query each instead of one per row. Writes are unchanged.
  */
 export async function deductInventory(ctx: Ctx, orderId: string): Promise<string | null> {
   let failed = 0;
   try {
     const items = await loadItems(ctx, orderId);
-    const productIds = Array.from(new Set(items.map((i: any) => i.product_id).filter(Boolean)));
+    const productIds = Array.from(new Set(items.map((i: any) => i.product_id).filter(Boolean))) as string[];
     const products: Record<string, InvProduct | null> = {};
-    for (const pid of productIds as string[]) {
-      const [p] = await ctx.svc.entities.Product.filter({ id: pid });
-      products[pid] = p ?? null;
-    }
+    const productRead = await fetchIn(ctx.svc.entities.Product, {}, 'id', productIds);
+    // A product that could not be read at all must not look "not tracked".
+    if (productRead.failed.size > 0) throw new Error('product_read_failed');
+    for (const pid of productIds) products[pid] = productRead.rows.find((p: any) => p.id === pid) ?? null;
     const planned = planInventoryMovements(items, products);
     if (planned.length === 0) return null;
 
-    const supplies: Record<string, any> = {};
-    const touched = new Set<string>();
-    for (const m of planned) {
+    const supplyIds = Array.from(new Set(planned.map((m) => m.inventory_item_id)));
+    const supplyRead = await fetchIn(ctx.svc.entities.InventoryItem, {}, 'id', supplyIds);
+    const supplies = new Map<string, any>(supplyRead.rows.map((s: any) => [s.id, s]));
+
+    // Movements whose supply is missing, foreign or unreadable are counted as
+    // failed and skipped, exactly as before.
+    const valid = planned.filter((m) => {
+      const supply = supplies.get(m.inventory_item_id);
+      if (supplyRead.failed.has(m.inventory_item_id) || !supply || supply.tenant_id !== ctx.tenantId) {
+        failed++;
+        return false;
+      }
+      return true;
+    });
+    const touched = new Set<string>(valid.map((m) => m.inventory_item_id));
+
+    // ONE read answers both "already deducted?" and "merma after a sale?".
+    const existingRead = await fetchIn(
+      ctx.svc.entities.InventoryMovement,
+      { tenant_id: ctx.tenantId },
+      'idempotency_key',
+      collectMovementKeys(valid)
+    );
+    const byKey = groupByField(existingRead.rows, 'idempotency_key');
+
+    const created: string[] = [];
+    for (const m of valid) {
       try {
-        if (!(m.inventory_item_id in supplies)) {
-          const [s] = await ctx.svc.entities.InventoryItem.filter({ id: m.inventory_item_id });
-          supplies[m.inventory_item_id] = s ?? null;
-        }
-        const supply = supplies[m.inventory_item_id];
-        if (!supply || supply.tenant_id !== ctx.tenantId) {
+        // A key we could not check is a movement we cannot safely write.
+        if (existingRead.failed.has(m.idempotency_key) || (m.type === 'merma' && existingRead.failed.has(ventaKeyOf(m)))) {
           failed++;
           continue;
         }
-        touched.add(m.inventory_item_id);
         // A line already deducted as 'venta' (order closed, reopened, then the
         // line was cancelled as prepared) must not be deducted again as merma.
-        if (m.type === 'merma') {
-          const sold = await ctx.svc.entities.InventoryMovement.filter({
-            tenant_id: ctx.tenantId,
-            idempotency_key: `venta:${m.order_item_id}`,
-          });
-          if (sold.some((r: any) => (r.qty ?? 0) !== 0)) continue;
-        }
-        const existing = await ctx.svc.entities.InventoryMovement.filter({
+        if (mermaCoveredBySale(m, byKey)) continue;
+        if ((byKey.get(m.idempotency_key) ?? []).length > 0) continue;
+        const supply = supplies.get(m.inventory_item_id);
+        await ctx.svc.entities.InventoryMovement.create({
           tenant_id: ctx.tenantId,
+          item_id: m.inventory_item_id,
+          type: m.type,
+          qty: m.qty,
+          unit_cost: supply.unit_cost ?? null,
+          reason: m.reason,
+          order_item_id: m.order_item_id,
           idempotency_key: m.idempotency_key,
+          created_by: ctx.user?.email,
         });
-        if (existing.length === 0) {
-          await ctx.svc.entities.InventoryMovement.create({
-            tenant_id: ctx.tenantId,
-            item_id: m.inventory_item_id,
-            type: m.type,
-            qty: m.qty,
-            unit_cost: supply.unit_cost ?? null,
-            reason: m.reason,
-            order_item_id: m.order_item_id,
-            idempotency_key: m.idempotency_key,
-            created_by: ctx.user?.email,
-          });
-          // Re-read after writing: concurrent closers may have both created it.
-          const rows = await ctx.svc.entities.InventoryMovement.filter({
-            tenant_id: ctx.tenantId,
-            idempotency_key: m.idempotency_key,
-          });
-          const survivor = pickSurvivor(rows);
-          for (const row of rows) {
-            if (survivor && row.id !== survivor.id && row.qty !== 0) {
-              await ctx.svc.entities.InventoryMovement.update(row.id, { qty: 0, reason: 'duplicado' });
-            }
-          }
-        }
+        created.push(m.idempotency_key);
       } catch {
         failed++;
       }
     }
 
+    // Re-read once after writing: concurrent closers may have both created a key.
+    if (created.length > 0) {
+      const reread = await fetchIn(ctx.svc.entities.InventoryMovement, { tenant_id: ctx.tenantId }, 'idempotency_key', created);
+      failed += reread.failed.size;
+      for (const row of duplicatesToNeutralize(reread.rows, pickSurvivor)) {
+        try {
+          await ctx.svc.entities.InventoryMovement.update(row.id, { qty: 0, reason: 'duplicado' });
+        } catch {
+          failed++;
+        }
+      }
+    }
+
+    const stockRead = await fetchIn(ctx.svc.entities.InventoryMovement, { tenant_id: ctx.tenantId }, 'item_id', Array.from(touched));
+    const byItem = groupByField(stockRead.rows, 'item_id');
     for (const itemId of touched) {
       try {
-        const moves = await fetchAll(ctx.svc.entities.InventoryMovement, { tenant_id: ctx.tenantId, item_id: itemId });
-        await ctx.svc.entities.InventoryItem.update(itemId, { stock: stockFromMovements(moves) });
+        if (stockRead.failed.has(itemId)) throw new Error('stock_read_failed');
+        await ctx.svc.entities.InventoryItem.update(itemId, { stock: stockFromMovements(byItem.get(itemId) ?? []) });
       } catch {
         failed++;
       }

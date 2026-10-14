@@ -2,6 +2,7 @@
 // touches `Ctx`/`svc`), so it lives apart from `_logic.ts`, which `deno test`
 // must be able to load with zero imports.
 import { computeOrderTotals, activePaymentsTotal, httpError, personName, type Ctx } from '../_guard.ts';
+import { narrowByField } from './_logic.ts';
 import { buildComandaLines, comandaDedupeKey, groupByStation } from './_comanda.ts';
 
 /**
@@ -66,11 +67,22 @@ export async function assertTotalCoversPayments(
 /** "Mesa 4 + Mesa 5", or "Para llevar · Ana" (same wording as the ticket). */
 export async function placeLabel(ctx: Ctx, order: any): Promise<string> {
   if (order?.type === 'llevar') return `Para llevar${order.customer_name ? ` · ${order.customer_name}` : ''}`;
-  const names: string[] = [];
-  for (const id of order?.table_ids ?? []) {
-    const [t] = await ctx.svc.entities.BarTable.filter({ id });
-    if (t?.name) names.push(t.name);
+  const ids: string[] = order?.table_ids ?? [];
+  // One `$in` query for all tables (rows re-narrowed); one query per table if
+  // the operator is rejected.
+  let rows: any[] = [];
+  if (ids.length > 0) {
+    try {
+      rows = narrowByField(await ctx.svc.entities.BarTable.filter({ id: { $in: ids } }), 'id', ids);
+    } catch {
+      for (const id of ids) {
+        const [t] = await ctx.svc.entities.BarTable.filter({ id });
+        if (t) rows.push(t);
+      }
+    }
   }
+  const byId = new Map<string, any>(rows.map((t: any) => [t.id, t]));
+  const names = ids.map((id) => byId.get(id)?.name).filter(Boolean);
   return names.join(' + ') || 'Mesa';
 }
 
