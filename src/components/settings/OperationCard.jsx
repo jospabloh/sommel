@@ -44,6 +44,11 @@ export default function OperationCard({ bar, onSaved }) {
     }
   };
 
+  const currentQty = Number.isInteger(bar?.qty_confirm_threshold) && bar.qty_confirm_threshold >= 0 ? bar.qty_confirm_threshold : 20;
+  const [qtyText, setQtyText] = useState(String(currentQty));
+  const qtyNum = qtyText === '' ? null : Number(qtyText);
+  const qtyChanged = qtyNum !== null && qtyNum !== currentQty;
+
   const capCents = capText.trim() === '' ? 0 : parsePesos(capText);
   const capValid = capCents === 0 || (capCents !== null && capCents >= 100);
   const capChanged = capValid && capCents !== currentCap;
@@ -54,7 +59,7 @@ export default function OperationCard({ bar, onSaved }) {
         <Settings2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
         <div>
           <h2 className="font-display text-lg font-semibold">Servicio</h2>
-          <p className="text-sm text-muted-foreground">Cómo se mandan las comandas y cuánto se puede retirar de la caja.</p>
+          <p className="text-sm text-muted-foreground">Cómo se mandan las comandas, cuándo se confirma una cantidad y cuánto se puede retirar de la caja.</p>
         </div>
       </div>
 
@@ -75,6 +80,30 @@ export default function OperationCard({ bar, onSaved }) {
         disabled={busy}
         onChange={(v) => save({ auto_deliver_no_station: v }, v ? 'Se entregarán solos' : 'Ya no se entregan solos')}
       />
+
+      <form
+        className="space-y-1.5"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!qtyChanged || busy) return;
+          await save({ qty_confirm_threshold: qtyNum }, qtyNum ? `Se pedirá confirmar arriba de ${qtyNum} piezas` : 'Ya no se pide confirmar la cantidad');
+        }}
+      >
+        <Label htmlFor="qty-confirm">Confirmar la cantidad arriba de (piezas)</Label>
+        <div className="flex gap-2">
+          <Input
+            id="qty-confirm"
+            inputMode="numeric"
+            value={qtyText}
+            onChange={(e) => setQtyText(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+            className="h-11"
+          />
+          <Button type="submit" className="h-11 shrink-0" disabled={!qtyChanged || busy}>Guardar</Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Un renglón con más piezas pregunta "¿Seguro?" antes de agregarse, para evitar un error de dedo. 0 = nunca preguntar.
+        </p>
+      </form>
 
       <form
         className="space-y-1.5"

@@ -86,3 +86,23 @@ Deno.test('only a live withdrawal of the open shift can be voided', () => {
   assert(cashOutVoidBlocker({ amount: -5000, shift_id: 's0' }, null) === 'shift_closed', 'no shift');
   assert(typeof LogicError === 'function');
 });
+
+import { needsQtyConfirm, qtyConfirmThreshold, DEFAULT_QTY_CONFIRM } from '../functions/orders/handlers/_logic.ts';
+
+Deno.test('a line past the bar threshold asks "¿Seguro?" once; small and shrinking lines never ask', () => {
+  // José, 2026-10-14: confirm above 20 pieces, configurable by the admin.
+  assert(qtyConfirmThreshold(undefined) === DEFAULT_QTY_CONFIRM && DEFAULT_QTY_CONFIRM === 20, 'default 20');
+  assert(qtyConfirmThreshold({ qty_confirm_threshold: 50 }) === 50, 'bar value');
+  assert(qtyConfirmThreshold({ qty_confirm_threshold: 0 }) === 0, '0 kept');
+  assert(needsQtyConfirm(21, 20), '21 asks');
+  assert(!needsQtyConfirm(20, 20), '20 does not');
+  assert(!needsQtyConfirm(1000, 20, 0, true), 'confirmed passes');
+  assert(!needsQtyConfirm(1000, 0), '0 = never ask');
+  // Lowering a big line, or editing notes on it, must not ask again.
+  assert(!needsQtyConfirm(25, 20, 30), 'shrinking');
+  assert(needsQtyConfirm(31, 20, 30), 'growing a big line asks');
+  const patch = buildSettingsPatch({ qty_confirm_threshold: 30 }, []);
+  assert(patch.qty_confirm_threshold === 30, 'saved');
+  throwsCode(() => buildSettingsPatch({ qty_confirm_threshold: -1 }, []), 'invalid_qty_confirm');
+  throwsCode(() => buildSettingsPatch({ qty_confirm_threshold: 1000 }, []), 'invalid_qty_confirm');
+});

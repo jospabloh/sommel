@@ -162,6 +162,11 @@
       "default": 0,
       "description": "Monto máximo de UN retiro de efectivo, en centavos. 0 = sin tope. Un retiro mayor se rechaza aunque lo apruebe un administrador."
     },
+    "qty_confirm_threshold": {
+      "type": "integer",
+      "default": 20,
+      "description": "Arriba de cuántas piezas un renglón pide confirmar la cantidad (¿Seguro?). 0 = nunca preguntar. Evita un error de dedo como 100 en vez de 10."
+    },
     "service_hours": {
       "type": "object",
       "description": "Ventana de horario de servicio del bar (para saber cuándo NO desplegar, §8 del plan)"
