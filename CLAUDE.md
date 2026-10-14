@@ -1839,3 +1839,42 @@ sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
   aplica antes de cualquier usuario real.
 - Base44 sigue siendo producción. Nada del cliente ni de las funciones apunta
   todavía a Supabase. Eso es la fase 2 y la 3 (`docs/migracion-supabase.md` §4).
+
+## Reportes y corte: ventas netas, cortesías y quién canceló (2026-10-14)
+
+Cierra seis hallazgos del recorrido de QA. **Código en el repo; nada publicado.**
+
+- **Los productos se valoran NETOS.** `aggregate()` reparte el descuento de la
+  orden entre sus renglones en centavos exactos (`prorateDiscount`: el último
+  renglón con importe absorbe el residuo). Por producto, Por categoría y Más
+  vendidos suman ahora lo mismo que `totals.sales_net` (Ventas sin propina, la
+  cifra de la tarjeta "Sin propina"), no la tarjeta Ventas, que incluye la propina.
+- **Cortesías: fuera de las tablas de productos** (ni importe ni piezas; tienen su
+  apartado y su tarjeta), pero **su costo sí resta de la utilidad** como pérdida
+  real: `costs.courtesy_cost` lo expone. Utilidad y margen se calculan sobre venta
+  neta (después de descuento y cortesía, sin propina) menos costo. `items_sold` de
+  las tarjetas no cambió y sigue contando piezas de cortesía.
+- **Un pago de $0 ya no cuenta en "Por forma de pago"**: "Cerrar cuenta sin cobro"
+  guarda un marcador de $0 con el método elegido. Ojo: el corte de turno
+  (`shifts/handlers/_logic.ts` `salesByMethod`) tiene el mismo conteo inflado y NO
+  se tocó (fuera de este grupo).
+- **Quién canceló:** `cancelOrder` ahora escribe `cancelled_by` en cada renglón y
+  en la orden (campo nuevo `Order.cancelled_by`). El reporte usa el del renglón y,
+  si falta, lee la orden. Las cancelaciones ya hechas no tienen a nadie guardado y
+  siguen saliendo "Sin registro".
+- **Cierre de turno:** `loadOrdersAndCancellations` ya no lee todas las comandas
+  canceladas del bar: acota por `closed_at >= apertura` (con respaldo sin rango si
+  el backend rechaza el operador) y decide con `cancelledOrdersInShift`
+  (`_cancelled_logic.ts`): `shift_id` si lo trae; si no, la ventana del turno, con
+  tope superior al cierre (antes no lo tenía).
+- **Por producto a 390 px:** sin `break-all`; el nombre lleva `min-w-[8rem]` y la
+  tabla ya hace scroll horizontal dentro de su tarjeta. Los textos de ayuda de
+  Por producto y Costo y utilidad dicen que es venta neta.
+- Pruebas: `reports_logic_test.ts` (prorrateo, cuadre al centavo, utilidad,
+  marcador de $0, quién canceló) y `shift_cancelled_orders_test.ts`.
+
+**Verificado:** lint, build, check:guards, check:functions, validate:rls (27/14),
+validate:locks, deno test (702/0), deno lint. **No verificado:** nada contra Base44;
+la tabla a 390 px en navegador; que `closed_at: {$gte}` se acepte en `Order.filter`
+(hay respaldo). **Orden de deploy:** `Order.cancelled_by` es campo nuevo, así que
+esquema (`deploy:entities`) antes que funciones, o Base44 lo descarta en silencio.

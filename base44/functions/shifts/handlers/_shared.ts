@@ -18,6 +18,7 @@ import {
   type CorteSummary,
   type MethodDef,
 } from './_logic.ts';
+import { cancelledOrdersInShift } from './_cancelled_logic.ts';
 
 /** The bar's payment methods, or the defaults when it has not customised them. */
 export function barMethods(ctx: Ctx): MethodDef[] {
@@ -73,11 +74,18 @@ export async function loadOrdersAndCancellations(ctx: Ctx, shift: any, payments:
   let cancelledItems = 0;
   for (const list of itemLists) cancelledItems += list.filter((i: any) => i.status === 'cancelado').length;
 
-  // Orders cancelled outright during the shift (their lines are all cancelled).
-  const cancelledOrders = await ctx.svc.entities.Order.filter({ tenant_id: ctx.tenantId, status: 'cancelada' });
-  const duringShift = cancelledOrders.filter(
-    (o: any) => !orderIds.includes(o.id) && String(o.opened_at ?? o.created_date ?? '') >= String(shift.opened_at ?? '')
-  );
+  // Orders cancelled outright during the shift. Narrow the read to orders
+  // cancelled since the shift opened instead of loading every cancelled order
+  // the bar ever had; if the backend rejects the range operator, fall back to
+  // the unbounded read. The shift rule itself is re-applied in memory.
+  const cancelledBase = { tenant_id: ctx.tenantId, status: 'cancelada' };
+  let cancelledOrders: any[];
+  try {
+    cancelledOrders = await ctx.svc.entities.Order.filter({ ...cancelledBase, closed_at: { $gte: shift.opened_at } });
+  } catch {
+    cancelledOrders = await ctx.svc.entities.Order.filter(cancelledBase);
+  }
+  const duringShift = cancelledOrdersInShift(cancelledOrders, shift, orderIds);
   const cancelledLists = await inChunks<any, any[]>(duringShift, 20, (o: any) => ctx.svc.entities.OrderItem.filter({ order_id: o.id }));
   for (const list of cancelledLists) cancelledItems += list.filter((i: any) => i.status === 'cancelado').length;
 

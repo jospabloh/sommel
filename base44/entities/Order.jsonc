@@ -19,6 +19,7 @@
     "opened_at": { "type": "string", "format": "date-time" },
     "closed_at": { "type": "string", "format": "date-time" },
     "cancel_reason": { "type": "string", "description": "Motivo de cancelación de la comanda entera (orders.cancelOrder), separado del cancel_reason por renglón de OrderItem" },
+    "cancelled_by": { "type": "string", "description": "Email de quien canceló la comanda entera (orders.cancelOrder). Los reportes lo usan cuando el renglón cancelado no trae su propio cancelled_by" },
     "subtotal": { "type": "integer", "default": 0, "description": "Suma de los renglones, en centavos MXN. Solo lo escribe el servidor" },
     "discount": { "type": "integer", "default": 0, "description": "Descuento aplicado, en centavos MXN. Solo lo escribe el servidor" },
     "discount_reason": { "type": "string", "description": "Motivo del descuento o cortesía" },

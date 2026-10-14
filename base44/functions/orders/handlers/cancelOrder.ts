@@ -43,6 +43,7 @@ export const cancelOrder: Route = async (ctx: Ctx, body: any) => {
     await ctx.svc.entities.OrderItem.update(item.id, {
       status: 'cancelado',
       cancel_reason: reason,
+      cancelled_by: ctx.user.email,
       prepared: wasPrepared,
     });
   }
@@ -60,6 +61,7 @@ export const cancelOrder: Route = async (ctx: Ctx, body: any) => {
     status: 'cancelada',
     closed_at: now,
     cancel_reason: reason,
+    cancelled_by: ctx.user.email,
   });
 
   return { order: updated, reason };

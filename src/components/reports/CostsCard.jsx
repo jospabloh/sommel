@@ -13,7 +13,7 @@ export default function CostsCard({ costs }) {
   return (
     <Section
       title="Costo y utilidad"
-      hint="Solo cuenta los renglones que tienen costo capturado; un costo vacío no se toma como cero."
+      hint="Sobre ventas netas (después de descuentos y cortesías, sin propina). Solo cuenta los renglones que tienen costo capturado; un costo vacío no se toma como cero. Lo que se regaló en cortesía resta su costo."
     >
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div>
