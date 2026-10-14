@@ -1532,3 +1532,39 @@ cuenta (evento `input`). Verificado en `/login` local sin peticiones a Base44:
 "Correo · ana@" y "Contraseña · •••". La prueba de pantalla de la caja confirmó
 el 2026-10-13 que el dedo llega como **mouse** con `maxTouchPoints` 10 (pantalla
 táctil real, convertida a mouse antes de Chrome).
+
+## Los 429 del cobro se absorben en vez de mostrarse (2026-10-14)
+
+José vio "Hay muchas solicitudes seguidas" al cobrar una cuenta dividida y
+"Se imprimió, pero no se pudo confirmar" justo después. Los logs de `payments`
+dan siete `POST → 429` entre las 02:08:24 y las 02:08:38 UTC. En esos minutos
+todas las funciones juntas recibieron solo **15 a 20 llamadas por minuto**.
+[Probable] la cuota se gasta en **operaciones de entidad**, no en llamadas: un
+cobro que cierra la cuenta hace docenas (pagos, totales, mesas, inventario por
+renglón). Base44 rechaza **una** de ellas y la acción entera fallaba.
+
+- **Servidor:** el guard envuelve `ctx.svc.entities` (`retryingEntities` en
+  `_guard_logic.ts`). Una operación rechazada por el límite espera 0.4, 1.2 y
+  2.5 s y se repite **solo esa operación**. El tope es de 7 s de espera por
+  petición, sumando todas sus operaciones, para no machacar una cuota agotada.
+  Cualquier otro error no se repite. `auth.me()` también se repite, y un 429
+  ahí ya no se confunde con "Inicia sesión" (antes respondía 401).
+- **Los logs de la función ahora dicen qué se rechazó:**
+  `rate_limited Payment.filter retry=1 wait=400ms`. Es la forma de dejar de
+  suponer qué gasta la cuota.
+- **Cliente:** además de las lecturas, se reintentan `payments.addPayment`
+  (la misma `idempotency_key` devuelve su pago), `payments.requestTicket`
+  (`dedupe_key`) y `printing.markPrinted`/`markFailed` (marcar dos veces no hace
+  nada): `IDEMPOTENT_WRITES` en `src/lib/retryPolicy.js`. Esto cambia la regla
+  de 2026-10-06 ("las escrituras nunca se reintentan"): solo se reintenta una
+  escritura que el servidor ya hace idempotente. **No** entran `claimNext`,
+  `voidPayment`, `addItems` ni nada sin esa garantía.
+- Pruebas: `base44/tests/rate_limit_retry_test.ts`.
+
+**Supuesto no verificado:** que Base44 rechace una operación **antes** de
+ejecutarla. Es lo normal en un límite de tasa, y los creates que importan
+(pago, ticket, inventario) se reconcilian por llave de todos modos.
+**Lo que esto no arregla:** el techo sigue siendo de toda la app. Si la cuota
+se agota una ventana entera, el cobro tarda unos segundos más y, pasado el
+tope, el aviso vuelve a salir. Bajar operaciones por cobro y preguntarle a
+Base44 el límite real siguen pendientes.
