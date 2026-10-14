@@ -1672,3 +1672,36 @@ Pendientes de decisión de José, **no** cambiados:
 
 El detalle completo, con el manual citado, está en el informe del agente; el
 manual se reescribe con eso, en un cambio aparte.
+
+## Ajustes → Servicio: comandas impresas, entrega sin estación y tope de retiro (2026-10-14)
+
+Decisiones de José. Las tres viven en `OperationCard.jsx` (Ajustes → Servicio),
+solo para quien edita Ajustes, y se guardan por `settings.update`.
+- **Imprimir comandas** (`WineBar.print_comandas`, apagado de fábrica). Si está
+  encendido, `orders.send` encola un `PrintJob` por estación (`cocina` o
+  `barra`), y `orders.cancelItem` uno `cambio` ("CANCELADO COCINA/BARRA", con el
+  motivo) (`orders/handlers/_comanda.ts`). Lleva cantidades grandes y nada de
+  precios. El `dedupe_key` va por los ids de los renglones, así que reenviar
+  no imprime dos veces. Es best effort: si encolar falla, la acción no falla y
+  responde `print_warning`, que Orden muestra. Lo imprime el equipo que en
+  Impresión tenga "Cocina" o "Barra"; `cambio` viaja con los dos.
+- **Entregar solos los productos sin estación**
+  (`WineBar.auto_deliver_no_station`). Al enviar, un renglón con estación
+  `none` (o sin estación) queda `entregado` en vez de `enviado`
+  (`sendStatusFor`).
+- **Tope de un retiro** (`WineBar.cash_out_max`, centavos, 0 = sin tope, de $1
+  a $1,000,000). `shifts.addCashOut` lo revisa **antes** de pedir aprobación, así
+  que ni el PIN de un admin lo pasa (`assertCashOutWithinCap`).
+- **Anular un retiro**, acción nueva `shifts.voidCashOut`: solo del turno
+  abierto, con motivo. El renglón queda en `amount 0` con
+  `voided_amount/at/by/void_reason`; nunca se borra, igual que un duplicado.
+  Sale del corte y del efectivo esperado, y Turno lo sigue mostrando tachado.
+  Al personal le pide aprobación del admin: es la sexta acción, `void_cash_out`
+  (`ApprovalLog.action` gana el valor).
+- Pruebas: `base44/tests/service_settings_test.ts`.
+
+**Verificado:** pruebas (650/0), lint, build, `check:functions`,
+`check:guards`, `validate:rls`; Ajustes y Turno con el build local y el backend
+simulado, a 390 y 1280 (los tres ajustes mandan el cambio correcto, el retiro
+anulado sale tachado con su motivo y "Anular" manda `voidCashOut`).
+**No verificado en este cambio:** una comanda impresa en papel.

@@ -12,7 +12,8 @@ export const current: Route = async (ctx: Ctx) => {
   const canSeeCorte = await hasPermission(ctx, 'Turno:ver_corte');
   const { cashMovements, totals, cash } = await runningTotals(ctx, shift);
   const cashOuts = cashMovements
-    .filter((m: any) => (m.amount ?? 0) !== 0)
+    // Voided withdrawals stay listed (crossed out) so the shift keeps a trace of them.
+    .filter((m: any) => (m.amount ?? 0) !== 0 || m.voided_at)
     .sort((a: any, b: any) => String(a.created_date).localeCompare(String(b.created_date)));
 
   const view = canSeeCorte ? { ...shift, expected_cash: cash.expected_cash } : redactShift(shift, false);

@@ -245,9 +245,10 @@ export default function Orden() {
   const handleSend = async () => {
     setSending(true);
     try {
-      const { sent } = await callFn('orders', 'send', { order_id: order.id });
+      const { sent, print_warning: printWarning } = await callFn('orders', 'send', { order_id: order.id });
       (sent || []).forEach((row) => mergeItem(row));
       toast({ title: 'Enviado a cocina y barra' });
+      if (printWarning) toast({ title: 'Comanda sin imprimir', description: printWarning, variant: 'destructive' });
     } catch (err) {
       toast({ title: 'No se pudo enviar', description: err.message, variant: 'destructive' });
     } finally {
@@ -258,12 +259,13 @@ export default function Orden() {
   const handleCancelItemConfirm = async ({ reason, prepared }) => {
     setCancelItemBusy(true);
     try {
-      const { item: updated } = await callFn('orders', 'cancelItem', {
+      const { item: updated, print_warning: printWarning } = await callFn('orders', 'cancelItem', {
         item_id: cancelItemTarget.id,
         reason,
         prepared,
       });
       mergeItem(updated);
+      if (printWarning) toast({ title: 'Aviso sin imprimir', description: printWarning, variant: 'destructive' });
       setCancelItemTarget(null);
     } catch (err) {
       toast({ title: 'No se pudo cancelar el renglón', description: err.message, variant: 'destructive' });

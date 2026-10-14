@@ -8,7 +8,11 @@
     "amount": { "type": "integer", "description": "Monto de la salida en centavos MXN, guardado NEGATIVO" },
     "reason": { "type": "string", "description": "Motivo del retiro" },
     "idempotency_key": { "type": "string", "description": "Llave generada en el cliente; el servidor no crea dos salidas con la misma" },
-    "created_by": { "type": "string", "description": "Email de quien registró el retiro" }
+    "created_by": { "type": "string", "description": "Email de quien registró el retiro" },
+    "voided_amount": { "type": "integer", "description": "Monto original (negativo) de un retiro anulado; el retiro anulado queda con amount 0" },
+    "voided_at": { "type": "string", "format": "date-time", "description": "Cuándo se anuló el retiro" },
+    "voided_by": { "type": "string", "description": "Email de quien anuló el retiro" },
+    "void_reason": { "type": "string", "description": "Por qué se anuló el retiro" }
   },
   "required": ["tenant_id", "shift_id", "amount"],
   "rls": {

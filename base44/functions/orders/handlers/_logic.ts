@@ -278,3 +278,13 @@ export function mergeTableIds(into: string[] | null | undefined, from: string[] 
   const set = new Set([...(into ?? []), ...(from ?? [])].filter(Boolean));
   return Array.from(set);
 }
+
+/**
+ * Status a line gets when sent. With the bar's `auto_deliver_no_station` on, a
+ * product with no station (water, a closed bottle) is delivered right away:
+ * no station shows it, so nobody could ever mark it ready (2026-10-14).
+ */
+export function sendStatusFor(station: unknown, autoDeliverNoStation: boolean): 'enviado' | 'entregado' {
+  const hasStation = station === 'kitchen' || station === 'bar';
+  return autoDeliverNoStation && !hasStation ? 'entregado' : 'enviado';
+}

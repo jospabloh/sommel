@@ -1,14 +1,16 @@
 // Turno abierto: ventas por forma de pago, salidas de efectivo y cierre.
 // El efectivo esperado solo aparece con Turno:ver_corte (el servidor no lo
 // manda si falta).
-import React from 'react';
+import React, { useState } from 'react';
 import { Banknote, LogOut, Minus } from 'lucide-react';
 import { formatMXN } from '@/lib/money';
 import { Button } from '@/components/ui/button';
 import { fmtDateTime, fmtTime } from './helpers';
+import VoidCashOutDialog from './VoidCashOutDialog';
 
-export default function OpenShiftPanel({ data, canCorte, onCashOut, onClose }) {
+export default function OpenShiftPanel({ data, canCorte, onCashOut, onClose, onChanged }) {
   const { shift, cash_outs: cashOuts, totals_by_method: totals, sales_total: salesTotal } = data;
+  const [voiding, setVoiding] = useState(null);
   return (
     <div className="space-y-5">
       <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-1">
@@ -67,15 +69,27 @@ export default function OpenShiftPanel({ data, canCorte, onCashOut, onClose }) {
               <li key={m.id} className="flex items-center gap-3 py-2">
                 <Minus className="w-4 h-4 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{m.reason}</p>
-                  <p className="text-xs text-muted-foreground">{fmtTime(m.created_date)} · {m.created_by}</p>
+                  <p className={`text-sm truncate ${m.voided_at ? 'line-through text-muted-foreground' : ''}`}>{m.reason}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {fmtTime(m.created_date)} · {m.created_by}
+                    {m.voided_at ? ` · Anulado: ${m.void_reason || ''}` : ''}
+                  </p>
                 </div>
-                <span className="tabular-nums text-sm font-medium">{formatMXN(Math.abs(m.amount))}</span>
+                <span className={`tabular-nums text-sm font-medium ${m.voided_at ? 'line-through text-muted-foreground' : ''}`}>
+                  {formatMXN(Math.abs(m.voided_at ? m.voided_amount ?? 0 : m.amount ?? 0))}
+                </span>
+                {!m.voided_at && (
+                  <Button type="button" size="sm" variant="ghost" className="h-9 shrink-0" onClick={() => setVoiding(m)}>
+                    Anular
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
         )}
       </div>
+
+      <VoidCashOutDialog movement={voiding} onOpenChange={(v) => !v && setVoiding(null)} onDone={() => onChanged?.()} />
 
       <Button type="button" className="w-full h-12 text-base" onClick={onClose}>
         <LogOut className="w-4 h-4 mr-2" /> Cerrar turno
