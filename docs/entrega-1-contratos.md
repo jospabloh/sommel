@@ -103,8 +103,10 @@ servidor; lee `PermissionProfile` del bar.
 ### `catalog`
 | action | payload | respuesta | permiso |
 |---|---|---|---|
-| `listProducts` | `{ include_inactive?: bool }` | `{ categories: Category[], products: Product[] }` — **sin `cost` ni `variants[].cost`** si falta `Menú:ver_costos` | `Menú:ver` |
+| `listProducts` | `{ include_inactive?: bool }` | `{ categories: Category[], products: Product[], extras: MenuExtra[] }` (extras inactivos solo con `include_inactive`) — **sin `cost` ni `variants[].cost`** si falta `Menú:ver_costos` | `Menú:ver` |
 | `upsertCategory` | `{ id?, name, sort?, station_default? }` | `{ category }` | `Menú:editar` |
+| `upsertExtra` | `{ id?, name, price, applies_to?, product_ids?, active?, sort? }` | `{ extra }` | `Menú:editar` |
+| `deleteExtra` | `{ id }` | `{ ok }` | `Menú:editar` |
 | `deleteCategory` | `{ id }` | `{ ok }` — 409 `category_in_use` si tiene productos | `Menú:editar` |
 | `upsertProduct` | `{ id?, name, category_id, station?, price, cost?, variants?, modifiers?, active?, seasonal? }` | `{ product }` | `Menú:editar`; `cost` solo con `Menú:ver_costos`, **si no llega se conserva el guardado** (lección `applyCost` de StockFlow) |
 | `toggleProduct` | `{ id, active }` | `{ product }` | `Menú:editar` |

@@ -6,13 +6,14 @@ import { ArrowLeft, Fingerprint, Monitor, UserRound } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { setUnlocked } from '@/lib/terminal/terminalStore';
 import { Button } from '@/components/ui/button';
-import PinPad, { PIN_MIN } from '@/components/attendance/PinPad';
+import PinPad, { pinLengthFrom } from '@/components/attendance/PinPad';
 import CameraPreview from '@/components/security/CameraPreview';
 import { usePhotoCapture } from '@/lib/camera/usePhotoCapture';
 import LockChecador from './LockChecador';
+import { useNewBuild } from '@/lib/useNewBuild';
 
 function unlockError(err) {
-  if (err.code === 'wrong_pin') return 'PIN incorrecto. Inténtalo de nuevo.';
+  if (err.code === 'wrong_pin') return 'PIN incorrecto';
   if (err.code === 'pin_locked') return err.message || 'Demasiados intentos. Espera unos minutos.';
   if (err.code === 'no_pin') return 'Esta persona todavía no crea su PIN. Créalo en Checador desde tu cuenta.';
   return err.message || 'No se pudo entrar. Intenta de nuevo.';
@@ -57,8 +58,20 @@ export default function TerminalLock() {
     load();
   }, [load]);
 
-  const submit = async () => {
-    if (busy || pin.length < PIN_MIN || !person) return;
+  // A locked terminal is nobody's work in progress, so a newer build just
+  // loads: there is no banner out here, and without this a terminal kept the
+  // build it opened with all day. Never while someone is typing a PIN or
+  // checking in; the auto-lock brings the screen back here afterwards.
+  const newBuild = useNewBuild();
+  useEffect(() => {
+    if (newBuild && !person && !checador && !busy) window.location.reload();
+  }, [newBuild, person, checador, busy]);
+
+  const pinLength = pinLengthFrom(info?.bar?.pin_length);
+
+  // PinPad calls this on the last digit, with the full PIN.
+  const submit = async (pin) => {
+    if (busy || pin.length !== pinLength || !person) return;
     setBusy(true);
     setPinError(null);
     try {
@@ -109,8 +122,14 @@ export default function TerminalLock() {
               <p className="text-muted-foreground">Escribe tu PIN para entrar</p>
             </div>
             <CameraPreview videoRef={camera.videoRef} status={camera.status} />
-            <PinPad value={pin} onChange={(v) => { setPin(v); setPinError(null); }} onSubmit={submit} disabled={busy} />
-            <p className="text-center text-sm text-destructive min-h-[1.25rem]" role="alert" aria-live="polite">{pinError}</p>
+            <PinPad
+              value={pin}
+              onChange={(v) => { setPin(v); setPinError(null); }}
+              onSubmit={submit}
+              length={pinLength}
+              error={pinError}
+              disabled={busy}
+            />
           </div>
         ) : (
           <div className="space-y-6">

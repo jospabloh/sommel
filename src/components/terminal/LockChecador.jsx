@@ -14,12 +14,14 @@ export default function LockChecador({ onExit }) {
   const [error, setError] = useState(null);
   const [picked, setPicked] = useState(null);
   const [result, setResult] = useState(null);
+  const [pinLength, setPinLength] = useState(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
       const res = await callFn('attendance', 'roster');
       setPeople(res.people || []);
+      setPinLength(res.pin_length ?? null);
     } catch (err) {
       setError(err.message || 'No se pudo cargar el equipo');
     }
@@ -43,6 +45,7 @@ export default function LockChecador({ onExit }) {
         onDone={setResult}
         onNeedPin={() => {}}
         isSelf={false}
+        pinLength={pinLength}
       />
     );
   } else if (error) {

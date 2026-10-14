@@ -39,7 +39,7 @@ salvo donde se indica.
 | `payments` | summary, applyDiscount, setTip, splitPreview, addPayment, voidPayment, requestTicket |
 | `stations` | markReady, markDelivered, undoReady, getConfig |
 | `shifts` | current, open, addCashOut, close, list, resendEmail, printCorte |
-| `catalog` | listProducts, upsertCategory, deleteCategory, upsertProduct, toggleProduct, importMenu (única ruta `allowNoTenant`, solo plataforma) |
+| `catalog` | listProducts, upsertCategory, deleteCategory, upsertProduct, toggleProduct, upsertExtra, deleteExtra, importMenu (única ruta `allowNoTenant`, solo plataforma) |
 | `inventory` | list, movements, upsertItem, addEntry, addWaste, count, linkProduct |
 | `printing` | queue, claimNext, markPrinted, markFailed, retry, reprint |
 | `reports` | summary |

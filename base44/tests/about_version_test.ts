@@ -1,5 +1,4 @@
-// Module 6 / 21: pure logic behind the About screen. (The update notice is
-// Module 30's shared src/lib/useNewVersion.js, copied from the standard.)
+// Module 6 / 21: pure logic behind the About screen and the update banner.
 // No external imports: the app's own plain-JS modules only, so this runs in
 // the sandbox exactly as it does in CI.
 //   deno test --allow-env base44/tests/about_version_test.ts
@@ -7,6 +6,8 @@
 import { APP_VERSION, CHANGELOG, RELEASE_DATE } from '../../src/lib/appConfig.js';
 // @ts-ignore: plain JS module shared with the client bundle
 import { MANUAL_SECTIONS, filterManual } from '../../src/lib/manualContent.js';
+// @ts-ignore: plain JS module shared with the client bundle
+import { entryBundleFrom, isNewerBuild } from '../../src/lib/updateCheck.js';
 
 function assert(cond: unknown, msg?: string) {
   if (!cond) throw new Error(msg ?? 'assertion failed');
@@ -46,4 +47,15 @@ Deno.test('manual search: accent and case insensitive, all terms must match', ()
   // a second term narrows, never widens
   assert(filterManual('turno cerrar').flatMap((s: { items: unknown[] }) => s.items).length <=
     filterManual('turno').flatMap((s: { items: unknown[] }) => s.items).length);
+});
+
+Deno.test('update banner: reads the entry bundle and compares hashes', () => {
+  const html = '<html><script type="module" crossorigin src="/assets/index-B1f6S-AM.js"></script></html>';
+  assertEquals(entryBundleFrom(html), '/assets/index-B1f6S-AM.js');
+  assertEquals(entryBundleFrom('<script type="module" src="/src/main.jsx"></script>'), null);
+  assertEquals(entryBundleFrom(''), null);
+  assert(isNewerBuild('/assets/index-a.js', '/assets/index-b.js'));
+  assert(!isNewerBuild('/assets/index-a.js', '/assets/index-a.js'));
+  assert(!isNewerBuild(null, '/assets/index-b.js'));
+  assert(!isNewerBuild('/assets/index-a.js', null));
 });

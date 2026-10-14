@@ -1,6 +1,7 @@
 // security.approvers: who can approve right now (any member of the bar asks,
 // since staff is the one who needs it). security.listApprovals: the log, for
 // admins with Seguridad:ver.
+import { pinLengthOf } from '../_guard_logic.ts';
 import { httpError, personName, type Ctx, type Route } from '../_guard.ts';
 import { approverList } from '../_approval_logic.ts';
 import { requireSecurityViewer } from './_shared.ts';
@@ -29,7 +30,7 @@ export const approvers: Route = async (ctx: Ctx) => {
     onShift,
     nameOf: personName,
   });
-  return { approvers: list, qr_enabled: ctx.bar?.approval_qr_enabled === true };
+  return { approvers: list, qr_enabled: ctx.bar?.approval_qr_enabled === true, pin_length: pinLengthOf(ctx.bar) };
 };
 
 export const listApprovals: Route = async (ctx: Ctx) => {

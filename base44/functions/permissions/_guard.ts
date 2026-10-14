@@ -54,6 +54,9 @@ import {
   profileKey,
   routeWantsFresh,
   personOverridesOf,
+  newRetryBudget,
+  retryOnRateLimit,
+  retryingEntities,
   type AppRole,
   type PaymentMethodDef,
 } from './_guard_logic.ts';
@@ -142,6 +145,19 @@ export interface Ctx {
   fresh?: boolean;
 }
 
+/** The service client with its `entities` retried on Base44's rate limit. */
+function withRetryingEntities<T extends object>(client: T, retry: Parameters<typeof retryingEntities>[1]): T {
+  let entities: any = null;
+  return new Proxy(client, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (prop !== 'entities' || !value) return value;
+      entities ??= retryingEntities(value, retry);
+      return entities;
+    },
+  });
+}
+
 /**
  * Builds the request context. Always re-reads the `User` row with
  * `asServiceRole` (module 22) instead of trusting `base44.auth.me()`'s own
@@ -172,14 +188,24 @@ export async function requireContext(
   // convention. Wrapping the call and mapping ANY failure here to 401 fixes
   // both; the `if (!user)` fallback stays for an SDK version that returns
   // `null`/`undefined` instead of throwing.
+  // One retry budget per request: Base44 refusing one operation for its rate
+  // limit waits and repeats that operation (see retryOnRateLimit), and the
+  // log names which one, since a 429 otherwise leaves no trace of its cause.
+  const retry = {
+    budget: newRetryBudget(),
+    onRetry: (label: string, attempt: number, waitMs: number) =>
+      console.warn(`rate_limited ${label} retry=${attempt + 1} wait=${waitMs}ms`),
+  };
   let user: any;
   try {
-    user = await base44.auth.me();
-  } catch {
+    user = await retryOnRateLimit('auth.me', () => base44.auth.me(), retry);
+  } catch (err) {
+    // A rate limit is not "signed out": it goes up as 429, not 401.
+    if (isRateLimitError(err)) throw err;
     throw new HttpError(401, 'unauthenticated', 'Inicia sesión para continuar');
   }
   if (!user) throw new HttpError(401, 'unauthenticated', 'Inicia sesión para continuar');
-  const svc = base44.asServiceRole;
+  const svc = withRetryingEntities(base44.asServiceRole, retry);
 
   const [self] = await svc.entities.User.filter({ id: user.id });
   if (!self) throw new HttpError(401, 'unauthenticated', 'Usuario no encontrado');

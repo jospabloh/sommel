@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import TicketForm from '@/components/settings/TicketForm';
 import PaymentMethodsCard from '@/components/settings/PaymentMethodsCard';
 import CorteEmailsCard from '@/components/settings/CorteEmailsCard';
+import PinLengthCard from '@/components/settings/PinLengthCard';
 import TerminalsCard from '@/components/settings/TerminalsCard';
+import TouchScreenCard from '@/components/settings/TouchScreenCard';
 import { useAuth } from '@/lib/AuthContext';
 import { isBarAdmin } from '@/lib/rbac';
 
@@ -53,6 +55,10 @@ export default function Ajustes() {
         </div>
       </div>
 
+      <div className="mb-5">
+        <TouchScreenCard />
+      </div>
+
       {error ? (
         <div className="rounded-xl border border-border bg-card p-6 text-center space-y-3">
           <p className="text-sm text-muted-foreground">{error}</p>
@@ -67,6 +73,7 @@ export default function Ajustes() {
           <TicketForm bar={bar} onSaved={setBar} />
           <PaymentMethodsCard bar={bar} onSaved={setBar} />
           <CorteEmailsCard bar={bar} onSaved={setBar} />
+          <PinLengthCard bar={bar} onSaved={setBar} />
           {showTerminals ? <TerminalsCard /> : null}
           <p className="text-sm text-muted-foreground">
             Licencia, sesiones activas, exportar datos y baja están en{' '}

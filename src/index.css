@@ -159,3 +159,56 @@
 @media (min-width: 1024px) {
   :root[data-rail-switcher] { --update-banner-left: 15rem; }
 }
+
+/*
+ * On-screen keyboard (touch mode, 2026-10-13). While it is open the page
+ * gets room under its last field, and a centred dialog moves to the top so
+ * the keyboard never covers the field being typed in. --vkb-h is measured
+ * by VirtualKeyboard.jsx.
+ */
+html.vkb-open body {
+  padding-bottom: var(--vkb-h, 18rem);
+}
+html.vkb-open [role="dialog"].top-\[50\%\],
+html.vkb-open [role="alertdialog"].top-\[50\%\] {
+  top: 0.5rem !important;
+  --tw-translate-y: 0 !important;
+  max-height: calc(100vh - var(--vkb-h, 18rem) - 1rem);
+  overflow-y: auto;
+}
+/* Drag-to-scroll in progress: no text selection under the finger. */
+html.drag-scrolling,
+html.drag-scrolling * {
+  user-select: none !important;
+  cursor: grabbing !important;
+}
+
+/* Wrong PIN: the dots shake once (PinPad.jsx). */
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-10px); }
+  40%, 80% { transform: translateX(10px); }
+}
+.pin-shake {
+  animation: pin-shake 0.4s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pin-shake { animation: none; }
+}
+
+/* Drag-to-scroll on (touch mode): like an iPad, dragging never selects text
+   or drags a link or an image; text fields keep normal selection. */
+html.drag-scroll-on body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+html.drag-scroll-on input,
+html.drag-scroll-on textarea,
+html.drag-scroll-on [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+html.drag-scroll-on img,
+html.drag-scroll-on a {
+  -webkit-user-drag: none;
+}

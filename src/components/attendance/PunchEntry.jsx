@@ -4,26 +4,28 @@ import React, { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import PinPad, { PIN_MIN } from './PinPad';
+import PinPad, { pinLengthFrom } from './PinPad';
 import CameraPreview from '@/components/security/CameraPreview';
 import { usePhotoCapture } from '@/lib/camera/usePhotoCapture';
 
 function errorText(err) {
-  if (err.code === 'wrong_pin') return 'PIN incorrecto. Inténtalo de nuevo.';
+  if (err.code === 'wrong_pin') return 'PIN incorrecto';
   if (err.code === 'pin_locked') return err.message || 'Demasiados intentos. Espera unos minutos.';
   if (err.code === 'no_pin') return 'Esta persona todavía no crea su PIN.';
   if (err.code === 'read_only') return 'El bar está en modo solo lectura. No se pueden registrar marcas.';
   return err.message || 'No se pudo registrar. Intenta de nuevo.';
 }
 
-export default function PunchEntry({ person, onBack, onDone, onNeedPin, isSelf }) {
+export default function PunchEntry({ person, onBack, onDone, onNeedPin, isSelf, pinLength }) {
+  const size = pinLengthFrom(pinLength);
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const camera = usePhotoCapture(!!person.photo_check && person.has_pin);
 
-  const submit = async () => {
-    if (busy || pin.length < PIN_MIN) return;
+  // PinPad calls this on the last digit, with the full PIN.
+  const submit = async (pin) => {
+    if (busy || pin.length !== size) return;
     setBusy(true);
     setError(null);
     try {
@@ -52,10 +54,7 @@ export default function PunchEntry({ person, onBack, onDone, onNeedPin, isSelf }
         </p>
       </div>
       <CameraPreview videoRef={camera.videoRef} status={camera.status} />
-      <PinPad value={pin} onChange={(v) => { setPin(v); setError(null); }} onSubmit={submit} disabled={busy} />
-      <p className="text-center text-sm text-destructive min-h-[1.25rem]" role="alert" aria-live="polite">
-        {error}
-      </p>
+      <PinPad value={pin} onChange={(v) => { setPin(v); setError(null); }} onSubmit={submit} length={size} error={error} disabled={busy} />
       {!person.has_pin ? (
         <p className="text-center text-sm text-muted-foreground">
           Esta persona todavía no tiene PIN.{' '}

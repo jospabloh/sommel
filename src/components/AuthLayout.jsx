@@ -1,4 +1,6 @@
 import React from "react";
+import { Keyboard } from "lucide-react";
+import { setTouchPrefs, useTouchPrefs } from "@/lib/touch/touchPrefs";
 
 // Same SOMMEL logo Layout.jsx shows in the sidebar. Never a tenant's logo:
 // the login page is shown before anyone belongs to a bar.
@@ -26,6 +28,7 @@ export default function AuthLayout({
   headlineAccent = "bajo control.",
   description = "Comandas a barra y cocina, cobros, turnos y checador del equipo, en un solo lugar.",
 }) {
+  const { keyboard } = useTouchPrefs();
   return (
     <div className="min-h-screen bg-background text-foreground lg:grid lg:grid-cols-2">
       {/* Form column */}
@@ -49,6 +52,17 @@ export default function AuthLayout({
           {children}
 
           {footer && <p className="mt-6 text-center text-sm text-muted-foreground">{footer}</p>}
+
+          {/* A touch screen with no keyboard cannot type the email before it
+              reaches Ajustes > "Esta pantalla", so the switch is here too. */}
+          <button
+            type="button"
+            onClick={() => setTouchPrefs({ keyboard: !keyboard })}
+            className="mx-auto mt-4 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <Keyboard className="h-4 w-4" aria-hidden="true" />
+            {keyboard ? "Quitar teclado en pantalla" : "Usar teclado en pantalla"}
+          </button>
         </div>
 
         <div className="space-y-1 px-10 pb-12 text-center text-xs text-muted-foreground lg:px-0 lg:pb-0">

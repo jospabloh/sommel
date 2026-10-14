@@ -1293,6 +1293,316 @@ solo en el navegador; la renovación del pase sigue cada 5 min).
 **No verificado:** la ventana en una terminal real a 390/1440. Solo se probó
 la lógica, y el build pasa.
 
+## Modo pantalla táctil: teclado en pantalla y desplazar arrastrando (2026-10-13)
+
+Pedido de José para la caja táctil sin teclado. Dos opciones **por equipo**
+(`localStorage` `sommel.touch`, `src/lib/touch/touchPrefs.js`), en Ajustes →
+"Esta pantalla"; el teclado también se enciende desde el login
+(`AuthLayout`), porque sin teclado no se puede escribir el correo para llegar a
+Ajustes. Las dos vienen apagadas.
+
+- **Teclado** (`components/touch/VirtualKeyboard.jsx`, montado en `main.jsx`
+  fuera del router): sale al enfocar un campo de texto (`keyboardFor`); numérico
+  para `type=number/tel` o `inputmode` numérico. Las teclas actúan en
+  `pointerdown` con `preventDefault` + `stopPropagation`: el campo no pierde el
+  foco y un diálogo de Radix no lo toma como "clic afuera". Escribe con el setter
+  nativo + evento `input`, así los campos controlados de React se actualizan.
+  `pointer-events: auto` explícito porque un modal pone `none` en `<body>`.
+  Con el teclado abierto, `html.vkb-open` da espacio abajo y sube los diálogos
+  centrados. `´` acentúa la siguiente vocal. `data-no-vkeyboard` lo excluye.
+- **Desplazar arrastrando** (`lib/touch/dragScroll.js`): solo para punteros
+  `mouse`/`pen`; un toque táctil real ya desplaza solo. [Probable, no medido en la
+  caja] la pantalla táctil de la caja se reporta como mouse. Tras 8 px de
+  movimiento desplaza la caja con scroll más cercana y se traga el clic
+  siguiente; no arranca en campos de texto, selects, sliders ni
+  `data-no-drag-scroll`.
+- Pruebas: `base44/tests/touch_mode_test.ts`. Verificado con el build local en
+  `/login`, **sin una sola petición a Base44** (bloqueadas en la prueba), a 390 y
+  1280: el teclado escribe en el campo sin quitarle el foco, y un arrastre con
+  mouse desplaza una lista sin abrir el botón donde empezó, mientras un toque sí
+  lo abre. **No verificado:** en la pantalla táctil real, dentro de un diálogo
+  real y en las pantallas con sesión.
+
+## Registro de avisos "ocupado" por equipo (2026-10-13)
+
+José vio varios "Hay muchas solicitudes seguidas" con una sola persona en la
+terminal y no se pudo saber cuándo: un 429 de la cuota de Base44 se corta antes
+de llegar a las funciones, así que **no aparece en los logs de funciones**.
+`callFn` ahora anota cada 429 (hora, pantalla, función, acción, intento) en el
+navegador (`src/lib/rateLog.js`, `sommel.rateLog`, los últimos 50) y **Acerca**
+los muestra si hay alguno. Solo cubre llamadas por `callFn`; las lecturas y
+suscripciones directas a entidades no pasan por ahí.
+
+Causa más probable del episodio del 2026-10-13 [Probable, no confirmado]: pruebas
+automáticas de navegador de Claude contra producción con la misma cuenta y bar
+que José estaba usando, a la misma hora. Por eso la regla: **una prueba
+automática no inicia sesión en producción con la cuenta de José, y si no
+necesita backend, bloquea las peticiones a Base44** (como la del modo táctil).
+
+## Propina por cada pago al dividir la cuenta (2026-10-13)
+
+Decisión de José: al dividir (partes iguales o por platillos), cada quien deja
+su propina: Sin / 10 / 15 / 20 % de **su parte** / Otra (monto). En "cuenta
+completa" sigue la propina general de siempre (`setTip`).
+
+- `addPayment` recibe `tip: { pct } | { amount }` además de `amount` (la parte de
+  la cuenta). El pago guarda `amount + tip` y `Payment.tip`; la propina no cuenta
+  contra lo que falta.
+- **`Order.tip` = suma de `Payment.tip` de los pagos vivos**, recalculada desde
+  los pagos (no sumando al valor guardado), así dos cobros a la vez no se pisan y
+  un duplicado neutralizado no cuenta dos veces. `voidPayment` la recalcula si el
+  pago anulado tenía propina. Corte, reportes y "falta" no cambiaron.
+- Solo mientras la cuenta no tenga propina general: con `tip_pct` o una propina
+  fija puesta antes de pagar responde 409 `order_tip_set` (esa ya va prorrateada
+  en cada parte; sumarle otra la cobraría dos veces). `canTipPerPayment`.
+- `splitPreview` por platillos divide sobre el total **sin** las propinas que ya
+  dejaron otros (`billTotalForSplit`); si no, el segundo pagaba parte de la
+  propina del primero.
+- Pruebas: `base44/tests/payment_tip_test.ts`. Esquema: `Payment.tip` nuevo (se
+  sincroniza de GitHub; publicar después del sync). **No verificado:** un cobro
+  real dividido con propinas contra Base44, y la pantalla de cobro a 390 px.
+
+## Extras con precio (2026-10-13)
+
+Pedido de José: cada producto puede ofrecer extras con precio (Shot extra $15,
+Leche de almendra $10), se crean donde se crea el menú y aplican a un producto
+concreto o a todos. Los extras tienen **precio y ningún costo** (confirmado por
+José). **Código en el repo; nada publicado ni verificado en vivo.**
+
+**Es un concepto aparte de `Product.modifiers`**, que sigue igual (key/label,
+gratis, definido dentro de cada producto).
+
+- **Entidad `MenuExtra`** (`tenant_id`, `name`, `price` en centavos, `applies_to`
+  `all|products`, `product_ids`, `active`, `sort`). RLS idéntica a `Category`
+  (lectura del inquilino más rama de plataforma; create/update/delete solo
+  `role:admin`). No entra al manifiesto de bloqueos: `Category` tampoco está ahí y
+  no hay campo ni operación con candado propio. `OrderItem.extras` guarda
+  `{id, name, price}` **congelado** al agregar el renglón.
+- **`catalog.upsertExtra` / `deleteExtra`**: mismos guardias y orden que
+  `upsertProduct` (`loadOwned` al editar, `Menú:editar`, `requireWritable`,
+  validar, escribir). Nombre 1 a 60 caracteres, precio entero 0 a 1,000,000
+  centavos, `product_ids` solo con `products` (con `all` se guarda `[]`), sin
+  duplicados, y cada id debe ser un `Product` del inquilino (una sola lectura
+  filtrada por inquilino; un id ajeno responde 404 igual que uno inexistente).
+  `listProducts` devuelve también `extras` (los inactivos solo con
+  `include_inactive`, que ya usa el editor del menú); si leer `MenuExtra` falla
+  responde `extras: []` para no tumbar el menú.
+- **`orders.addItems` acepta `extras: [ids]` por renglón.** Lee los `MenuExtra`
+  del inquilino de la **orden almacenada** una sola vez por llamada, y solo si
+  algún renglón pide extras. `resolveExtras` (`orders/handlers/_logic.ts`, puro)
+  rechaza con 400: `extra_not_found` (id desconocido, no cadena o de otro bar),
+  `extra_inactive`, `extra_not_applicable`, `extra_duplicate`, `extras_invalid`
+  (no es lista o más de 20) e `invalid_price` (un extra guardado con precio roto
+  nunca se cobra como 0).
+- **Reglas que no se rompen:** `unit_price` del renglón = precio base (variante o
+  producto) + suma de los extras, así que totales, pagos, división de cuenta y
+  reportes funcionan sin tocarlos. `unit_cost` sigue siendo el costo base: los
+  extras no tienen costo, y por eso no hay nada que redactar sin `Menú:ver_costos`.
+  El cliente solo manda ids; nombre y precio salen siempre del registro guardado.
+  **`updateItem` no acepta cambios de extras** (nunca reprecia): para otro extra se
+  quita el renglón y se agrega de nuevo. El precio de la hoja de opciones es solo
+  vista previa.
+- **Cliente.** Menú gana la pestaña **Extras** (`ExtrasSection`, `ExtraFormDialog`,
+  con el mismo `Menú:editar`; quien solo ve el menú la ve sin botones): lista con
+  precio y "Todos los productos" / "N productos", alta y edición (precio en pesos
+  convertido a centavos por `pesosInputToCents`, que rechaza 3 decimales en vez de
+  redondear), selector de productos con búsqueda, interruptor de activo y borrar
+  con confirmación. `ProductPicker` toma los extras de la misma respuesta de
+  `listProducts` (cero peticiones nuevas) y `VariantModifierSheet` los muestra con
+  "+$15.00" y los suma al precio del botón. Esa hoja ya se abría siempre al elegir
+  un producto, así que un producto sin variantes ni modificadores pero con extras
+  no necesitó cambio de flujo. Los extras salen en el renglón de la orden, en la
+  división de cuenta, en cocina y barra (`lineSubtitle`, igual que los
+  modificadores) y en el ticket como subrenglón `  + Shot extra`.
+  `MenuExtra` entra a la exportación de datos de la cuenta. Manual: sección
+  "Menú y extras".
+- **Pruebas:** `base44/tests/menu_extras_test.ts` (28): aplica a todos, a un
+  producto, no aplica, inactivo, id desconocido y ajeno, duplicado, suma,
+  `unit_price = base + extras` con y sin variante, `unit_cost` intacto, totales,
+  normalización y validación del catálogo, ticket y ayudantes del cliente.
+
+**Orden de despliegue (importa):** los esquemas de entidades se sincronizan desde
+GitHub `main`, así que **`MenuExtra` y `OrderItem.extras` tienen que estar en el
+esquema desplegado antes de publicar las funciones** (releer con
+`list_entity_schemas`). Con las funciones nuevas y sin `OrderItem.extras`, Base44
+descarta el campo en silencio (el renglón se guarda con el precio sumado pero sin
+mostrar sus extras); sin `MenuExtra`, `upsertExtra` falla y `addItems` con extras
+responde 500. Luego publicar funciones y sitio. Verificar por contenido: llamar
+`catalog` con `{action:'upsertExtra'}` sin sesión debe dar 401 (no `unknown
+action`), y buscar "Nuevo extra" en el bundle servido.
+
+**Verificado:** `npm run lint` (22 de 40 endpoints, 35 bloqueos), `build`,
+`validate:rls` (27 entidades, 14 con inquilino; la cifra 19/13 de arriba ya estaba
+vieja), `validate:tenant-roles`, `check:guards` (50, sin deriva),
+`check:functions`, `deno test` con el comando de CI (609/0) y `deno lint` limpio.
+**No verificado:** nada contra Base44 (los `entry.ts` importan `npm:@base44/sdk`);
+las pantallas (Menú > Extras, la hoja de opciones con extras, la orden, cocina y
+barra) a 390/834/1440 en claro y oscuro; un ticket impreso con extras en papel; una
+sesión de staff sin `Menú:editar` viendo la pestaña Extras de solo lectura.
+
+### Desplazar con el dedo: encendido de fábrica y también con toque real (2026-10-13)
+
+José probó en la caja y el dedo no desplazaba: la opción venía **apagada** y solo
+atendía punteros `mouse`/`pen`. Ahora viene encendida (solo un `false` explícito
+la apaga) y atiende también `touch`, con umbral de 24 px: si el navegador hace su
+propio desplazamiento táctil, manda `pointercancel` antes y el código se hace a
+un lado, sin doble desplazamiento. Simulado en Chromium (dedo por CDP y mouse,
+arrastre de 150 px): 135 px nativo, 150 px con `touch-action: none`, 150 px con
+mouse. **No verificado** en la pantalla táctil de la caja.
+
+## PIN de largo fijo: entra al último dígito (2026-10-13)
+
+Pedido de José: "que entre de una vez" al escribir el PIN correcto, y si no, que
+el teclado tiemble con "PIN incorrecto". Todos los PINs del bar miden
+`WineBar.pin_length` (4 por defecto; el admin elige 5 o 6 en Ajustes → PIN del
+equipo). `PinPad` llama `onSubmit(pin)` solo al teclear el último dígito y ya no
+tiene botón "Listo"; con `error` los puntos tiemblan (`.pin-shake`, sin animación
+con `prefers-reduced-motion`) y el mensaje sale debajo.
+
+- **El costo, aceptado por José:** el largo del PIN deja de ser secreto. Probar
+  en cada dígito sin largo fijo habría gastado intentos fallidos y bloqueado el
+  PIN a los 15 min, por eso no se hizo así.
+- Crear o cambiar un PIN exige exactamente ese largo (`setMyPin`,
+  `terminals.addPerson/setPersonPin`); verificar sigue aceptando 4 a 6, así que
+  cambiar el largo no rompe el servidor, pero un PIN de otro largo ya no se
+  puede teclear y hay que volver a ponerlo.
+- El largo viaja en las respuestas que esas pantallas ya pedían (`whoAmI`,
+  `attendance.roster`, `security.approvers`, `manageStaff.list`, `settings.get`):
+  ninguna petición nueva.
+- `pinLengthOf` vive en `_guard_logic.ts` y una copia en
+  `manageStaff/_member_logic.ts`; `base44/tests/pin_length_test.ts` las amarra.
+- PINs vivos el 2026-10-13: 5, todos de Sommel QA (bar de prueba). Su largo no se
+  puede saber (solo hay hash); el que no sea de 4 hay que volver a ponerlo.
+- **No verificado:** las pantallas (terminal, checador, aprobación) en navegador
+  ni contra Base44.
+
+### Desplazamiento tipo iPad en la PC táctil (2026-10-13)
+
+José: en la all-in-one táctil (Windows) el scroll "no funciona tan bien"; tiene
+que sentirse como en el iPad. [Probable, por confirmar con la prueba de abajo]
+esa pantalla le llega a Chrome como **mouse**, así que no hay desplazamiento
+nativo y todo depende de `dragScroll.js`, que ahora:
+- sigue al dedo 1:1 y, al soltar rápido, sigue deslizando con la curva de iOS
+  (`releaseVelocity` sobre los últimos 100 ms, `flingDistance` = v × 325 ms,
+  `flingRemaining` = e^(−t/325)); si el dedo se detuvo antes de soltar, no desliza;
+- fija el eje dominante (`lockAxis`: una lista vertical no se mueve de lado);
+- ~~pasa el resto del arrastre a la caja de afuera cuando la lista llega a su
+  final~~ **corregido el mismo día**: así, arrastrar el menú lateral movía toda la
+  app (José). Ahora, como en iPad, el gesto se queda en la caja donde empezó
+  (`chooseBox` al pasar el umbral: la más cercana que pueda moverse en esa
+  dirección, si no la más cercana con scroll en ese eje, que solo se queda en su
+  tope), y la cadena se corta en un ancestro `fixed`/`sticky` (menú lateral,
+  diálogos), así que nada de adentro mueve lo de atrás. Simulado con el mismo
+  esquema de `Layout` (aside sticky + nav con scroll, página larga): menú arriba y
+  arrastre hacia abajo no mueve nada; subir el menú mueve 200 px el menú y 0 la
+  página; menú al final y seguir no mueve la página; arrastrar el contenido mueve
+  la página 200 px;
+- con la opción encendida (`html.drag-scroll-on`) arrastrar no selecciona texto
+  ni jala imágenes o links (`user-select` y `-webkit-user-drag`, y `dragstart`
+  cancelado); los campos de texto conservan la selección normal.
+
+**Ajustes → Esta pantalla → "Probar esta pantalla"** dice cómo llega el dedo
+(táctil, mouse o lápiz) y `navigator.maxTouchPoints`, con una lista para probar.
+Es la forma de dejar de suponer el tipo de pantalla.
+
+Simulado en Chromium con un dedo que llega como mouse, sin peticiones a Base44:
+arrastre lento de 150 px = 150 px; flick de 120 px = 433 px; lista al final pasa
+a la página (150 px); un toque abre el botón; nada queda seleccionado. **No
+verificado** en la PC táctil.
+
+### La terminal bloqueada no se actualizaba (2026-10-13)
+
+José seguía viendo el teclado viejo (6 espacios y botón) después de publicar el
+de 4 dígitos. Lo servido estaba bien (`pin-shake` en el bundle); la terminal no.
+`AppUpdateBanner` vive en `Layout`, y la pantalla bloqueada ("¿Quién eres?") está
+**fuera** de `Layout`: una terminal que pasa el día bloqueada nunca veía el aviso
+y seguía con la versión con la que abrió. Ahora `useNewBuild`
+(`src/lib/useNewBuild.js`, compartido con el aviso) corre también en
+`TerminalLock`, y si hay versión nueva **recarga sola**, salvo mientras alguien
+teclea un PIN o checa (el bloqueo automático la regresa ahí después). La primera
+vez hay que recargar a mano para tomar este cambio.
+
+### Teclado en pantalla: franja con lo que se escribe (2026-10-13)
+
+José: el teclado tapaba el campo y no se veía lo escrito. Arriba de las teclas
+hay ahora una franja con el nombre del campo (su `<label>`, `aria-label` o
+`placeholder`) y su valor, con cursor; las contraseñas salen como puntos y el
+texto largo muestra su final. Sigue también lo que cambie el campo por su
+cuenta (evento `input`). Verificado en `/login` local sin peticiones a Base44:
+"Correo · ana@" y "Contraseña · •••". La prueba de pantalla de la caja confirmó
+el 2026-10-13 que el dedo llega como **mouse** con `maxTouchPoints` 10 (pantalla
+táctil real, convertida a mouse antes de Chrome).
+
+## Los 429 del cobro se absorben en vez de mostrarse (2026-10-14)
+
+José vio "Hay muchas solicitudes seguidas" al cobrar una cuenta dividida y
+"Se imprimió, pero no se pudo confirmar" justo después. Los logs de `payments`
+dan siete `POST → 429` entre las 02:08:24 y las 02:08:38 UTC. En esos minutos
+todas las funciones juntas recibieron solo **15 a 20 llamadas por minuto**.
+[Probable] la cuota se gasta en **operaciones de entidad**, no en llamadas: un
+cobro que cierra la cuenta hace docenas (pagos, totales, mesas, inventario por
+renglón). Base44 rechaza **una** de ellas y la acción entera fallaba.
+
+- **Servidor:** el guard envuelve `ctx.svc.entities` (`retryingEntities` en
+  `_guard_logic.ts`). Una operación rechazada por el límite espera 0.4, 1.2 y
+  2.5 s y se repite **solo esa operación**. El tope es de 7 s de espera por
+  petición, sumando todas sus operaciones, para no machacar una cuota agotada.
+  Cualquier otro error no se repite. `auth.me()` también se repite, y un 429
+  ahí ya no se confunde con "Inicia sesión" (antes respondía 401).
+- **Los logs de la función ahora dicen qué se rechazó:**
+  `rate_limited Payment.filter retry=1 wait=400ms`. Es la forma de dejar de
+  suponer qué gasta la cuota.
+- **Cliente:** además de las lecturas, se reintentan `payments.addPayment`
+  (la misma `idempotency_key` devuelve su pago), `payments.requestTicket`
+  (`dedupe_key`) y `printing.markPrinted`/`markFailed` (marcar dos veces no hace
+  nada): `IDEMPOTENT_WRITES` en `src/lib/retryPolicy.js`. Esto cambia la regla
+  de 2026-10-06 ("las escrituras nunca se reintentan"): solo se reintenta una
+  escritura que el servidor ya hace idempotente. **No** entran `claimNext`,
+  `voidPayment`, `addItems` ni nada sin esa garantía.
+- Pruebas: `base44/tests/rate_limit_retry_test.ts`.
+
+**Supuesto no verificado:** que Base44 rechace una operación **antes** de
+ejecutarla. Es lo normal en un límite de tasa, y los creates que importan
+(pago, ticket, inventario) se reconcilian por llave de todos modos.
+**Lo que esto no arregla:** el techo sigue siendo de toda la app. Si la cuota
+se agota una ventana entera, el cobro tarda unos segundos más y, pasado el
+tope, el aviso vuelve a salir. Bajar operaciones por cobro y preguntarle a
+Base44 el límite real siguen pendientes.
+
+### Propina propia también al volver a cobrar una parte anulada (2026-10-14)
+
+José anuló una parte de una cuenta dividida y, al volver a cobrarla, ya no le
+salía la propina. El panel de cobro se reabre en "Cuenta completa", y ahí la
+propina por pago no se mostraba. El botón de propina general también estaba
+bloqueado, porque el pago que quedó vivo cuenta como cobro ya registrado. Nada
+dejaba poner propina. Ahora "Cuenta completa" también ofrece la propina de
+**ese** pago cuando la cuenta ya tiene pagos vivos (`src/lib/paymentTipRule.js`).
+El servidor no cambió: `canTipPerPayment` nunca miró el modo. Prueba en
+`payment_tip_test.ts`, que además amarra la regla del cliente con la del
+servidor. **No verificado:** la pantalla en la caja.
+
+## Pantalla en blanco al cerrar "Ligar productos" (2026-10-14)
+
+José: en Inventario, abrir "Ligar productos" y cerrar dejaba la pantalla en
+blanco. **Causa:** una ventana con `open={!!item}` se sigue dibujando durante su
+animación de salida, ya con `item` en `null`, y `ProductLinkRow` leía
+`item.id`. "Historial" tenía el mismo defecto (`unitShort(item.unit)`). Y como
+la app no tenía ningún atrapa-errores de React, cualquier tronido al dibujar
+dejaba todo en blanco y sin salida.
+- `useLastValue` (`src/lib/useLastValue.js`): la ventana dibuja el último valor
+  que tuvo mientras se cierra. Se usa en `LinkProductsDialog` y `MovementsDialog`.
+  Las demás ventanas con el mismo patrón se revisaron una por una (13): o se
+  salen antes con `if (!x) return null`, o usan `x?.`, o solo leen el valor en
+  un manejador de evento.
+- `PageErrorBoundary` envuelve el `<Outlet />` de `Layout` (con
+  `key={location.pathname}`, así que cambiar de pantalla lo limpia). Un tronido
+  ahora muestra "Esta pantalla tuvo un error" con "Volver a intentar" y
+  "Recargar"; el menú sigue funcionando.
+- **Verificado** con el build local y el backend **simulado por completo** (cero
+  peticiones a Base44): sin el arreglo, la prueba reproduce el blanco con
+  `TypeError: Cannot read properties of null (reading 'id')`; con él, abrir y
+  cerrar las dos ventanas deja la pantalla intacta y no hay errores.
+
 ## Módulo 30: aviso de versión nueva (2026-10-13)
 
 `src/lib/useNewVersion.js` y `src/components/UpdateBanner.jsx` son copia exacta
@@ -1301,9 +1611,10 @@ copian, no se editan aquí. `<UpdateBanner />` se monta en `src/main.jsx` junto 
 `<ThemeSwitcher />`, fuera del router, así que también avisa en `/login`.
 
 Reemplaza a `AppUpdateBanner` (módulo 21, dentro de `Layout`): hacían lo mismo,
-y con los dos montados un deploy mostraba dos avisos. Se borraron
-`AppUpdateBanner.jsx`, `src/lib/updateCheck.js` y su prueba en
-`about_version_test.ts`. El nuevo compara también el CSS y avisa en el login y
+y con los dos montados un deploy mostraba dos avisos. Se borró
+`AppUpdateBanner.jsx`. `src/lib/updateCheck.js` y su prueba se quedan: los usa
+`useNewBuild.js` para que la terminal bloqueada se recargue sola (#71), que está
+fuera de `Layout` y no muestra el aviso. El nuevo compara también el CSS y avisa en el login y
 en el 404, que el viejo (montado en `Layout`) no cubría.
 
 Sin `--update-banner-top`: Sommel no tiene barra superior. Su menú lateral

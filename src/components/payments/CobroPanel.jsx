@@ -20,6 +20,8 @@ import TipDialog from './TipDialog';
 import VoidPaymentDialog from './VoidPaymentDialog';
 import PaymentsList from './PaymentsList';
 import SplitSection from './SplitSection';
+import PaymentTip, { tipCentsOf, tipPayload } from './PaymentTip';
+import { canTipThisPayment as canTipPayment } from '@/lib/paymentTipRule';
 import { useAttemptKey } from './useAttemptKey';
 
 function pesosString(cents) {
@@ -51,6 +53,7 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
 
   const [discountOpen, setDiscountOpen] = useState(false);
   const [tipOpen, setTipOpen] = useState(false);
+  const [payTip, setPayTip] = useState({ kind: 'none' }); // tip of THIS payment, split modes only
   const [voidTarget, setVoidTarget] = useState(null);
   const [ticketBusy, setTicketBusy] = useState(false);
 
@@ -78,6 +81,7 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
     setPaidItemIds(new Set());
     setAmountStr(null);
     setReceived('');
+    setPayTip({ kind: 'none' });
     load();
   }, [open, load]);
 
@@ -129,19 +133,26 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
   if (mode === 'items') suggested = itemsAmount ?? 0;
   const amount = amountStr !== null ? pesosToCents(Number(amountStr) || 0) : suggested;
 
+  // Tip per payment: see src/lib/paymentTipRule.js.
+  const canTipThisPayment = canTipPayment({ mode, order, livePayments });
+  const tipCents = canTipThisPayment ? tipCentsOf(payTip, amount) : 0;
+  const charge = amount + tipCents;
+
   const receivedCents = received === '' ? null : pesosToCents(Number(received) || 0);
-  const cashShort = !!method?.is_cash && receivedCents !== null && receivedCents < amount;
-  const estimatedChange = method?.is_cash && receivedCents !== null && receivedCents > amount ? receivedCents - amount : 0;
+  const cashShort = !!method?.is_cash && receivedCents !== null && receivedCents < charge;
+  const estimatedChange = method?.is_cash && receivedCents !== null && receivedCents > charge ? receivedCents - charge : 0;
   const canPay = isOpenOrder && !!method && amount > 0 && amount <= remaining && !cashShort && !busy && data?.shift_open !== false;
 
   const resetEntry = () => {
     setReceived('');
     setAmountStr(null);
+    setPayTip({ kind: 'none' });
   };
 
   const handleModeChange = (next) => {
     setMode(next);
     setAmountStr(null);
+    setPayTip({ kind: 'none' });
     setSelectedIds(new Set());
     setItemsAmount(null);
     if (next === 'equal' && partsDone === 0) setPartsTotal((p) => Math.max(2, p));
@@ -171,8 +182,10 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
         order_id: orderId,
         method: method.key,
         amount,
-        idempotency_key: keyFor(orderId, method.key, amount),
+        idempotency_key: keyFor(orderId, method.key, charge),
       };
+      const tip = canTipThisPayment ? tipPayload(payTip) : undefined;
+      if (tip && tipCents > 0) payload.tip = tip;
       if (method.is_cash && receivedCents !== null) payload.received = receivedCents;
       const label = splitLabel();
       if (label) payload.split_label = label;
@@ -398,6 +411,10 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
                     />
                   </div>
 
+                  {canTipThisPayment && (
+                    <PaymentTip value={payTip} onChange={setPayTip} portion={amount} disabled={busy} />
+                  )}
+
                   <div className="space-y-1.5">
                     <Label>Forma de pago</Label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -433,7 +450,7 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
                       <CashKeypad
                         value={received}
                         onChange={setReceived}
-                        onExact={() => setReceived(pesosString(amount))}
+                        onExact={() => setReceived(pesosString(charge))}
                         disabled={busy}
                       />
                       {cashShort && <p className="text-xs text-destructive">El efectivo recibido no alcanza.</p>}
@@ -447,7 +464,11 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
                   )}
 
                   <Button className="w-full h-14 text-base" disabled={!canPay} onClick={handlePay}>
-                    {busy ? 'Cobrando…' : `Cobrar ${formatMXN(amount)}`}
+                    {busy
+                      ? 'Cobrando…'
+                      : tipCents > 0
+                        ? `Cobrar ${formatMXN(charge)} (incluye ${formatMXN(tipCents)} de propina)`
+                        : `Cobrar ${formatMXN(amount)}`}
                   </Button>
                 </>
               )}

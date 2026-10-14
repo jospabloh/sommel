@@ -42,6 +42,34 @@ export const MANUAL_SECTIONS = [
     ],
   },
   {
+    id: 'menu',
+    title: 'Menú y extras',
+    summary: 'Productos, categorías y extras con precio.',
+    keywords: ['extra', 'extras', 'shot', 'leche', 'adicional', 'complemento', 'precio', 'producto', 'categoria'],
+    items: [
+      {
+        q: '¿Cómo creo un extra con precio?',
+        a: 'Entra a Menú y toca la pestaña Extras. Toca Extra, escribe el nombre (por ejemplo, Shot extra) y su precio, y guarda. Cuando alguien tome una orden, el extra aparece como opción con su precio.',
+      },
+      {
+        q: '¿Cómo hago que un extra solo salga en algunos productos?',
+        a: 'Al crear o editar el extra elige Solo algunos productos y marca los que quieras. Con Todos los productos, el extra se ofrece en todo el menú.',
+      },
+      {
+        q: '¿Cómo agrego un extra a un renglón de la orden?',
+        a: 'Al elegir el producto, en la hoja de opciones marca los extras que pide el cliente. El precio del renglón sube lo que cuesta cada extra, y el extra se ve debajo del producto en la orden, en cocina y barra, y en el ticket.',
+      },
+      {
+        q: '¿Cómo pauso o quito un extra?',
+        a: 'En Extras usa el interruptor para desactivarlo: deja de ofrecerse pero lo puedes volver a activar. El bote de basura lo elimina. Las órdenes que ya lo llevaban no cambian.',
+      },
+      {
+        q: '¿En qué se diferencia un extra de un modificador?',
+        a: 'Un modificador (por ejemplo, sin hielo) no cuesta nada y se define dentro de cada producto. Un extra tiene precio, se crea en la pestaña Extras y puede servir para varios productos.',
+      },
+    ],
+  },
+  {
     id: 'cocina-barra',
     title: 'Cocina y barra',
     summary: 'Las estaciones donde llegan los renglones enviados.',
@@ -86,6 +114,10 @@ export const MANUAL_SECTIONS = [
       {
         q: '¿Cómo agrego propina?',
         a: 'En la pantalla de cobro puedes capturar la propina en monto o en porcentaje. Es opcional y se define antes del primer pago.',
+      },
+      {
+        q: 'Dividí la cuenta, ¿cada quien puede dejar su propina?',
+        a: 'Sí. Al dividir en partes iguales o por platillos aparece Propina de este pago: Sin, 10, 15 o 20 % de su parte, u Otra para un monto. Se suma a lo que paga esa persona y no cambia lo que deben los demás. Si la cuenta ya tenía una propina general, quítala primero.',
       },
       {
         q: '¿Cómo hago un descuento o una cortesía?',
@@ -225,7 +257,7 @@ export const MANUAL_SECTIONS = [
       },
       {
         q: '¿Cómo creo mi PIN?',
-        a: 'La primera vez, el Checador te pide crear un PIN de 4 a 6 números. Para cambiarlo después necesitas escribir el actual.',
+        a: 'La primera vez, el Checador te pide crear tu PIN: de 4 números, salvo que el administrador elija 5 o 6 en Ajustes. Al escribir el último número entra solo; si el PIN no es correcto, el teclado tiembla y dice PIN incorrecto. Para cambiarlo después necesitas escribir el actual.',
       },
       {
         q: 'Escribí mal mi PIN varias veces',
@@ -281,7 +313,7 @@ export const MANUAL_SECTIONS = [
     id: 'ajustes',
     title: 'Ajustes del bar',
     summary: 'Datos del ticket, formas de pago y correos del corte.',
-    keywords: ['ticket', 'encabezado', 'pie', 'rfc', 'direccion', 'formas de pago', 'vales', 'correos', 'corte', 'configuracion'],
+    keywords: ['ticket', 'encabezado', 'pie', 'rfc', 'direccion', 'formas de pago', 'vales', 'correos', 'corte', 'configuracion', 'teclado', 'tactil', 'touch', 'desplazar', 'scroll'],
     items: [
       {
         q: '¿Qué puedo configurar?',
@@ -294,6 +326,10 @@ export const MANUAL_SECTIONS = [
       {
         q: 'Mi corte no me llega por correo',
         a: 'Revisa que tu correo esté en la lista de correos del corte en Ajustes. Sin destinatarios, el corte se guarda pero no se envía; puedes reenviarlo después desde Turno.',
+      },
+      {
+        q: 'Mi pantalla táctil no tiene teclado o no deja desplazar con el dedo',
+        a: 'En Ajustes, en Esta pantalla, enciende Teclado en pantalla (aparece al tocar un campo) y Desplazar arrastrando el dedo. Solo cambia ese equipo. En la pantalla de inicio de sesión también está el botón Usar teclado en pantalla, para poder escribir el correo la primera vez.',
       },
     ],
   },

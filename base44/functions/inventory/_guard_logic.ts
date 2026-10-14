@@ -169,6 +169,96 @@ export function isRateLimitError(error: unknown): boolean {
   return /rate limit/i.test(message);
 }
 
+// ---- Base44 rate limit, absorbed inside the function (2026-10-14) ----
+// José hit "Hay muchas solicitudes seguidas" in the middle of a cobro: Base44
+// refused ONE entity operation of the dozen a payment makes, and the whole
+// action failed. A refused operation did not run, so the function waits a
+// moment and repeats just that operation. The waits are capped per request
+// (`budgetMs`): under a quota that stays exhausted for a full window, retrying
+// forever would only spend more of it.
+export const ENTITY_RETRY_DELAYS_MS = [400, 1200, 2500];
+export const ENTITY_RETRY_BUDGET_MS = 7000;
+
+export interface RetryBudget {
+  spentMs: number;
+  budgetMs: number;
+}
+
+export function newRetryBudget(budgetMs = ENTITY_RETRY_BUDGET_MS): RetryBudget {
+  return { spentMs: 0, budgetMs };
+}
+
+/** Wait before retry `attempt` (0-based), or null when out of retries or budget. */
+export function entityRetryDelay(attempt: number, budget: RetryBudget, random: () => number = Math.random): number | null {
+  if (attempt < 0 || attempt >= ENTITY_RETRY_DELAYS_MS.length) return null;
+  const base = ENTITY_RETRY_DELAYS_MS[attempt];
+  const wait = Math.round(base + base * 0.3 * random());
+  if (budget.spentMs + wait > budget.budgetMs) return null;
+  return wait;
+}
+
+export interface RetryOpts {
+  budget: RetryBudget;
+  sleep?: (ms: number) => Promise<void>;
+  random?: () => number;
+  onRetry?: (label: string, attempt: number, waitMs: number) => void;
+}
+
+const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Runs `fn`; a rate-limit rejection waits and runs it again, within the budget. */
+export async function retryOnRateLimit<T>(label: string, fn: () => Promise<T>, opts: RetryOpts): Promise<T> {
+  const sleep = opts.sleep ?? defaultSleep;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!isRateLimitError(err)) throw err;
+      const wait = entityRetryDelay(attempt, opts.budget, opts.random);
+      if (wait === null) throw err;
+      opts.budget.spentMs += wait;
+      opts.onRetry?.(label, attempt, wait);
+      await sleep(wait);
+    }
+  }
+}
+
+/**
+ * `svc.entities` with every method retried on a rate limit. Methods that do
+ * not return a promise (subscribe) pass straight through.
+ */
+export function retryingEntities<T extends object>(entities: T, opts: RetryOpts): T {
+  const wrappedEntity = (name: string, entity: any) =>
+    new Proxy(entity, {
+      get(target, prop, receiver) {
+        const value = Reflect.get(target, prop, receiver);
+        if (typeof value !== 'function') return value;
+        return (...args: unknown[]) => {
+          const label = `${name}.${String(prop)}`;
+          const first = value.apply(target, args);
+          if (!first || typeof first.then !== 'function') return first;
+          let used = false;
+          return retryOnRateLimit(label, () => {
+            if (!used) {
+              used = true;
+              return first;
+            }
+            return value.apply(target, args);
+          }, opts);
+        };
+      },
+    });
+  const cache = new Map<string, any>();
+  return new Proxy(entities, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (typeof prop !== 'string' || !value || typeof value !== 'object') return value;
+      if (!cache.has(prop)) cache.set(prop, wrappedEntity(prop, value));
+      return cache.get(prop);
+    },
+  });
+}
+
 export class HttpError extends Error {
   status: number;
   code: string;
@@ -565,6 +655,26 @@ export function normalizeDisplayName(input: unknown): string | null {
   // deno-lint-ignore no-control-regex
   const v = input.replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/\s+/g, ' ');
   return v.length >= 1 && v.length <= 60 ? v : null;
+}
+
+// ---- PIN length per bar (2026-10-13) ----
+// Every PIN in a bar has the same length: 4 by default, or what the bar admin
+// chose in Ajustes (5 or 6). With a fixed length the keypad signs in the moment
+// the last digit is typed, with no "Listo" button (José: "que entre de una
+// vez"). The cost, accepted by José: the length is no secret. Same rule in
+// manageStaff/_member_logic.ts (it cannot import this file); pinned by
+// base44/tests/pin_length_test.ts.
+export const PIN_LENGTHS = [4, 5, 6] as const;
+export const DEFAULT_PIN_LENGTH = 4;
+
+export function pinLengthOf(bar: { pin_length?: unknown } | null | undefined): number {
+  const v = bar?.pin_length;
+  return typeof v === 'number' && (PIN_LENGTHS as readonly number[]).includes(v) ? v : DEFAULT_PIN_LENGTH;
+}
+
+/** A new PIN must have exactly the bar's length. */
+export function isPinOfLength(pin: unknown, length: number): pin is string {
+  return typeof pin === 'string' && pin.length === length && /^\d+$/.test(pin);
 }
 
 // ---- Short read cache (concurrency, 2026-10-06) ----

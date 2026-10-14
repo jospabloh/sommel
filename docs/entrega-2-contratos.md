@@ -118,9 +118,16 @@ gate.
 | `applyDiscount` | `{ order_id, kind: 'descuento'\|'cortesia'\|'ninguno', pct?, amount?, reason }` | `{ order }` — motivo obligatorio salvo `ninguno`; 409 `has_payments` si ya hay pagos vigentes | `Cobro:descuento` |
 | `setTip` | `{ order_id, pct?, amount? }` (ninguno = quitar) | `{ order }` — 409 `has_payments` | `Cobro:cobrar` |
 | `splitPreview` | `{ order_id, mode: 'equal', parts }` o `{ order_id, mode: 'items', item_ids }` | `{ amounts: [cents] }` o `{ amount }` — sin escribir; `items` prorratea descuento y propina | `Cobro:cobrar` |
-| `addPayment` | `{ order_id, method, amount, received?, split_label?, idempotency_key }` | `{ payment, order, remaining, change, closed: bool }` | `Cobro:cobrar` |
+| `addPayment` | `{ order_id, method, amount, tip?: { pct } \| { amount }, received?, split_label?, idempotency_key }` | `{ payment, order, remaining, change, closed: bool }` — 409 `order_tip_set` si la cuenta ya tiene propina general | `Cobro:cobrar` |
 | `voidPayment` | `{ payment_id, reason }` | `{ payment, order }` — solo si el turno del pago sigue abierto; si la orden estaba `cobrada` vuelve a `abierta` | `Cobro:anular_pago` |
 | `requestTicket` | `{ order_id }` | `{ job }` — crea `PrintJob` `ticket` | `Cobro:cobrar` |
+
+Propina por pago (2026-10-13): `amount` es la parte de la cuenta de quien paga
+y `tip` su propina sobre esa parte; el pago guarda `amount + tip` y `Payment.tip`.
+`Order.tip` pasa a ser la suma de las propinas de los pagos vivos (anular un pago
+le quita la suya), así que corte y reportes no cambian. Solo se admite mientras la
+cuenta no tenga propina general (`setTip`), que ya va prorrateada en cada parte.
+`splitPreview` por platillos divide sin las propinas que ya dejaron otros.
 
 Reglas de `addPayment`:
 - `method` debe existir y estar activo en `WineBar.payment_methods`

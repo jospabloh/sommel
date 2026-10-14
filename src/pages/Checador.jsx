@@ -27,6 +27,7 @@ export default function Checador() {
   const [picked, setPicked] = useState(null); // persona con el teclado abierto
   const [result, setResult] = useState(null); // respuesta de punch
   const [pinOpen, setPinOpen] = useState(false);
+  const [pinLength, setPinLength] = useState(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -34,6 +35,7 @@ export default function Checador() {
       const res = await callFn('attendance', 'roster');
       setPeople(res.people || []);
       setSeeTeam(!!res.see_team);
+      setPinLength(res.pin_length ?? null);
     } catch (err) {
       setError(err.message || 'No se pudo cargar el equipo');
     }
@@ -84,6 +86,7 @@ export default function Checador() {
         onDone={setResult}
         onNeedPin={() => setPinOpen(true)}
         isSelf={current.user_id === user?.id}
+        pinLength={pinLength}
       />
     );
   } else if (error) {
@@ -131,7 +134,7 @@ export default function Checador() {
 
       {body}
 
-      <MyPinDialog open={pinOpen} onOpenChange={setPinOpen} hasPin={!!me?.has_pin} onDone={load} />
+      <MyPinDialog open={pinOpen} onOpenChange={setPinOpen} hasPin={!!me?.has_pin} onDone={load} pinLength={pinLength} />
     </div>
   );
 }

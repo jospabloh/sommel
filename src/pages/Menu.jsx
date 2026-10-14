@@ -13,8 +13,9 @@ import { GlassWater, Plus, Settings2, Loader2 } from 'lucide-react';
 import ProductFormDialog from '@/components/menu/ProductFormDialog';
 import CategoryManagerDialog from '@/components/menu/CategoryManagerDialog';
 import ProductCard from '@/components/menu/ProductCard';
+import ExtrasSection from '@/components/menu/ExtrasSection';
 
-const EMPTY = { categories: [], products: [] };
+const EMPTY = { categories: [], products: [], extras: [] };
 
 export default function Menu() {
   const { can, loading: loadingPerms } = usePermission();
@@ -24,6 +25,8 @@ export default function Menu() {
 
   const [data, setData] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false); // the spinner is only for the first load
+  const [section, setSection] = useState('products'); // 'products' | 'extras'
   const [activeCategory, setActiveCategory] = useState(null);
   const [productDialog, setProductDialog] = useState(null); // null | { product?, categoryId }
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
@@ -37,7 +40,8 @@ export default function Menu() {
       const res = await callFn('catalog', 'listProducts', { include_inactive: canEdit });
       const categories = res.categories ?? [];
       const products = res.products ?? [];
-      setData({ categories, products });
+      const extras = res.extras ?? [];
+      setData({ categories, products, extras });
       setActiveCategory((prev) =>
         prev && categories.some((c) => c.id === prev) ? prev : categories[0]?.id ?? null
       );
@@ -50,6 +54,7 @@ export default function Menu() {
       setData(EMPTY);
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
   }, [canEdit, toast]);
 
@@ -97,7 +102,7 @@ export default function Menu() {
     }
   };
 
-  if (loadingPerms || (loading && data.categories.length === 0)) {
+  if (loadingPerms || (loading && !hasLoaded)) {
     return (
       <div className="flex justify-center py-24">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -118,10 +123,10 @@ export default function Menu() {
           </div>
           <div>
             <h1 className="font-display text-3xl font-semibold">Menú</h1>
-            <p className="text-muted-foreground mt-0.5">Categorías y productos del bar</p>
+            <p className="text-muted-foreground mt-0.5">Categorías, productos y extras del bar</p>
           </div>
         </div>
-        {canEdit && (
+        {canEdit && section === 'products' && (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setCategoryManagerOpen(true)}>
               <Settings2 className="w-4 h-4" /> Categorías
@@ -136,7 +141,25 @@ export default function Menu() {
         )}
       </div>
 
-      {sortedCategories.length === 0 ? (
+      <Tabs value={section} onValueChange={setSection} className="mb-4">
+        <TabsList>
+          <TabsTrigger value="products">Productos</TabsTrigger>
+          <TabsTrigger value="extras">
+            Extras
+            <span className="ml-1.5 text-xs text-muted-foreground">{data.extras.length}</span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {section === 'extras' ? (
+        <ExtrasSection
+          extras={data.extras}
+          products={data.products}
+          categories={data.categories}
+          canEdit={canEdit}
+          onChanged={load}
+        />
+      ) : sortedCategories.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           Todavía no hay categorías.
           {canEdit && (

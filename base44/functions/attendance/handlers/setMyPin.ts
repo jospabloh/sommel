@@ -5,11 +5,15 @@ import { HttpError, httpError, requirePermission, type Ctx, type Route } from '.
 import { hashPin, verifyPin } from './_pin.ts';
 import { lockMinutesLeft, validatePin } from './_logic.ts';
 import { guardLogic, recordPinFailure, requireTenant } from './_shared.ts';
+import { isPinOfLength, pinLengthOf } from '../_guard_logic.ts';
 
 export const setMyPin: Route = async (ctx: Ctx, body: any) => {
   await requirePermission(ctx, 'Asistencia:checar');
   const tenantId = requireTenant(ctx);
   const pin = guardLogic(() => validatePin(body?.pin));
+  // Every PIN in the bar has the bar's length (4 unless the admin chose 5 or 6).
+  const pinLength = pinLengthOf(ctx.bar);
+  if (!isPinOfLength(pin, pinLength)) httpError(400, 'invalid_pin', `El PIN debe tener ${pinLength} números`);
 
   const [existing] = await ctx.svc.entities.StaffPin.filter({ tenant_id: tenantId, user_id: ctx.user.id });
 

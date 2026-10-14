@@ -5,6 +5,7 @@
 // Only the admin, from their own sign-in (remoteOnly in entry.ts).
 import { httpError, randomHex, requireWritable, type Ctx, type Route } from '../_guard.ts';
 import { hashPin } from '../_pin.ts';
+import { pinLengthOf } from '../_guard_logic.ts';
 import { isInternalPersonEmail, personEmail, validateNewPin, validatePersonName, validatePersonRole } from '../_terminal_logic.ts';
 import { deprovisionAccount, provisionAccount, signInAs, userIdOf } from '../_platform.ts';
 import { mapErrors, requireBarAdmin } from './_shared.ts';
@@ -26,7 +27,7 @@ export const addPerson: Route = async (ctx: Ctx, body: any) => {
   requireWritable(ctx);
   const name = await mapErrors(() => validatePersonName(body?.name));
   const role = await mapErrors(() => validatePersonRole(body?.app_role));
-  const pin = await mapErrors(() => validateNewPin(body?.pin));
+  const pin = await mapErrors(() => validateNewPin(body?.pin, pinLengthOf(ctx.bar)));
 
   const email = personEmail(randomHex(6));
   let provisioned = false;
@@ -54,7 +55,7 @@ export const addPerson: Route = async (ctx: Ctx, body: any) => {
 export const setPersonPin: Route = async (ctx: Ctx, body: any) => {
   const tenantId = requireBarAdmin(ctx);
   requireWritable(ctx);
-  const pin = await mapErrors(() => validateNewPin(body?.pin));
+  const pin = await mapErrors(() => validateNewPin(body?.pin, pinLengthOf(ctx.bar)));
   const id = typeof body?.user_id === 'string' && body.user_id.length <= 64 ? body.user_id : '';
   const [target] = id ? await ctx.svc.entities.User.filter({ id }) : [];
   if (!target || target.tenant_id !== tenantId || (target.app_role !== 'staff' && target.app_role !== 'bar_admin')) {

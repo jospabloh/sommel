@@ -1,8 +1,8 @@
 // payments.voidPayment — entrega-2-contratos.md §5. Only while the payment's
 // own shift is still open; a `cobrada` order goes back to `abierta`.
 import { loadOwned, requirePermission, requireWritable, httpError, type Ctx, type Route } from '../_guard.ts';
-import { validateReason, paidTotal } from './_logic.ts';
-import { loadPayments, rethrow, setTablesStatus } from './_shared.ts';
+import { validateReason, paidTotal, paymentTips } from './_logic.ts';
+import { loadPayments, rethrow, setTablesStatus, writeTotals } from './_shared.ts';
 import { recordApproval, requireApproval } from '../_approval.ts';
 
 export const voidPayment: Route = async (ctx: Ctx, body: any) => {
@@ -47,10 +47,14 @@ export const voidPayment: Route = async (ctx: Ctx, body: any) => {
     void_reason: reason,
   });
 
-  const paid = paidTotal(await loadPayments(ctx, order.id));
+  const live = await loadPayments(ctx, order.id);
+  const paid = paidTotal(live);
+  // A voided payment takes its own tip with it (tip per payment, 2026-10-13).
+  let base = order;
+  if ((payment.tip ?? 0) > 0) base = await writeTotals(ctx, order, { tip_pct: null, tip: paymentTips(live) });
   let updated;
   if (reopening) {
-    updated = await ctx.svc.entities.Order.update(order.id, {
+    updated = await ctx.svc.entities.Order.update(base.id, {
       status: 'abierta',
       closed_at: null,
       closed_by: '',
@@ -58,7 +62,7 @@ export const voidPayment: Route = async (ctx: Ctx, body: any) => {
     });
     await setTablesStatus(ctx, order, 'occupied');
   } else {
-    updated = await ctx.svc.entities.Order.update(order.id, { paid });
+    updated = await ctx.svc.entities.Order.update(base.id, { paid });
   }
 
   await recordApproval(ctx, approval, { targetId: payment.id, detail: reason });
