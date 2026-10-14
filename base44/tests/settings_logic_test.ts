@@ -72,8 +72,8 @@ Deno.test('buildSettingsPatch: only provided fields, normalized', () => {
   assertEquals(patch, { rfc: 'XAXX010101000', ticket_footer: 'Gracias', prep_goal_bar_min: 8 });
 });
 
-Deno.test('buildSettingsPatch: rejects name, unknown fields, bad rfc, bad goal, empty', () => {
-  assertCode(() => buildSettingsPatch({ name: 'Otro' }, DEFAULTS), 'field_not_editable');
+Deno.test('buildSettingsPatch: rejects name without canRename, unknown fields, bad rfc, bad goal, empty', () => {
+  assertCode(() => buildSettingsPatch({ name: 'Otro' }, DEFAULTS), 'name_admin_only');
   assertCode(() => buildSettingsPatch({ billing_status: 'active' }, DEFAULTS), 'field_not_editable');
   assertCode(() => buildSettingsPatch({ rfc: '123' }, DEFAULTS), 'invalid_rfc');
   assertCode(() => buildSettingsPatch({ prep_goal_kitchen_min: 0 }, DEFAULTS), 'invalid_prep_goal');
@@ -82,4 +82,18 @@ Deno.test('buildSettingsPatch: rejects name, unknown fields, bad rfc, bad goal, 
 
 Deno.test('buildSettingsPatch: empty rfc clears it', () => {
   assertEquals(buildSettingsPatch({ rfc: '' }, DEFAULTS), { rfc: '' });
+});
+
+Deno.test('buildSettingsPatch: bar_admin can rename (1 to 80 chars, no line breaks)', () => {
+  assertEquals(buildSettingsPatch({ name: '  Vindima  ' }, DEFAULTS, { canRename: true }), { name: 'Vindima' });
+  assertCode(() => buildSettingsPatch({ name: '   ' }, DEFAULTS, { canRename: true }), 'invalid_name');
+  assertCode(() => buildSettingsPatch({ name: 'a'.repeat(81) }, DEFAULTS, { canRename: true }), 'invalid_name');
+  assertCode(() => buildSettingsPatch({ name: 'Uno\nDos' }, DEFAULTS, { canRename: true }), 'invalid_name');
+  assertCode(() => buildSettingsPatch({ name: 42 }, DEFAULTS, { canRename: true }), 'invalid_name');
+  assertEquals((buildSettingsPatch({ name: 'a'.repeat(80) }, DEFAULTS, { canRename: true }) as any).name.length, 80);
+});
+
+Deno.test('validatePaymentMethods: the only cash method cannot be deactivated', () => {
+  const next = DEFAULTS.map((m) => (m.is_cash ? { ...m, active: false } : m));
+  assertCode(() => validatePaymentMethods(next, DEFAULTS), 'no_cash_method');
 });

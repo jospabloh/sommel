@@ -1839,3 +1839,16 @@ sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
   aplica antes de cualquier usuario real.
 - Base44 sigue siendo producción. Nada del cliente ni de las funciones apunta
   todavía a Supabase. Eso es la fase 2 y la 3 (`docs/migracion-supabase.md` §4).
+
+## QA e2e, grupo pantallas y ajustes (2026-10-14)
+
+Código **en el repo**; nada publicado ni verificado en vivo.
+- **Menú:** si `catalog.listProducts` falla, la página muestra "No se pudo cargar el menú" con "Reintentar" y ya no el vacío "Todavía no hay categorías" (`menuViewState`, `src/lib/menuViewState.js`). Antes un 429 dejaba a la dueña con un menú aparentemente vacío y el botón de crear la primera categoría.
+- **/aprobar/:id con id inválido** respondía 500: Base44 lanza al filtrar por un id que no es de 24 hex. `loadRequest` valida el formato (`security/_request_id_logic.ts`) y responde 404 `not_found`; la pantalla lo explica en español.
+- **Formas de pago:** el servidor exigía una forma `is_cash` pero no que estuviera activa, así que se podía dejar el bar sin efectivo cobrable. Decisión: se exige **al menos una forma en efectivo ACTIVA** (el corte cuenta efectivo contra el cajón) además de una activa cualquiera; `no_cash_method`. El interruptor de la última en efectivo activa se deshabilita en Ajustes.
+- **Nombre del bar:** `settings.update` acepta `name` (1 a 80 caracteres, sin saltos de línea ni caracteres de control) solo con `ctx.appRole === 'bar_admin'`; a otro rol responde 400 `name_admin_only`. Tarjeta `BarNameCard` en Ajustes, solo para el admin y nunca desde una terminal.
+- **Invitación sin correo:** desde el código no se puede saber por qué falla `Core.SendEmail` (candidatas: 429 de la cuota compartida o el límite por hora por destinatario). Se dejó el envío igual, pero ahora se registra el mensaje del error y, con `email_sent: false`, la respuesta trae `invite_url` (`inviteLink`, registro con el correo o login) que Staff muestra para copiar con un aviso claro.
+- **Aviso a Mission Control al crear el bar:** `createWineBar` hace POST sin firma a `https://control.acaciaco.com.mx/api/ingest/tenant-pull` con `{app: 'sommel', tenantId}` (mismo contrato que StockFlow; MC relee el bar por el puente), best effort con timeout de 8 s.
+- Pruebas: `qa_client_fixes_test.ts`, `request_id_test.ts` y casos nuevos en `settings_logic_test.ts`.
+
+**Verificado:** lint, build, `check:guards`, `check:functions`, `deno test` (701/0) y `deno lint`. **No verificado:** nada contra Base44 ni Mission Control (que `tenant-pull` acepte la app `sommel` depende de su fila en `apps`, que existe desde 2026-09-30); las pantallas a 390/1440; el motivo real del fallo del correo de invitación.

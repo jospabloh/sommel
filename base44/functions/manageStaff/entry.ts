@@ -9,7 +9,7 @@ import {
   roleFromInvite,
   isBarClaimable,
 } from './_invite_logic.ts';
-import { buildInviteEmail } from './_invite_email.ts';
+import { buildInviteEmail, inviteLink } from './_invite_email.ts';
 import {
   MEMBER_DENIAL_MESSAGE,
   MEMBER_DENIAL_STATUS,
@@ -140,10 +140,16 @@ export default async function(req: Request): Promise<Response> {
           });
           await svc.integrations.Core.SendEmail({ to: email, subject, body: html });
           return true;
-        } catch (_e) {
+        } catch (e) {
+          // The cause (hourly per-recipient limit, 429, sender) was invisible
+          // before: log it so the function log says why the mail did not go out.
+          console.error('invite email failed', e instanceof Error ? e.message : String(e));
           return false;
         }
       };
+      // Shared by hand when the mail fails (the response carries the link).
+      const withLink = (existingAccount: boolean, sent: boolean) =>
+        sent ? { email_sent: true } : { email_sent: false, invite_url: inviteLink(existingAccount, email) };
       // Re-check right before writing: the user may have joined another bar
       // while the invite was in flight. Only an unassigned user is claimed.
       // (Base44 has no conditional update, so a sub-second race remains.)
@@ -155,7 +161,7 @@ export default async function(req: Request): Promise<Response> {
         await svc.entities.User.update(target.id, {
           tenant_id: tenantId, app_role: requestedRole
         });
-        return Response.json({ ok: true, invited_existing: true, email_sent: await sendInvite(true) });
+        return Response.json({ ok: true, invited_existing: true, ...withLink(true, await sendInvite(true)) });
       }
 
       // No account yet: remember the invite server-side so claimInvite can
@@ -174,7 +180,7 @@ export default async function(req: Request): Promise<Response> {
           invited_by: self.email, expires_at: expiresAt
         });
       }
-      return Response.json({ ok: true, invited_existing: false, email_sent: await sendInvite(false, expiresAt) });
+      return Response.json({ ok: true, invited_existing: false, ...withLink(false, await sendInvite(false, expiresAt)) });
     }
 
     if (action === 'setName') {

@@ -26,6 +26,15 @@ function localDate(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
+/**
+ * The link to share by hand when the email did not go out: the sign-in page for
+ * someone who already has an account, the register page (email prefilled) for
+ * someone who does not.
+ */
+export function inviteLink(existingAccount: boolean, email: string): string {
+  return existingAccount ? `${APP_URL}/login` : `${APP_URL}/register?email=${encodeURIComponent(email)}`;
+}
+
 export function buildInviteEmail(input: InviteEmailInput): { subject: string; body: string } {
   const C = EMAIL_COLORS;
   const e = escapeHtml;
@@ -38,7 +47,7 @@ export function buildInviteEmail(input: InviteEmailInput): { subject: string; bo
     const rowsHtml =
       p(`<strong>${e(input.inviterName)}</strong> te agregó a <strong>${e(input.barName)}</strong> como ${role}. Ya puedes tomar órdenes y ver las mesas del bar.`) +
       p(`Entra con tu correo de siempre: <strong>${e(input.email)}</strong>.`) +
-      `<tr><td style="padding:22px 24px 0;">${emailButton('Entrar a Sommel', `${APP_URL}/login`)}</td></tr>`;
+      `<tr><td style="padding:22px 24px 0;">${emailButton('Entrar a Sommel', inviteLink(true, input.email))}</td></tr>`;
     return {
       subject,
       body: emailShell({
@@ -52,7 +61,7 @@ export function buildInviteEmail(input: InviteEmailInput): { subject: string; bo
   }
 
   const subject = `${input.inviterName} te invitó a ${input.barName} en Sommel`;
-  const registerUrl = `${APP_URL}/register?email=${encodeURIComponent(input.email)}`;
+  const registerUrl = inviteLink(false, input.email);
   const step = (n: number, html: string) =>
     `<tr><td width="28" valign="top" style="padding:6px 0;font:700 14px/1.5 ${EMAIL_SANS};color:${C.wine};">${n}.</td>` +
     `<td style="padding:6px 0;font:400 14px/1.5 ${EMAIL_SANS};color:${C.ink};">${html}</td></tr>`;

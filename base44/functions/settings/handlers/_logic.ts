@@ -19,6 +19,8 @@ export interface PaymentMethod {
 
 export const MAX_CORTE_EMAILS = 10;
 export const EDITABLE_FIELDS = [
+  // Only a bar_admin may rename the bar (checked in buildSettingsPatch via `canRename`).
+  'name',
   'address',
   'rfc',
   'ticket_header',
@@ -53,6 +55,20 @@ export function cashOutMax(value: unknown): number {
     throw new LogicError('invalid_cash_out_max', 'El tope de retiro debe ser de $1 a $1,000,000, o vacío para no tener tope');
   }
   return value;
+}
+
+/** Bar name: 1 to 80 characters, no line breaks or control characters. */
+export function barName(value: unknown): string {
+  if (typeof value !== 'string') throw new LogicError('invalid_name', 'El nombre del bar no es válido');
+  // deno-lint-ignore no-control-regex
+  if (/[\u0000-\u001F\u007F\u2028\u2029]/.test(value)) {
+    throw new LogicError('invalid_name', 'El nombre del bar no puede tener saltos de línea');
+  }
+  const name = value.trim();
+  if (name.length < 1 || name.length > 80) {
+    throw new LogicError('invalid_name', 'El nombre del bar debe tener de 1 a 80 caracteres');
+  }
+  return name;
 }
 
 /** Lowercase slug from a label, e.g. "Vales de despensa" -> "vales_de_despensa". */
@@ -116,8 +132,10 @@ export function validatePaymentMethods(input: unknown, current: PaymentMethod[] 
   if (!out.some((m) => m.active)) {
     throw new LogicError('no_active_method', 'Debe quedar al menos una forma de pago activa');
   }
-  if (!out.some((m) => m.is_cash)) {
-    throw new LogicError('no_cash_method', 'Debe existir una forma de pago en efectivo');
+  // The corte (cash counted against the drawer) needs a cash method people can
+  // actually pick: an inactive one does not count.
+  if (!out.some((m) => m.is_cash && m.active)) {
+    throw new LogicError('no_cash_method', 'Debe quedar una forma de pago en efectivo activa');
   }
   for (const prev of current) {
     const next = out.find((m) => m.key === prev.key);
@@ -148,15 +166,24 @@ function goal(value: unknown): number {
 
 /**
  * Builds the WineBar patch from the request body: only the fields present,
- * validated. `name` (and any other unknown field) is rejected outright.
+ * validated. Unknown fields are rejected outright; `name` only when
+ * `opts.canRename` (the caller is the bar's bar_admin).
  */
-export function buildSettingsPatch(body: Record<string, unknown>, currentMethods: PaymentMethod[]): Record<string, unknown> {
+export function buildSettingsPatch(
+  body: Record<string, unknown>,
+  currentMethods: PaymentMethod[],
+  opts: { canRename?: boolean } = {},
+): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   for (const key of Object.keys(body ?? {})) {
     if (key === 'action') continue;
     if (!(EDITABLE_FIELDS as readonly string[]).includes(key)) {
       throw new LogicError('field_not_editable', `El campo "${key}" no se puede cambiar aquí`);
     }
+  }
+  if ('name' in body) {
+    if (!opts.canRename) throw new LogicError('name_admin_only', 'Solo un administrador del bar puede cambiar su nombre');
+    patch.name = barName(body.name);
   }
   if ('address' in body) patch.address = text(body.address, 'address', 200);
   if ('rfc' in body) {
