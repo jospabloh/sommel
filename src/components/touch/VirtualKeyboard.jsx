@@ -30,6 +30,15 @@ function describe(el) {
   };
 }
 
+/** Long text keeps its end visible: that is where the caret is. */
+const tail = (t) => (t.length > 40 ? `…${t.slice(-40)}` : t);
+
+/** What the preview strip shows: the field's name and what it holds. */
+function fieldInfo(el) {
+  const label = (el.labels?.[0]?.textContent || el.getAttribute('aria-label') || el.getAttribute('placeholder') || '').trim();
+  return { label, value: el.value ?? '', secret: el.getAttribute('type') === 'password' };
+}
+
 function selection(el) {
   try {
     return [el.selectionStart, el.selectionEnd];
@@ -51,6 +60,9 @@ function writeValue(el, value, caret) {
 
 export default function VirtualKeyboard() {
   const [target, setTarget] = useState(null);
+  // The keyboard can cover the field (a dialog, the bottom of the page), so it
+  // repeats what is being typed above the keys (José, 2026-10-13).
+  const [shown, setShown] = useState({ label: '', value: '', secret: false });
   const [kind, setKind] = useState(null);
   const [shift, setShift] = useState(false);
   const [symbols, setSymbols] = useState(false);
@@ -64,6 +76,7 @@ export default function VirtualKeyboard() {
       const k = keyboardFor(describe(el));
       if (!k) return;
       setTarget(el);
+      setShown(fieldInfo(el));
       setKind(k);
       setSymbols(false);
       setAccent(false);
@@ -99,6 +112,14 @@ export default function VirtualKeyboard() {
 
   useEffect(() => () => document.documentElement.classList.remove('vkb-open'), []);
 
+  // Also follow what the field itself changes (a physical key, a formatter).
+  useEffect(() => {
+    if (!target) return undefined;
+    const sync = () => setShown(fieldInfo(target));
+    target.addEventListener('input', sync);
+    return () => target.removeEventListener('input', sync);
+  }, [target]);
+
   const press = useCallback(
     (key) => {
       const el = target;
@@ -119,6 +140,7 @@ export default function VirtualKeyboard() {
       const [s, e] = selection(el);
       const next = applyKey(el.value, s, e, text);
       writeValue(el, next.value, next.caret);
+      setShown(fieldInfo(el));
       if (key !== 'backspace') {
         setShift(false);
         setAccent(false);
@@ -164,6 +186,13 @@ export default function VirtualKeyboard() {
       aria-label="Teclado en pantalla"
     >
       <div className="mx-auto max-w-4xl space-y-1.5">
+        <div className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2 min-h-12" aria-live="polite">
+          {shown.label ? <span className="shrink-0 text-sm text-muted-foreground max-w-[40%] truncate">{shown.label}</span> : null}
+          <span className="min-w-0 flex-1 truncate text-lg text-foreground" dir="ltr">
+            {shown.value ? tail(shown.secret ? '•'.repeat(shown.value.length) : shown.value) : <span className="text-muted-foreground">Escribe aquí</span>}
+            <span className="ml-0.5 inline-block w-0.5 h-5 align-middle bg-primary animate-pulse" aria-hidden="true" />
+          </span>
+        </div>
         {kind === 'numeric' ? (
           <div className="mx-auto max-w-sm space-y-1.5">
             {NUMPAD.map((row) => (
