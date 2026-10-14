@@ -4,6 +4,7 @@
 // al cobrar; aquí solo se configura. Productos vía callFn('catalog','listProducts').
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { callFn } from '@/lib/api';
+import { useLastValue } from '@/lib/useLastValue';
 import { toast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -131,8 +132,10 @@ function ProductLinkRow({ product, item, itemNameById, onChanged }) {
   );
 }
 
-export default function LinkProductsDialog({ item, items, onOpenChange, onLinksChanged }) {
-  const open = !!item;
+export default function LinkProductsDialog({ item: itemProp, items, onOpenChange, onLinksChanged }) {
+  const open = !!itemProp;
+  // Last insumo shown, so the closing animation never renders with null.
+  const item = useLastValue(itemProp);
   const [products, setProducts] = useState(null);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
@@ -149,11 +152,11 @@ export default function LinkProductsDialog({ item, items, onOpenChange, onLinksC
   }, []);
 
   useEffect(() => {
-    if (item) {
+    if (itemProp) {
       setSearch('');
       load();
     }
-  }, [item, load]);
+  }, [itemProp, load]);
 
   const itemNameById = useMemo(() => Object.fromEntries((items || []).map((i) => [i.id, i.name])), [items]);
 
