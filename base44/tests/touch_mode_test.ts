@@ -3,7 +3,7 @@
 // (José, 2026-10-13). Each test says what would break for the bar.
 //   deno test --allow-env base44/tests/touch_mode_test.ts
 // @ts-ignore: plain JS module shared with the client bundle
-import { applyKey, blocksDrag, dragThresholdFor, handlesPointer, keyboardFor, parseTouchPrefs, passedDragThreshold, withAccent } from '../../src/lib/touch/touchLogic.js';
+import { applyKey, blocksDrag, canScrollBy, dragThresholdFor, flingDistance, flingRemaining, handlesPointer, keyboardFor, lockAxis, parseTouchPrefs, passedDragThreshold, releaseVelocity, withAccent, MOMENTUM_TAU_MS } from '../../src/lib/touch/touchLogic.js';
 
 function assertEquals(actual: unknown, expected: unknown, msg?: string) {
   const a = JSON.stringify(actual);
@@ -70,4 +70,33 @@ Deno.test('accent key: Spanish names come out right (José, Martín)', () => {
   assertEquals(withAccent('e'), 'é');
   assertEquals(withAccent('I'), 'Í');
   assertEquals(withAccent('x'), 'x', 'a consonant after ´ is unchanged');
+});
+
+Deno.test('fling: a quick flick keeps scrolling, a finger that stopped does not (iPad feel)', () => {
+  const fast = [{ t: 0, x: 0, y: 300 }, { t: 40, x: 0, y: 200 }, { t: 80, x: 0, y: 100 }];
+  const v = releaseVelocity(fast, 85);
+  assertEquals(Math.round(v.vy * 100) / 100, -2.5, '200 px in 80 ms upward');
+  assertEquals(flingDistance(v.vy) < -500, true, 'a flick travels well past where the finger lifted');
+  const stopped = releaseVelocity(fast, 400);
+  assertEquals(stopped, { vx: 0, vy: 0 }, 'holding still before lifting means no glide');
+  assertEquals(flingDistance(0.05), 0, 'a slow release just stops');
+});
+
+Deno.test('fling slows down on the iOS curve and is almost done after a second', () => {
+  assertEquals(flingRemaining(0), 1);
+  assertEquals(Math.round(flingRemaining(MOMENTUM_TAU_MS) * 100) / 100, 0.37);
+  assertEquals(flingRemaining(1000) < 0.05, true);
+});
+
+Deno.test('a mostly vertical drag only scrolls vertically, like an iPad', () => {
+  assertEquals(lockAxis(5, 40), 'y', 'a list does not wobble sideways');
+  assertEquals(lockAxis(40, 5), 'x');
+  assertEquals(lockAxis(30, 30), 'both');
+});
+
+Deno.test('an inner list at its end hands the drag to the page', () => {
+  const list = { scrollTop: 600, scrollHeight: 800, clientHeight: 200, scrollLeft: 0, scrollWidth: 300, clientWidth: 300 };
+  assertEquals(canScrollBy(list, 0, 10), false, 'already at the bottom');
+  assertEquals(canScrollBy(list, 0, -10), true, 'can still go up');
+  assertEquals(canScrollBy(list, 10, 0), false, 'nothing to scroll sideways');
 });

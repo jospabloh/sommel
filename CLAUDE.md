@@ -1475,3 +1475,40 @@ con `prefers-reduced-motion`) y el mensaje sale debajo.
   puede saber (solo hay hash); el que no sea de 4 hay que volver a ponerlo.
 - **No verificado:** las pantallas (terminal, checador, aprobación) en navegador
   ni contra Base44.
+
+### Desplazamiento tipo iPad en la PC táctil (2026-10-13)
+
+José: en la all-in-one táctil (Windows) el scroll "no funciona tan bien"; tiene
+que sentirse como en el iPad. [Probable, por confirmar con la prueba de abajo]
+esa pantalla le llega a Chrome como **mouse**, así que no hay desplazamiento
+nativo y todo depende de `dragScroll.js`, que ahora:
+- sigue al dedo 1:1 y, al soltar rápido, sigue deslizando con la curva de iOS
+  (`releaseVelocity` sobre los últimos 100 ms, `flingDistance` = v × 325 ms,
+  `flingRemaining` = e^(−t/325)); si el dedo se detuvo antes de soltar, no desliza;
+- fija el eje dominante (`lockAxis`: una lista vertical no se mueve de lado);
+- pasa el resto del arrastre a la caja de afuera cuando la lista llega a su final
+  (`canScrollBy`, cadena de cajas con scroll hasta la página);
+- con la opción encendida (`html.drag-scroll-on`) arrastrar no selecciona texto
+  ni jala imágenes o links (`user-select` y `-webkit-user-drag`, y `dragstart`
+  cancelado); los campos de texto conservan la selección normal.
+
+**Ajustes → Esta pantalla → "Probar esta pantalla"** dice cómo llega el dedo
+(táctil, mouse o lápiz) y `navigator.maxTouchPoints`, con una lista para probar.
+Es la forma de dejar de suponer el tipo de pantalla.
+
+Simulado en Chromium con un dedo que llega como mouse, sin peticiones a Base44:
+arrastre lento de 150 px = 150 px; flick de 120 px = 433 px; lista al final pasa
+a la página (150 px); un toque abre el botón; nada queda seleccionado. **No
+verificado** en la PC táctil.
+
+### La terminal bloqueada no se actualizaba (2026-10-13)
+
+José seguía viendo el teclado viejo (6 espacios y botón) después de publicar el
+de 4 dígitos. Lo servido estaba bien (`pin-shake` en el bundle); la terminal no.
+`AppUpdateBanner` vive en `Layout`, y la pantalla bloqueada ("¿Quién eres?") está
+**fuera** de `Layout`: una terminal que pasa el día bloqueada nunca veía el aviso
+y seguía con la versión con la que abrió. Ahora `useNewBuild`
+(`src/lib/useNewBuild.js`, compartido con el aviso) corre también en
+`TerminalLock`, y si hay versión nueva **recarga sola**, salvo mientras alguien
+teclea un PIN o checa (el bloqueo automático la regresa ahí después). La primera
+vez hay que recargar a mano para tomar este cambio.

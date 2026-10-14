@@ -19,7 +19,7 @@ export function parseTouchPrefs(raw) {
 
 /** A press only becomes a scroll after the finger moved this far (px), so a
  *  tap on a button is still a tap. */
-export const DRAG_THRESHOLD_PX = 8;
+export const DRAG_THRESHOLD_PX = 6;
 
 export function passedDragThreshold(dx, dy, threshold = DRAG_THRESHOLD_PX) {
   return Math.hypot(dx, dy) >= threshold;
@@ -92,4 +92,61 @@ export function applyKey(value, start, end, key) {
   }
   const text = String(key);
   return { value: v.slice(0, s) + text + v.slice(e), caret: s + text.length };
+}
+
+// ---- iPad-like kinetic scrolling (2026-10-13) ----
+// José: on the all-in-one touch PC the finger must feel like an iPad. The
+// constants follow iOS: a fling keeps going with exponential decay, time
+// constant ~325 ms (the same curve UIScrollView uses at normal rate).
+export const MOMENTUM_TAU_MS = 325;
+export const VELOCITY_WINDOW_MS = 100;
+export const MIN_FLING_SPEED = 0.15; // px per ms; slower than this just stops
+
+/**
+ * Release velocity in px/ms from the last pointer samples [{t, x, y}], using
+ * only the last VELOCITY_WINDOW_MS. A finger that stopped before lifting
+ * gives 0, so it does not fling.
+ */
+export function releaseVelocity(samples, now, windowMs = VELOCITY_WINDOW_MS) {
+  const recent = (samples ?? []).filter((s) => now - s.t <= windowMs);
+  if (recent.length < 2) return { vx: 0, vy: 0 };
+  const a = recent[0];
+  const b = recent[recent.length - 1];
+  const dt = b.t - a.t;
+  if (dt <= 0 || now - b.t > 50) return { vx: 0, vy: 0 };
+  return { vx: (b.x - a.x) / dt, vy: (b.y - a.y) / dt };
+}
+
+/** Total distance a fling travels (px) for a release velocity (px/ms). */
+export function flingDistance(v, tau = MOMENTUM_TAU_MS) {
+  return Math.abs(v) < MIN_FLING_SPEED ? 0 : v * tau;
+}
+
+/** How much of a fling's distance is left after `elapsed` ms (0..1). */
+export function flingRemaining(elapsed, tau = MOMENTUM_TAU_MS) {
+  return Math.exp(-Math.max(0, elapsed) / tau);
+}
+
+/**
+ * Like iPad, a drag that is mostly vertical only scrolls vertically (and the
+ * other way round); a clearly diagonal one moves both.
+ */
+export function lockAxis(dx, dy) {
+  const ax = Math.abs(dx);
+  const ay = Math.abs(dy);
+  if (ay > ax * 1.5) return 'y';
+  if (ax > ay * 1.5) return 'x';
+  return 'both';
+}
+
+/**
+ * Can a box with these metrics still scroll by (dx, dy) px of content?
+ * Used to hand the drag to the page when an inner list is at its end.
+ */
+export function canScrollBy(box, dx, dy) {
+  const maxTop = box.scrollHeight - box.clientHeight;
+  const maxLeft = box.scrollWidth - box.clientWidth;
+  const y = dy !== 0 && maxTop > 1 && (dy > 0 ? box.scrollTop < maxTop - 0.5 : box.scrollTop > 0.5);
+  const x = dx !== 0 && maxLeft > 1 && (dx > 0 ? box.scrollLeft < maxLeft - 0.5 : box.scrollLeft > 0.5);
+  return x || y;
 }
