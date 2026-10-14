@@ -43,4 +43,5 @@ jobs:
       - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/tests/00_supabase_stub.sql
       - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261014000001_core.sql
       - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261014000002_rls.sql
+      - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261014000003_support_ticket_server_only.sql
       - run: psql -v ON_ERROR_STOP=1 -f supabase/tests/isolation.sql

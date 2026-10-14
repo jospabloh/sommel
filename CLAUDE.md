@@ -1817,7 +1817,7 @@ los datos son de prueba. Diseño, fases y lo que falta decidir:
 ## Migración a Supabase, fase 1: esquema y aislamiento (2026-10-14)
 
 `supabase/` trae el esquema (27 tablas y 3 compañeras solo del servidor para
-los costos), la RLS y `tests/isolation.sql` (1,670 aserciones, en dos pasadas:
+los costos), la RLS y `tests/isolation.sql` (1,633 aserciones desde la migración 3, en dos pasadas:
 la segunda vuelve a dar todo a `anon`/`authenticated` para probar que la RLS
 sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
 `supabase/README.md`.
@@ -1829,5 +1829,13 @@ sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
   `tests/00_supabase_stub.sql`). El stub **nunca** se aplica a Supabase.
 - `isolation.sql` exige una base **vacía**. En cuanto el proyecto real tenga
   datos, ya no se corre ahí: se usa una rama de Supabase o el job de CI.
+- **Migración 3 (`support_ticket` sin escritura del navegador), por la revisión
+  de Codex en #84:** en el repo y en CI (1,633 aserciones). **Pendiente en el
+  proyecto real:** las escrituras por el MCP de Supabase (`apply_migration` y
+  `execute_sql` con DDL) se quedan esperando una aprobación que no llega y
+  vencen a los 60 s sin aplicar nada (releído: sigue en la migración 2). Sin
+  riesgo mientras tanto: no hay usuarios ni datos, y sin bar
+  `app.current_tenant()` es nulo, así que la política rechaza todo alta. Se
+  aplica antes de cualquier usuario real.
 - Base44 sigue siendo producción. Nada del cliente ni de las funciones apunta
   todavía a Supabase. Eso es la fase 2 y la 3 (`docs/migracion-supabase.md` §4).

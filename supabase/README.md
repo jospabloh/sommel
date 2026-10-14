@@ -11,7 +11,7 @@ campos es `base44/entities/*.jsonc` y `scripts/lib/locks-rules.mjs`.
 | `migrations/20261014000001_core.sql` | Las 27 tablas de entidad, las 3 tablas de costo, índices, restricciones de idempotencia, claves foráneas compuestas, triggers de `updated_date` y el trigger que crea el `profile` al registrarse |
 | `migrations/20261014000002_rls.sql` | Funciones `app.*`, RLS activo en todas las tablas, privilegios, políticas, publicación de Realtime |
 | `tests/00_supabase_stub.sql` | Solo para un Postgres de pruebas: emula roles, `auth.users`, `auth.uid()` y los privilegios por omisión de Supabase. **Nunca** se aplica a un proyecto de Supabase |
-| `tests/isolation.sql` | Pruebas de aislamiento, 1,670 aserciones, una sola transacción con `rollback`. Corre en Postgres con el stub **y** en una base de Supabase real |
+| `tests/isolation.sql` | Pruebas de aislamiento, 1,633 aserciones, una sola transacción con `rollback`. Corre en Postgres con el stub **y** en una base de Supabase real |
 
 ## Cómo aplicar
 
@@ -31,6 +31,7 @@ createdb sommel_scratch
 psql -v ON_ERROR_STOP=1 -1 -d sommel_scratch -f supabase/tests/00_supabase_stub.sql
 psql -v ON_ERROR_STOP=1 -1 -d sommel_scratch -f supabase/migrations/20261014000001_core.sql
 psql -v ON_ERROR_STOP=1 -1 -d sommel_scratch -f supabase/migrations/20261014000002_rls.sql
+psql -v ON_ERROR_STOP=1 -1 -d sommel_scratch -f supabase/migrations/20261014000003_support_ticket_server_only.sql
 psql -v ON_ERROR_STOP=1 -d sommel_scratch -f supabase/tests/isolation.sql
 ```
 
@@ -55,7 +56,7 @@ como tales. **No verificado contra un Supabase real**: el trigger sobre
 1. **Catálogo**: RLS activo en toda tabla de `public` (si se añade una tabla sin
    RLS, falla); toda tabla está clasificada en la prueba (una tabla nueva sin
    clasificar falla); `anon` sin ningún privilegio; `authenticated` solo con
-   `SELECT` donde toca y un único `INSERT` por columnas en `support_ticket`; el
+   `SELECT` donde toca y ningún privilegio de escritura (ni por columnas); el
    conjunto exacto de políticas; las funciones `SECURITY DEFINER` con
    `search_path` fijado; ninguna columna de costo ni secreta legible desde el
    navegador; la publicación de Realtime con exactamente 4 tablas.
@@ -106,7 +107,7 @@ como tales. **No verificado contra un Supabase real**: el trigger sobre
 | PrintJob | `print_job` | lectura por bar |
 | PermissionProfile | `permission_profile` | lectura por bar |
 | StaffInvite | `staff_invite` | solo servidor |
-| SupportTicket | `support_ticket` | lectura por bar, `INSERT` por columnas |
+| SupportTicket | `support_ticket` | lectura por bar (el alta va por función) |
 | Product | `product` | solo servidor |
 | CloudPrinter | `cloud_printer` | solo servidor |
 | StaffPin | `staff_pin` | solo servidor |
@@ -134,7 +135,7 @@ propia de `profile`, y la función `settings.billing`).
 | `order_item` | `src/pages/Estacion.jsx:124` y `:159`, `src/components/orders/useOrderRealtime.js:35` y `:69` |
 | `print_job` | `src/components/printing/usePrintStation.js:154` (tiempo real) |
 | `permission_profile` | `src/lib/PermissionContext.jsx:41` |
-| `support_ticket` | lectura `src/lib/supportTickets.js:73`; alta `src/lib/supportTickets.js:58` |
+| `support_ticket` | lectura `src/lib/supportTickets.js:73` (el alta de `:58` pasa a `support.createTicket` en la fase 2) |
 | `profile` (solo su fila) | `src/lib/AuthContext.jsx:88` y `src/lib/PageNotFound.jsx:15` (`auth.me()`) |
 
 Todo lo demás (incluidos `wine_bar`, `staff_invite`, `cash_movement`, `shift`,
@@ -150,7 +151,7 @@ sin `GRANT` y sin política para `anon` y `authenticated`: solo el `service_role
 ## Dónde vive hoy cada candado de Base44
 
 El navegador **no escribe ninguna tabla** (sin políticas ni privilegios de
-`INSERT`/`UPDATE`/`DELETE`), salvo `support_ticket.INSERT` de su propio bar. Eso
+`INSERT`/`UPDATE`/`DELETE`), sin excepciones. Eso
 sustituye de golpe todos los candados de escritura.
 
 | Candado (`locks-rules.mjs`) | Ahora |
@@ -227,10 +228,12 @@ invitación pendiente por correo y bar, y las restricciones de idempotencia.
   `approval_log`, `approval_request` y `terminal_device` no tienen FK a personas:
   son bitácora o retención legal (CFF art. 30) y la cuenta sintética de una
   terminal se borra al revocar mientras el registro se conserva.
-- **D9. `support_ticket` más estricto que Base44.** El navegador solo puede
-  insertar seis columnas y con `status = 'abierto'`: no puede fijar `responses`,
-  `last_activity_at`, `id` ni fechas. `created_by_id` toma `auth.uid()`. Es
-  exactamente la carga que envía `src/lib/supportTickets.js:58`.
+- **D9. `support_ticket`: el navegador no lo escribe.** La migración 2 dejaba
+  insertar seis columnas del propio bar; la 3 lo quita (revisión de Codex en
+  #84), porque el cliente elegía `created_by_email` y un ticket podía decir que
+  lo abrió cualquiera. En la fase 2 el alta pasa a `support.createTicket`, que
+  saca el bar, el autor y su correo de la sesión, como ya hace `replyTicket`.
+  Es una diferencia con Base44, donde hoy el navegador lo crea directo.
 - **D10. Realtime.** Publicación solo con `orders`, `order_item`, `bar_table`,
   `print_job`. `REPLICA IDENTITY` queda en `DEFAULT`: los eventos `DELETE` llevan
   solo la clave primaria. El cliente debe quitar por `id` (lo que ya hace
@@ -292,8 +295,9 @@ invitación pendiente por correo y bar, y las restricciones de idempotencia.
 - **OQ9. Esquema `app` y PostgREST.** Se asume que el proyecto expone solo `public`
   (y `graphql_public`). Verificar en Settings, API, "Exposed schemas".
 - **OQ10. Cerrada el 2026-10-14.** Las dos migraciones se aplicaron al proyecto
-  real `sommel` (`gyzmfplevicqwbynznei`) y `isolation.sql` pasó ahí sus 1,670
-  aserciones, sin el stub: columnas reales de `auth.users`, triggers sobre
+  real `sommel` (`gyzmfplevicqwbynznei`) y `isolation.sql` pasó ahí sus 1,670 (con la migración 2; la 3 está pendiente
+  de aplicar allá)
+  aserciones (1,633 desde la migración 3), sin el stub: columnas reales de `auth.users`, triggers sobre
   `auth.users` y la publicación `supabase_realtime` funcionan. Releído después:
   no quedó ni el esquema `isotest`, ni usuarios `@example.test`, ni filas en
   `wine_bar`/`profile`, y `anon` no tiene ningún privilegio sobre `public`.

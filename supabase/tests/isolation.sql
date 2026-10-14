@@ -261,7 +261,8 @@ begin
       is distinct from (k.cls in ('t_read','profile'));
   perform isotest.assert(missing is null, 'authenticated SELECT privilege differs from the classification on: ' || coalesce(missing, ''));
 
-  -- 0.6 The only column-level grant: INSERT on six support_ticket columns.
+  -- 0.6 No column-level grants at all (support tickets are opened by a server
+  -- function, never by a browser INSERT).
   select string_agg(x, ', ') into missing from (
     select c.relname || '.' || a.attname || ':' || e.privilege_type as x
     from pg_attribute a
@@ -271,18 +272,8 @@ begin
     join pg_roles r on r.oid = e.grantee
     where n.nspname = 'public' and a.attacl is not null and a.attnum > 0
       and r.rolname in ('anon','authenticated')
-    except
-    select unnest(array[
-      'support_ticket.tenant_id:INSERT','support_ticket.kind:INSERT',
-      'support_ticket.subject:INSERT','support_ticket.body:INSERT',
-      'support_ticket.status:INSERT','support_ticket.created_by_email:INSERT'])
   ) q;
   perform isotest.assert(missing is null, 'unexpected column-level grants: ' || coalesce(missing, ''));
-  perform isotest.assert((
-    select count(*) from pg_attribute a join pg_class c on c.oid = a.attrelid
-    cross join lateral aclexplode(a.attacl) e join pg_roles r on r.oid = e.grantee
-    where c.relname = 'support_ticket' and r.rolname = 'authenticated' and e.privilege_type = 'INSERT') = 6,
-    'support_ticket must have exactly 6 insertable columns for authenticated');
 
   -- 0.7 Policies: exactly the expected set, all TO authenticated only.
   select string_agg(x, ', ') into missing from (
@@ -291,11 +282,10 @@ begin
      select tbl || '/tenant_read/SELECT/{authenticated}' from isotest.class
        where cls = 't_read'
      except select 'profile/own_profile_read/SELECT/{authenticated}'
-     except select 'support_ticket/own_bar_insert/INSERT/{authenticated}')
+    )
     union all
     (select tbl || '/tenant_read/SELECT/{authenticated}' from isotest.class where cls = 't_read'
      union select 'profile/own_profile_read/SELECT/{authenticated}'
-     union select 'support_ticket/own_bar_insert/INSERT/{authenticated}'
      except select tablename || '/' || policyname || '/' || cmd || '/' || roles::text from pg_policies where schemaname = 'public')
   ) q;
   perform isotest.assert(missing is null, 'policy set differs from expected: ' || coalesce(missing, ''));
@@ -613,11 +603,9 @@ begin
         end if;
       end if;
 
-      -- Writes: nothing is writable by the browser, except support_ticket INSERT (below).
-      if r.tbl <> 'support_ticket' then
-        perform isotest.assert(isotest.insert_result(r.tbl) = 'denied',
-          format('[pass %s] %s can INSERT into %s (%s)', pass, who.label, r.tbl, isotest.insert_result(r.tbl)));
-      end if;
+      -- Writes: nothing is writable by the browser.
+      perform isotest.assert(isotest.insert_result(r.tbl) = 'denied',
+        format('[pass %s] %s can INSERT into %s (%s)', pass, who.label, r.tbl, isotest.insert_result(r.tbl)));
       perform isotest.assert(isotest.affected(format('update public.%I set updated_date = now()', r.tbl)) in (-1, 0),
         format('[pass %s] %s can UPDATE rows of %s', pass, who.label, r.tbl));
       perform isotest.assert(isotest.affected(format('delete from public.%I', r.tbl)) in (-1, 0),
@@ -631,36 +619,11 @@ begin
       end if;
     end loop;
 
-    -- support_ticket: the one allowed browser write.
-    perform isotest.expect_ok(
-      format($f$insert into public.support_ticket (tenant_id, kind, subject, body, created_by_email) values (%L, 'mejora', 'from %s p%s', 'b', 'e@x')$f$, own, who.label, pass),
-      format('[pass %s] %s must be able to open a ticket for its own bar', pass, who.label));
-    perform isotest.assert(
-      (select created_by_id from public.support_ticket where subject = 'from ' || who.label || ' p' || pass) = who.uid,
-      'support_ticket.created_by_id defaults to the signed-in user');
+    -- support_ticket: not even for the user's own bar (server function only),
+    -- including the exact payload the Base44 client sends today.
     perform isotest.expect_error(
-      format($f$insert into public.support_ticket (tenant_id, kind, subject) values (%L, 'soporte', 'cross')$f$, other),
-      '42501', format('[pass %s] %s inserted a ticket into ANOTHER bar', pass, who.label));
-    perform isotest.expect_error(
-      format($f$insert into public.support_ticket (tenant_id, kind, subject) values (null, 'soporte', 'null tenant')$f$),
-      '42501', format('[pass %s] %s inserted a ticket with no tenant', pass, who.label));
-    perform isotest.expect_error(
-      format($f$insert into public.support_ticket (tenant_id, kind, subject, status) values (%L, 'soporte', 'status', 'cerrado')$f$, own),
-      '42501', format('[pass %s] a ticket cannot be created already closed', pass));
-    perform isotest.expect_ok(
-      format($f$insert into public.support_ticket (tenant_id, kind, subject, body, status, created_by_email) values (%L, 'soporte', 'exact client payload', 'b', 'abierto', 'e@x')$f$, own),
-      format('[pass %s] the exact payload src/lib/supportTickets.js sends must be accepted', pass));
-    if pass = 1 then
-      perform isotest.expect_error(
-        format($f$insert into public.support_ticket (tenant_id, kind, subject, responses) values (%L, 'soporte', 'resp', '[]')$f$, own),
-        '42501', 'browser must not set support_ticket.responses');
-      perform isotest.expect_error(
-        format($f$insert into public.support_ticket (id, tenant_id, kind, subject) values (gen_random_uuid(), %L, 'soporte', 'id')$f$, own),
-        '42501', 'browser must not choose support_ticket.id');
-    end if;
-    perform isotest.expect_error(
-      format($f$insert into public.support_ticket (tenant_id, kind, subject) values (%L, 'otro', 'bad kind')$f$, own),
-      '23514', 'support_ticket.kind enum');
+      format($f$insert into public.support_ticket (tenant_id, kind, subject, body, status, created_by_email) values (%L, 'soporte', 'from %s p%s', 'b', 'abierto', 'spoofed@x')$f$, own, who.label, pass),
+      '42501', format('[pass %s] %s opened a ticket directly from the browser', pass, who.label));
   end loop;
 
   -- ---- A signed-in user with NO bar, and the platform owner ----------------
@@ -717,7 +680,7 @@ grant all on all tables in schema public to anon, authenticated;
 do $$ begin perform isotest.run_matrix(2); end $$;
 
 -- Nothing the matrix did may have changed the data (writes were refused or
--- affected zero rows). Support tickets are the only new rows.
+-- affected zero rows). No new rows at all.
 do $$
 declare r record; n bigint;
 begin
@@ -725,8 +688,8 @@ begin
   perform isotest.assert((select count(*) from public.profile) = 6, 'no profile was deleted or added by the matrix');
   perform isotest.assert((select count(*) from public.wine_bar) = 2, 'no wine_bar was deleted');
   perform isotest.assert((select count(*) from public.product where tenant_id = isotest.bar_b()) = 1, 'bar B product intact');
-  perform isotest.assert((select count(*) from public.support_ticket where subject like 'from %') = 6,
-    'exactly the 3 users x 2 passes tickets were created');
+  perform isotest.assert((select count(*) from public.support_ticket where subject like 'from %') = 0,
+    'no browser-created ticket exists');
 end $$;
 
 -- ===========================================================================
