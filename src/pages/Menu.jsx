@@ -5,6 +5,7 @@
 // esta página nunca escribe entidades directo.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { callFn, ApiError } from '@/lib/api';
+import { cleanCatalog } from '@/lib/catalogShape';
 import { usePermission } from '@/lib/usePermission';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -38,9 +39,7 @@ export default function Menu() {
       // Quien edita necesita ver también lo inactivo, para poder reactivarlo;
       // quien solo consulta el menú ve el menú real que vería un cliente.
       const res = await callFn('catalog', 'listProducts', { include_inactive: canEdit });
-      const categories = res.categories ?? [];
-      const products = res.products ?? [];
-      const extras = res.extras ?? [];
+      const { categories, products, extras } = cleanCatalog(res);
       setData({ categories, products, extras });
       setActiveCategory((prev) =>
         prev && categories.some((c) => c.id === prev) ? prev : categories[0]?.id ?? null

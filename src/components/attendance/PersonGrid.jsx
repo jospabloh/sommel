@@ -34,7 +34,7 @@ export default function PersonGrid({ people, onPick }) {
               )}
               aria-hidden="true"
             >
-              {p.name.slice(0, 1).toUpperCase()}
+              {String(p.name ?? '?').slice(0, 1).toUpperCase()}
             </span>
             <span className="flex-1 min-w-0">
               <span className="block text-lg font-semibold truncate">{p.name}</span>

@@ -17,13 +17,13 @@ import { callFn, ApiError } from '@/lib/api';
 import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import StationTicket from '@/components/stations/StationTicket';
+import { applyRealtimeEvent } from '@/lib/realtimeMerge';
 import {
   COMBINED_VIEW,
   STATION_PERMISSION,
   STATION_TITLES,
   VIEW_TITLES,
   flattenRow,
-  flattenEvent,
   groupItemsByOrder,
   linesForFilter,
   normalizeCombinedFilter,
@@ -157,31 +157,15 @@ export default function Estacion() {
     const shown = stationKey.split(',');
 
     const unsubItems = base44.entities.OrderItem.subscribe((evt) => {
-      const row = flattenEvent(evt);
-      if (!row?.id) return;
-      setItems((prev) => {
-        const idx = prev.findIndex((i) => i.id === row.id);
-        const belongsHere = row.tenant_id === tenantId && shown.includes(row.station) && evt.type !== 'delete';
-        if (!belongsHere) return idx === -1 ? prev : prev.filter((i) => i.id !== row.id);
-        if (idx === -1) return [...prev, row];
-        const next = prev.slice();
-        next[idx] = { ...next[idx], ...row };
-        return next;
-      });
+      setItems((prev) =>
+        applyRealtimeEvent(prev, evt, (i) => i.tenant_id === tenantId && shown.includes(i.station))
+      );
     });
 
     const unsubOrders = base44.entities.Order.subscribe((evt) => {
-      const row = flattenEvent(evt);
-      if (!row?.id) return;
-      setOrders((prev) => {
-        const idx = prev.findIndex((o) => o.id === row.id);
-        const stillOpen = row.tenant_id === tenantId && row.status === 'abierta' && evt.type !== 'delete';
-        if (!stillOpen) return idx === -1 ? prev : prev.filter((o) => o.id !== row.id);
-        if (idx === -1) return [...prev, row];
-        const next = prev.slice();
-        next[idx] = row;
-        return next;
-      });
+      setOrders((prev) =>
+        applyRealtimeEvent(prev, evt, (o) => o.tenant_id === tenantId && o.status === 'abierta')
+      );
     });
 
     return () => {
@@ -223,7 +207,7 @@ export default function Estacion() {
     list.sort((a, b) => {
       const aTime = a.lines.reduce((min, l) => (l.sent_at && (!min || l.sent_at < min) ? l.sent_at : min), null) || '';
       const bTime = b.lines.reduce((min, l) => (l.sent_at && (!min || l.sent_at < min) ? l.sent_at : min), null) || '';
-      return aTime.localeCompare(bTime);
+      return String(aTime).localeCompare(String(bTime));
     });
     return list;
   }, [grouped, ordersById]);

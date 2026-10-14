@@ -1722,3 +1722,56 @@ renglón grande no pregunta. En Orden, `useQtyConfirm`
 "Corregir" no se agrega nada y la hoja sigue abierta. Pruebas en
 `service_settings_test.ts`. Verificado en Orden a 390 px con el backend
 simulado: de 20 a 21 pregunta, y "Sí" reenvía con `confirm_qty`.
+
+## Barrido de endurecimiento del cliente (2026-10-14)
+
+Cuatro frentes, con un servidor simulado por completo (cero peticiones a Base44):
+respuestas mutadas (nulos, campos que faltan, listas vacías, números como texto,
+enums desconocidos), eventos de tiempo real raros, modo táctil encendido y los
+flujos de cerrar sesión / eliminar cuenta. El arnés de Playwright vive fuera del
+repo; lo que sí quedó son las pruebas de Deno y los arreglos:
+
+- **Tiempo real.** `src/lib/realtimeMerge.js` (`applyRealtimeEvent`) es la única
+  forma en que Mesas, Estación y Orden aplican un evento. Un `update` sin
+  `data` ya no saca de la lista una comanda abierta (antes se leía como "fila sin
+  estado"), un `create` sin `order_id` ya no se agrega como renglón `{ id }`, un
+  payload parcial se **mezcla** sobre lo guardado en vez de reemplazarlo, y un
+  payload `_oversize` (el servidor lo recorta y las cadenas largas llegan vacías)
+  se ignora. Probado también en Chromium con un WebSocket falso (`routeWebSocket`)
+  que habla el protocolo de socket.io: JSON roto, evento nulo, repetidos, borrados,
+  otra comanda, y después de salir de la pantalla. Un `_oversize` que sea un
+  `create` desconocido no se recupera hasta la siguiente carga: es raro y no se
+  tocó.
+- **Formas raras del servidor.** `src/lib/catalogShape.js` (menú),
+  `src/lib/reportShape.js` (reportes), y `callFn` quita los huecos (`null`) de
+  las listas de toda respuesta (`src/lib/apiShape.js`; la exportación de datos
+  queda intacta). Eso cierra la clase "un `null` dentro de una lista apaga la
+  pantalla". Además: `sent_at` que no es texto ya no truena el orden de Estación,
+  Turno/Corte, Cuenta, Impresoras en red y el checador toleran listas ausentes.
+  Hay un último atrapa-errores alrededor de toda la app (`main.jsx`), así que un
+  error fuera del Layout (login, bloqueo de terminal, el propio Layout) ya no deja
+  la página en blanco.
+- **Mensajes de error en español.** Cuando Base44 responde antes que nuestra
+  función (429, 502, sin conexión) solo hay inglés ("Request failed with status
+  code 429", "Network Error"); `friendlyHttpMessage` (`src/lib/apiMessages.js`)
+  lo dice en español. El texto propio del servidor siempre gana.
+- **Teclado en pantalla.** Tocar un botón de un diálogo con el teclado abierto
+  **perdía el clic**: `pointerdown` quitaba el foco al campo, el teclado se
+  escondía y el diálogo volvía al centro antes de soltar, así que el clic caía en
+  vacío (había que tocar dos veces). Ahora el teclado espera a que se suelte el
+  toque (y 250 ms más) antes de esconderse.
+- **Cerrar sesión.** `logout()` bloquea la terminal (el pase vive solo en memoria,
+  pero no debe esperar a la recarga) y borra el nombre pendiente de quien ya tiene
+  bar. `useSessionManager` ya no truena si `localStorage` está bloqueado (el efecto
+  vive en Layout y apagaba toda la app). El botón "Cerrar sesión" de la barra
+  no tenía nombre accesible bajo 1024 px (solo icono): ahora lleva `title` y
+  `aria-label`.
+
+**No se pudo ejercer:** una cuenta real ni Base44 publicado (el arnés es el
+servidor simulado); un dedo táctil real (el puntero táctil se simuló con ratón);
+el cierre de sesión con la red caída (el SDK navega al endpoint de logout y el
+navegador muestra su propia página de error: el token ya se borró, recargar basta);
+las pantallas de fecha y hora nativas (`datetime-local` no abre el teclado en
+pantalla a propósito). Pruebas nuevas: `realtime_events_test.ts`,
+`catalog_shape_test.ts`, `report_shape_test.ts`, `api_messages_test.ts`,
+`api_shape_test.ts`, `station_odd_shapes_test.ts`.

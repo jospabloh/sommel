@@ -9,7 +9,10 @@ import { fmtDateTime, fmtTime } from './helpers';
 import VoidCashOutDialog from './VoidCashOutDialog';
 
 export default function OpenShiftPanel({ data, canCorte, onCashOut, onClose, onChanged }) {
-  const { shift, cash_outs: cashOuts, totals_by_method: totals, sales_total: salesTotal } = data;
+  const { shift, sales_total: salesTotal } = data;
+  // A reply from another deployed version may lack a list or send null.
+  const cashOuts = Array.isArray(data.cash_outs) ? data.cash_outs : [];
+  const totals = Array.isArray(data.totals_by_method) ? data.totals_by_method : [];
   const [voiding, setVoiding] = useState(null);
   return (
     <div className="space-y-5">

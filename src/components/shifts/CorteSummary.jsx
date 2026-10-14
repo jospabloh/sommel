@@ -29,7 +29,16 @@ export function differenceText(d) {
 
 export default function CorteSummary({ summary, comment }) {
   if (!summary) return null;
-  const s = summary;
+  // A summary saved by another deployed version may lack a list or a block.
+  const list = (v) => (Array.isArray(v) ? v : []);
+  const block = (v) => (v && typeof v === 'object' ? v : {});
+  const s = {
+    ...summary,
+    sales_by_method: list(summary.sales_by_method),
+    cash_outs: list(summary.cash_outs),
+    discounts: block(summary.discounts),
+    courtesies: block(summary.courtesies),
+  };
   return (
     <div className="space-y-5">
       <Block title="Ventas">

@@ -131,7 +131,7 @@ export function groupItemsByOrder(items) {
     map.set(item.order_id, list);
   }
   for (const list of map.values()) {
-    list.sort((a, b) => (a.sent_at || '').localeCompare(b.sent_at || ''));
+    list.sort((a, b) => String(a.sent_at ?? '').localeCompare(String(b.sent_at ?? '')));
   }
   return map;
 }
@@ -189,10 +189,10 @@ export function orderDisplayName(order, tablesById) {
 export function lineSubtitle(item) {
   const parts = [];
   if (item.variant) parts.push(item.variant_label || item.variant);
-  const mods = Array.isArray(item.modifiers) ? item.modifiers : [];
+  const mods = Array.isArray(item.modifiers) ? item.modifiers.filter(Boolean) : [];
   if (mods.length) parts.push(mods.map((m) => m.label || m.key).join(', '));
   // Priced extras frozen on the line, e.g. "+ Shot extra, + Leche de almendra".
-  const extras = Array.isArray(item.extras) ? item.extras : [];
+  const extras = Array.isArray(item.extras) ? item.extras.filter(Boolean) : [];
   if (extras.length) parts.push(extras.map((e) => `+ ${e.name}`).join(', '));
   return parts.join(' · ');
 }

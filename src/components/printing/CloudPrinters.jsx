@@ -62,7 +62,7 @@ export default function CloudPrinters() {
   const load = useCallback(async () => {
     try {
       const res = await callFn('printing', 'cloudList');
-      setPrinters(res.printers || []);
+      setPrinters(Array.isArray(res.printers) ? res.printers.filter((p) => p && typeof p === 'object') : []);
     } catch {
       setPrinters([]);
     }
@@ -136,7 +136,7 @@ export default function CloudPrinters() {
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
-              <KindChips value={p.kinds.filter((k) => CLOUD_KINDS.includes(k))} onChange={(next) => update(p, { kinds: next })} />
+              <KindChips value={(Array.isArray(p.kinds) ? p.kinds : []).filter((k) => CLOUD_KINDS.includes(k))} onChange={(next) => update(p, { kinds: next })} />
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-muted-foreground">Formato:</span>
                 {[['starprnt', 'Star (negritas y corte)'], ['text', 'Texto simple']].map(([f, label]) => (
