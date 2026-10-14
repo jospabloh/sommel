@@ -16,6 +16,11 @@ export async function upsertCategory(ctx: Ctx, body: any) {
 
   if (!ctx.tenantId) throw httpError(403, 'no_tenant', 'No perteneces a ningún bar');
 
+  // A typo in the station used to save silently as "Ninguna" (2026-10-14);
+  // then nothing of that category ever reached cocina or barra.
+  if (body?.station_default !== undefined && !['kitchen', 'bar', 'none'].includes(body.station_default)) {
+    throw httpError(400, 'invalid_station', 'Estación no válida: elige Cocina, Barra o Ninguna');
+  }
   const fields = normalizeCategoryInput(body, existing);
   const error = validateCategory(fields);
   if (error) throw httpError(400, 'invalid_body', error);
