@@ -145,7 +145,7 @@ el puente con Mission Control (mismo HMAC por app); el dominio
 | Fase | Qué | Cómo se verifica |
 |---|---|---|
 | 0 | Infra: proyecto `sommel` en la organización actual (gratis), proyecto en Vercel, Resend, respaldo diario con `pg_dump` | El proyecto responde; el primer respaldo existe fuera de Supabase |
-| 1 | Esquema, RLS, índices únicos, `profile`, pruebas de aislamiento en SQL | Pruebas de aislamiento en CI, verdes |
+| 1 | Esquema, RLS, índices únicos, `profile`, pruebas de aislamiento en SQL | Pruebas de aislamiento en CI, verdes. **Hecha el 2026-10-14:** aplicada al proyecto `sommel`, 1,670 aserciones verdes en Supabase real y en CI (Postgres 16 con stub) |
 | 2 | Capa `entities` + guard portado + los 21 routers | Las 600+ pruebas de lógica, más pruebas nuevas del guard contra un Postgres real (rama de Supabase) |
 | 3 | Cliente: supabase-js, páginas de auth, `callFn`, lecturas directas, tiempo real | Recorrido completo en el navegador contra el proyecto nuevo, a 390/834/1440 |
 | 4 | Terminales, personas sin correo, llaves del celular, CloudPRNT, correos | Lo mismo que se verificó en Base44, otra vez |
