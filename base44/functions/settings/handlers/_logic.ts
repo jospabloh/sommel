@@ -38,6 +38,8 @@ export const EDITABLE_FIELDS = [
   'auto_deliver_no_station',
   // Maximum of ONE cash withdrawal, in centavos; 0 = no limit.
   'cash_out_max',
+  // A line above this many pieces asks "¿Seguro?" first; 0 = never ask.
+  'qty_confirm_threshold',
 ] as const;
 
 const KEY_RE = /^[a-z0-9][a-z0-9_]{0,23}$/;
@@ -183,6 +185,13 @@ export function buildSettingsPatch(body: Record<string, unknown>, currentMethods
     }
   }
   if ('cash_out_max' in body) patch.cash_out_max = cashOutMax(body.cash_out_max);
+  if ('qty_confirm_threshold' in body) {
+    const v = body.qty_confirm_threshold;
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 999) {
+      throw new LogicError('invalid_qty_confirm', 'Escribe un número de 0 a 999 (0 = nunca preguntar)');
+    }
+    patch.qty_confirm_threshold = v;
+  }
   if (Object.keys(patch).length === 0) throw new LogicError('nothing_to_update', 'No hay cambios que guardar');
   return patch;
 }

@@ -4,7 +4,7 @@
 // updateItem never re-prices, it only lets the wait staff fix a typo before
 // sending.
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCost, type Ctx, type Route } from '../_guard.ts';
-import { LogicError, resolveModifiers, validateQty, isOrderOpen, canEditItem } from './_logic.ts';
+import { LogicError, resolveModifiers, validateQty, isOrderOpen, canEditItem, needsQtyConfirm, qtyConfirmThreshold } from './_logic.ts';
 import { recomputeOrderTotals, assertTotalCoversPayments } from './_shared.ts';
 
 export const updateItem: Route = async (ctx: Ctx, body: any) => {
@@ -29,6 +29,10 @@ export const updateItem: Route = async (ctx: Ctx, body: any) => {
     } catch (err) {
       if (err instanceof LogicError) throw new HttpError(400, err.code, err.message);
       throw err;
+    }
+    const threshold = qtyConfirmThreshold(ctx.bar);
+    if (needsQtyConfirm(patch.qty, threshold, item.qty ?? 0, body?.confirm_qty === true)) {
+      throw new HttpError(409, 'qty_confirm_required', `¿Seguro? Son ${patch.qty} piezas.`, { qty: patch.qty, threshold });
     }
   }
 

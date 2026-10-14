@@ -1,6 +1,6 @@
 // orders.addItems — entrega-1-contratos.md §4 "orders".
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCosts, type Ctx, type Route } from '../_guard.ts';
-import { LogicError, resolveItemPricing, resolveExtras, withExtras, validateQty, isOrderOpen } from './_logic.ts';
+import { LogicError, resolveItemPricing, resolveExtras, withExtras, validateQty, isOrderOpen, needsQtyConfirm, qtyConfirmThreshold } from './_logic.ts';
 import { recomputeOrderTotals } from './_shared.ts';
 
 export const addItems: Route = async (ctx: Ctx, body: any) => {
@@ -19,6 +19,14 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
   const items = Array.isArray(body?.items) ? body.items : [];
   if (items.length === 0) {
     httpError(400, 'items_required', 'Debes agregar al menos un renglón');
+  }
+
+  // A big quantity asks first (Ajustes, qty_confirm_threshold): checked before
+  // any product is read, so the "¿Seguro?" round trip costs no entity reads.
+  const threshold = qtyConfirmThreshold(ctx.bar);
+  const big = items.map((raw: any) => raw?.qty).filter((q: unknown) => needsQtyConfirm(q, threshold, 0, body?.confirm_qty === true));
+  if (big.length > 0) {
+    throw new HttpError(409, 'qty_confirm_required', `¿Seguro? Son ${Math.max(...big)} piezas.`, { qty: Math.max(...big), threshold });
   }
 
   // Resolve every line against the STORED Product before writing anything —

@@ -1705,3 +1705,20 @@ solo para quien edita Ajustes, y se guardan por `settings.update`.
 simulado, a 390 y 1280 (los tres ajustes mandan el cambio correcto, el retiro
 anulado sale tachado con su motivo y "Anular" manda `voidCashOut`).
 **No verificado en este cambio:** una comanda impresa en papel.
+
+### Confirmar cantidades grandes (2026-10-14)
+
+Decisión de José: arriba de 20 piezas por renglón la caja pregunta "¿Seguro?",
+y el admin cambia el número en Ajustes → Servicio
+(`WineBar.qty_confirm_threshold`, 0 = nunca preguntar, máximo 999). **Lo decide
+el servidor**, así cubre cualquier pantalla y cualquier llamada:
+`orders.addItems` y `orders.updateItem` responden 409 `qty_confirm_required`
+(con `qty` y `threshold`) mientras no llegue `confirm_qty: true`. `addItems` lo
+revisa **antes** de leer productos, así preguntar no gasta lecturas.
+`updateItem` solo pregunta si la cantidad **sube** y pasa el número: bajar un
+renglón grande no pregunta. En Orden, `useQtyConfirm`
+(`components/orders/QtyConfirmDialog.jsx`) muestra "¿Seguro? Son N piezas" con
+"Sí, son N" y "Corregir", y reenvía la misma llamada confirmada. Con
+"Corregir" no se agrega nada y la hoja sigue abierta. Pruebas en
+`service_settings_test.ts`. Verificado en Orden a 390 px con el backend
+simulado: de 20 a 21 pregunta, y "Sí" reenvía con `confirm_qty`.

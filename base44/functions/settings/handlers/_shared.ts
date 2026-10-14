@@ -23,6 +23,7 @@ export function settingsView(bar: any, viewerId?: string | null) {
     print_comandas: bar?.print_comandas === true,
     auto_deliver_no_station: bar?.auto_deliver_no_station === true,
     cash_out_max: Number.isInteger(bar?.cash_out_max) && bar.cash_out_max > 0 ? bar.cash_out_max : null,
+    qty_confirm_threshold: Number.isInteger(bar?.qty_confirm_threshold) && bar.qty_confirm_threshold >= 0 ? bar.qty_confirm_threshold : 20,
     // Read-only license fields for the billing banner (Layout.jsx). Not in
     // EDITABLE_FIELDS: settings.update can never write them.
     billing_status: bar?.billing_status ?? null,
