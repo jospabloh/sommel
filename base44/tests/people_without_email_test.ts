@@ -58,7 +58,9 @@ Deno.test('a name and a PIN are required, with the same PIN rule as the checador
   assertThrowsCode(() => validateNewPin('123'), 'invalid_pin');
   assertEquals(pinProblem('1234', '1234'), null);
   assertEquals(pinProblem('1234', '1235'), 'Los dos PIN no coinciden');
-  assertEquals(pinProblem('12', '12'), 'El PIN debe tener de 4 a 6 números');
+  assertEquals(pinProblem('12', '12'), 'El PIN debe tener 4 números');
+  assertEquals(pinProblem('123456', '123456'), 'El PIN debe tener 4 números', 'every PIN in the bar has its length');
+  assertEquals(pinProblem('123456', '123456', 6), null, 'a bar set to 6 digits');
 });
 
 Deno.test('Mission Control never mails a bar at an address with no mailbox', () => {

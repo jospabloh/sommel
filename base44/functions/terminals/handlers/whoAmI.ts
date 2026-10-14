@@ -1,4 +1,5 @@
 // terminals.whoAmI: what a terminal shows on "¿Quién eres?". Runs locked.
+import { pinLengthOf } from '../_guard_logic.ts';
 import { allowLockedTerminal, terminalAllows, type Ctx } from '../_guard.ts';
 import { buildRoster, displayName, isOnShift, shouldTouchLastSeen } from '../_terminal_logic.ts';
 import { barPeople, requireTerminal } from './_shared.ts';
@@ -24,7 +25,7 @@ export const whoAmI = allowLockedTerminal(async (ctx: Ctx) => {
   }
   return {
     terminal: { id: device.id, name: device.name },
-    bar: { name: ctx.bar?.name ?? '' },
+    bar: { name: ctx.bar?.name ?? '', pin_length: pinLengthOf(ctx.bar) },
     people: roster,
     unlocked: ctx.terminal?.unlocked
       ? { id: ctx.self.id, name: displayName(ctx.self), app_role: ctx.self.app_role }

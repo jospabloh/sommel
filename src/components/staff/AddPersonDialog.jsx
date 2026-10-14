@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { BAR_ADMIN, STAFF } from '@/lib/rbac';
 import { pinProblem } from './pinRules';
 
-export default function AddPersonDialog({ open, onClose, onSaved }) {
+export default function AddPersonDialog({ open, onClose, onSaved, pinLength = 4 }) {
   const [name, setName] = useState('');
   const [role, setRole] = useState(STAFF);
   const [pin, setPin] = useState('');
@@ -32,7 +32,7 @@ export default function AddPersonDialog({ open, onClose, onSaved }) {
     e.preventDefault();
     const n = name.trim();
     if (!n) return setError('Escribe su nombre');
-    const problem = pinProblem(pin, pin2);
+    const problem = pinProblem(pin, pin2, pinLength);
     if (problem) return setError(problem);
     setBusy(true);
     setError('');
@@ -72,10 +72,10 @@ export default function AddPersonDialog({ open, onClose, onSaved }) {
             </div>
           </div>
           <div className="space-y-1.5">
-            <p className="text-sm font-medium">Que la persona escriba su PIN (4 a 6 números)</p>
+            <p className="text-sm font-medium">Que la persona escriba su PIN ({pinLength} números)</p>
             <div className="grid grid-cols-2 gap-2">
-              <Input type="password" inputMode="numeric" autoComplete="off" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} placeholder="PIN" aria-label="PIN" />
-              <Input type="password" inputMode="numeric" autoComplete="off" maxLength={6} value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, ''))} placeholder="Repítelo" aria-label="Repetir PIN" />
+              <Input type="password" inputMode="numeric" autoComplete="off" maxLength={pinLength} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} placeholder="PIN" aria-label="PIN" />
+              <Input type="password" inputMode="numeric" autoComplete="off" maxLength={pinLength} value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, ''))} placeholder="Repítelo" aria-label="Repetir PIN" />
             </div>
           </div>
           <p className="text-sm text-destructive min-h-[1.25rem]" role="alert">{error}</p>

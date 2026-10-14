@@ -69,7 +69,7 @@ Lógica pura en `handlers/_logic.ts` (hash/verify con WebCrypto van en
 |---|---|---|---|
 | `roster` | `{}` | `{ people: [{ user_id, name, has_pin, inside: bool, since? }] }` todos los miembros del bar (User con ese tenant_id); nombre = `full_name` o la parte antes de @ del correo | `Asistencia:checar` |
 | `punch` | `{ user_id, pin }` | `{ record, action: 'entrada'\|'salida', name }` | `Asistencia:checar` + billing gate |
-| `setMyPin` | `{ pin, current_pin? }` | `{ ok }` — PIN del propio llamador (`ctx.user.id`), 4 a 6 dígitos; si ya tiene PIN exige `current_pin` correcto | `Asistencia:checar` |
+| `setMyPin` | `{ pin, current_pin? }` | `{ ok }` — PIN del propio llamador (`ctx.user.id`), exactamente `WineBar.pin_length` dígitos (4 por defecto); si ya tiene PIN exige `current_pin` correcto | `Asistencia:checar` |
 | `resetPin` | `{ user_id }` | `{ ok }` — borra el PIN de un miembro del mismo bar (tendrá que crear uno nuevo) | `Asistencia:corregir` |
 | `records` | `{ from, to, user_id? }` (fechas locales, máx. 62 días) | `{ records, totals: [{ user_id, name, minutes, open }] }` | staff: solo los suyos (se ignora `user_id`); `Asistencia:ver_equipo`: todos |
 | `correct` | `{ record_id, clock_in?, clock_out?, note }` | `{ record }` | `Asistencia:corregir` + billing gate |

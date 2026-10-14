@@ -257,7 +257,7 @@ export const MANUAL_SECTIONS = [
       },
       {
         q: '¿Cómo creo mi PIN?',
-        a: 'La primera vez, el Checador te pide crear un PIN de 4 a 6 números. Para cambiarlo después necesitas escribir el actual.',
+        a: 'La primera vez, el Checador te pide crear tu PIN: de 4 números, salvo que el administrador elija 5 o 6 en Ajustes. Al escribir el último número entra solo; si el PIN no es correcto, el teclado tiembla y dice PIN incorrecto. Para cambiarlo después necesitas escribir el actual.',
       },
       {
         q: 'Escribí mal mi PIN varias veces',

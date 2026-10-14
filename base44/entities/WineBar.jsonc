@@ -141,6 +141,12 @@
       "default": false,
       "description": "Si es true, la aprobación del encargado también se puede dar desde el celular de un administrador (QR + Face ID o huella). El PIN del administrador sigue disponible siempre."
     },
+    "pin_length": {
+      "type": "integer",
+      "enum": [4, 5, 6],
+      "default": 4,
+      "description": "Largo de TODOS los PINs del bar (checador, terminal y aprobación del encargado). 4 por defecto; el admin puede elegir 5 o 6 en Ajustes. Con largo fijo el teclado entra solo al teclear el último dígito. Cambiarlo no rehace los PINs ya puestos: quien tenga otro largo debe volver a ponerlo."
+    },
     "service_hours": {
       "type": "object",
       "description": "Ventana de horario de servicio del bar (para saber cuándo NO desplegar, §8 del plan)"

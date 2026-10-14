@@ -117,3 +117,10 @@ export function normalizeDisplayName(input: unknown): string | null {
   const v = input.replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/\s+/g, ' ');
   return v.length >= 1 && v.length <= 60 ? v : null;
 }
+
+// PIN length per bar: same rule as pinLengthOf in scripts/templates/_guard_logic.ts
+// (this function cannot import it); base44/tests/pin_length_test.ts pins both.
+export function pinLengthOf(bar: { pin_length?: unknown } | null | undefined): number {
+  const v = bar?.pin_length;
+  return v === 4 || v === 5 || v === 6 ? v : 4;
+}

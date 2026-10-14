@@ -6,10 +6,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { pinLengthFrom } from './PinPad';
 
 const digits = (v) => v.replace(/\D/g, '').slice(0, 6);
 
-export default function MyPinDialog({ open, onOpenChange, hasPin, onDone }) {
+export default function MyPinDialog({ open, onOpenChange, hasPin, onDone, pinLength }) {
+  // A new PIN has exactly the bar's length; the current one may still be older.
+  const size = pinLengthFrom(pinLength);
   const [current, setCurrent] = useState('');
   const [pin, setPin] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -27,7 +30,7 @@ export default function MyPinDialog({ open, onOpenChange, hasPin, onDone }) {
     onOpenChange(v);
   };
 
-  const validNew = pin.length >= 4 && pin.length <= 6;
+  const validNew = pin.length === size;
   const mismatch = confirm.length > 0 && confirm !== pin;
   const canSubmit = validNew && confirm === pin && (!hasPin || current.length >= 4) && !busy;
 
@@ -49,7 +52,7 @@ export default function MyPinDialog({ open, onOpenChange, hasPin, onDone }) {
     }
   };
 
-  const field = (id, label, value, setter, autoFocus) => (
+  const field = (id, label, value, setter, autoFocus, max = size) => (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
       <Input
@@ -58,7 +61,7 @@ export default function MyPinDialog({ open, onOpenChange, hasPin, onDone }) {
         inputMode="numeric"
         autoComplete="off"
         value={value}
-        onChange={(e) => setter(digits(e.target.value))}
+        onChange={(e) => setter(digits(e.target.value).slice(0, max))}
         className="h-12 text-lg tracking-widest"
         autoFocus={autoFocus}
       />
@@ -70,10 +73,10 @@ export default function MyPinDialog({ open, onOpenChange, hasPin, onDone }) {
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>{hasPin ? 'Cambiar mi PIN' : 'Crear mi PIN'}</DialogTitle>
-          <DialogDescription>De 4 a 6 números. Con él registras tu entrada y tu salida.</DialogDescription>
+          <DialogDescription>De {size} números. Con él registras tu entrada y tu salida y entras a la terminal.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
-          {hasPin ? field('pin-current', 'PIN actual', current, setCurrent, true) : null}
+          {hasPin ? field('pin-current', 'PIN actual', current, setCurrent, true, 6) : null}
           {field('pin-new', 'PIN nuevo', pin, setPin, !hasPin)}
           {field('pin-confirm', 'Repite el PIN nuevo', confirm, setConfirm, false)}
           {mismatch ? <p className="text-sm text-destructive">Los PIN no coinciden.</p> : null}

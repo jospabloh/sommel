@@ -22,6 +22,7 @@ import {
   isOwner,
   normalizeDisplayName,
   personName,
+  pinLengthOf,
 } from './_member_logic.ts';
 
 // Standalone function (does not use _guard.ts — contrato §5, manageStaff is
@@ -84,7 +85,8 @@ export default async function(req: Request): Promise<Response> {
           permission_overrides_count: u.permission_overrides && typeof u.permission_overrides === 'object' && !Array.isArray(u.permission_overrides) ? Object.keys(u.permission_overrides).length : 0,
           is_owner: isOwner(listBar, u.id)
         })),
-        invites
+        invites,
+        pin_length: pinLengthOf(listBar)
       });
     }
 

@@ -203,7 +203,8 @@ export function validatePersonRole(role: unknown): 'staff' | 'bar_admin' {
   throw new LogicError('invalid_role', 'Rol no válido');
 }
 
-export function validateNewPin(pin: unknown): string {
-  if (!isValidPin(pin)) throw new LogicError('invalid_pin', 'El PIN debe tener de 4 a 6 números');
+/** A NEW PIN must have exactly the bar's length (pinLengthOf, 4 by default). */
+export function validateNewPin(pin: unknown, length = 4): string {
+  if (!isValidPin(pin) || pin.length !== length) throw new LogicError('invalid_pin', `El PIN debe tener ${length} números`);
   return pin;
 }

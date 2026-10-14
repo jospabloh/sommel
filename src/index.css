@@ -171,3 +171,16 @@ html.drag-scrolling * {
   user-select: none !important;
   cursor: grabbing !important;
 }
+
+/* Wrong PIN: the dots shake once (PinPad.jsx). */
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-10px); }
+  40%, 80% { transform: translateX(10px); }
+}
+.pin-shake {
+  animation: pin-shake 0.4s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pin-shake { animation: none; }
+}

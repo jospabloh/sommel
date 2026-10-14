@@ -8,7 +8,7 @@ import { callFn } from '@/lib/api';
 import { setApprovalHandler } from '@/lib/approval/approvalBroker';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import PinPad, { PIN_MIN } from '@/components/attendance/PinPad';
+import PinPad, { pinLengthFrom } from '@/components/attendance/PinPad';
 import PhoneApprovalPanel from './PhoneApprovalPanel';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +16,7 @@ export default function ApprovalProvider({ children }) {
   const [request, setRequest] = useState(null); // { label, error }
   const [approvers, setApprovers] = useState(null);
   const [qrEnabled, setQrEnabled] = useState(false);
+  const [pinLength, setPinLength] = useState(4);
   const [mode, setMode] = useState('pin'); // pin | phone
   const [loadError, setLoadError] = useState(null);
   const [picked, setPicked] = useState(null);
@@ -49,6 +50,7 @@ export default function ApprovalProvider({ children }) {
         const list = r.approvers ?? [];
         setApprovers(list);
         setQrEnabled(!!r.qr_enabled);
+        setPinLength(pinLengthFrom(r.pin_length));
         const again = request?.error ? list.find((a) => a.id === lastPickRef.current && a.has_pin) : null;
         if (again) {
           pickedRef.current = again;
@@ -66,9 +68,10 @@ export default function ApprovalProvider({ children }) {
     }
   }, [open]);
 
-  const submit = () => {
+  // PinPad calls this on the last digit, with the full PIN.
+  const submit = (pin) => {
     const who = pickedRef.current;
-    if (!who || pin.length < PIN_MIN) return;
+    if (!who || pin.length !== pinLength) return;
     lastPickRef.current = who.id;
     finish({ approver_id: who.id, pin });
   };
@@ -136,10 +139,13 @@ export default function ApprovalProvider({ children }) {
               <Button type="button" variant="ghost" className="h-11 -ml-2" onClick={() => choose(null)}>
                 <ArrowLeft className="w-4 h-4" /> {picked.name}
               </Button>
-              <PinPad value={pin} onChange={setPin} onSubmit={submit} />
+              {/* A wrong PIN reopens this dialog on the same admin with request.error. */}
+              <PinPad value={pin} onChange={setPin} onSubmit={submit} length={pinLength} error={pin ? null : request?.error ?? null} />
             </div>
           )}
-          <p className="text-center text-sm text-destructive min-h-[1.25rem]" role="alert" aria-live="polite">{request?.error}</p>
+          {!picked ? (
+            <p className="text-center text-sm text-destructive min-h-[1.25rem]" role="alert" aria-live="polite">{request?.error}</p>
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

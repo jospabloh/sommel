@@ -1449,3 +1449,29 @@ propio desplazamiento táctil, manda `pointercancel` antes y el código se hace 
 un lado, sin doble desplazamiento. Simulado en Chromium (dedo por CDP y mouse,
 arrastre de 150 px): 135 px nativo, 150 px con `touch-action: none`, 150 px con
 mouse. **No verificado** en la pantalla táctil de la caja.
+
+## PIN de largo fijo: entra al último dígito (2026-10-13)
+
+Pedido de José: "que entre de una vez" al escribir el PIN correcto, y si no, que
+el teclado tiemble con "PIN incorrecto". Todos los PINs del bar miden
+`WineBar.pin_length` (4 por defecto; el admin elige 5 o 6 en Ajustes → PIN del
+equipo). `PinPad` llama `onSubmit(pin)` solo al teclear el último dígito y ya no
+tiene botón "Listo"; con `error` los puntos tiemblan (`.pin-shake`, sin animación
+con `prefers-reduced-motion`) y el mensaje sale debajo.
+
+- **El costo, aceptado por José:** el largo del PIN deja de ser secreto. Probar
+  en cada dígito sin largo fijo habría gastado intentos fallidos y bloqueado el
+  PIN a los 15 min, por eso no se hizo así.
+- Crear o cambiar un PIN exige exactamente ese largo (`setMyPin`,
+  `terminals.addPerson/setPersonPin`); verificar sigue aceptando 4 a 6, así que
+  cambiar el largo no rompe el servidor, pero un PIN de otro largo ya no se
+  puede teclear y hay que volver a ponerlo.
+- El largo viaja en las respuestas que esas pantallas ya pedían (`whoAmI`,
+  `attendance.roster`, `security.approvers`, `manageStaff.list`, `settings.get`):
+  ninguna petición nueva.
+- `pinLengthOf` vive en `_guard_logic.ts` y una copia en
+  `manageStaff/_member_logic.ts`; `base44/tests/pin_length_test.ts` las amarra.
+- PINs vivos el 2026-10-13: 5, todos de Sommel QA (bar de prueba). Su largo no se
+  puede saber (solo hay hash); el que no sea de 4 hay que volver a ponerlo.
+- **No verificado:** las pantallas (terminal, checador, aprobación) en navegador
+  ni contra Base44.

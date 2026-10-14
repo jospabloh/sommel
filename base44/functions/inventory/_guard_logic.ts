@@ -567,6 +567,26 @@ export function normalizeDisplayName(input: unknown): string | null {
   return v.length >= 1 && v.length <= 60 ? v : null;
 }
 
+// ---- PIN length per bar (2026-10-13) ----
+// Every PIN in a bar has the same length: 4 by default, or what the bar admin
+// chose in Ajustes (5 or 6). With a fixed length the keypad signs in the moment
+// the last digit is typed, with no "Listo" button (José: "que entre de una
+// vez"). The cost, accepted by José: the length is no secret. Same rule in
+// manageStaff/_member_logic.ts (it cannot import this file); pinned by
+// base44/tests/pin_length_test.ts.
+export const PIN_LENGTHS = [4, 5, 6] as const;
+export const DEFAULT_PIN_LENGTH = 4;
+
+export function pinLengthOf(bar: { pin_length?: unknown } | null | undefined): number {
+  const v = bar?.pin_length;
+  return typeof v === 'number' && (PIN_LENGTHS as readonly number[]).includes(v) ? v : DEFAULT_PIN_LENGTH;
+}
+
+/** A new PIN must have exactly the bar's length. */
+export function isPinOfLength(pin: unknown, length: number): pin is string {
+  return typeof pin === 'string' && pin.length === length && /^\d+$/.test(pin);
+}
+
 // ---- Short read cache (concurrency, 2026-10-06) ----
 // Base44 rate-limits entity operations per app. Every guarded call used to
 // re-read the bar (WineBar) and, for staff, its PermissionProfile. Both now
