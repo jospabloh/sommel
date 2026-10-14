@@ -7,7 +7,7 @@
   "properties": {
     "tenant_id": { "type": "string", "description": "WineBar de la solicitud. Módulo 19, candado de LECTURA y ESCRITURA a nivel entidad: las cuatro operaciones son solo de plataforma (role admin). Solo la función security la crea y la aprueba (tras verificar la firma del celular), y orders, payments y shifts la consumen al ejecutar la acción. Si se afloja la escritura, quien pide puede marcar su propia solicitud como aprobada; si se afloja la lectura, cualquiera ve el reto y las solicitudes de otros." },
     "kind": { "type": "string", "enum": ["approve", "register"], "description": "approve = aprobar una acción; register = reto para registrar una llave" },
-    "action": { "type": ["string", "null"], "description": "Acción que se aprueba (cancel_sent_item, void_payment, cash_out, close_shift, discount)" },
+    "action": { "type": ["string", "null"], "description": "Acción que se aprueba (cancel_sent_item, void_payment, cash_out, void_cash_out, close_shift, discount)" },
     "label": { "type": "string", "description": "Texto en español de la acción" },
     "challenge": { "type": "string", "description": "Reto aleatorio que el celular firma (base64url)" },
     "status": { "type": "string", "enum": ["pending", "approved", "rejected", "used", "cancelled"], "description": "Estado" },

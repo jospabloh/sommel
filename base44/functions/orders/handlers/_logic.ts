@@ -278,3 +278,33 @@ export function mergeTableIds(into: string[] | null | undefined, from: string[] 
   const set = new Set([...(into ?? []), ...(from ?? [])].filter(Boolean));
   return Array.from(set);
 }
+
+/**
+ * Status a line gets when sent. With the bar's `auto_deliver_no_station` on, a
+ * product with no station (water, a closed bottle) is delivered right away:
+ * no station shows it, so nobody could ever mark it ready (2026-10-14).
+ */
+export function sendStatusFor(station: unknown, autoDeliverNoStation: boolean): 'enviado' | 'entregado' {
+  const hasStation = station === 'kitchen' || station === 'bar';
+  return autoDeliverNoStation && !hasStation ? 'entregado' : 'enviado';
+}
+
+/** Default quantity above which a line asks "¿Seguro?" (José, 2026-10-14). */
+export const DEFAULT_QTY_CONFIRM = 20;
+
+/** The bar's threshold from Ajustes: 0 means never ask; missing means the default. */
+export function qtyConfirmThreshold(bar: { qty_confirm_threshold?: unknown } | null | undefined): number {
+  const v = bar?.qty_confirm_threshold;
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : DEFAULT_QTY_CONFIRM;
+}
+
+/**
+ * Does this quantity need the cashier to confirm it? Only when it goes past
+ * the threshold and grows (lowering a big line never asks), and only until the
+ * client resends it with `confirm_qty: true`. Guards a typo like 100 for 10,
+ * which goes to the bill, the kitchen and the inventory.
+ */
+export function needsQtyConfirm(qty: unknown, threshold: number, previousQty = 0, confirmed = false): boolean {
+  if (confirmed || threshold <= 0) return false;
+  return typeof qty === 'number' && qty > threshold && qty > previousQty;
+}

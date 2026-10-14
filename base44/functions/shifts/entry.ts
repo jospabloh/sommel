@@ -10,7 +10,8 @@ import { close } from './handlers/close.ts';
 import { list } from './handlers/list.ts';
 import { resendEmail } from './handlers/resendEmail.ts';
 import { printCorte } from './handlers/printCorte.ts';
+import { voidCashOut } from './handlers/voidCashOut.ts';
 
 export default function (req: Request): Promise<Response> {
-  return handle(req, { current, open, addCashOut, close, list, resendEmail, printCorte });
+  return handle(req, { current, open, addCashOut, voidCashOut, close, list, resendEmail, printCorte });
 }

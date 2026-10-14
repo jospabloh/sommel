@@ -16,8 +16,10 @@ function assertEquals(actual: unknown, expected: unknown, msg?: string) {
 
 const NOW = Date.parse('2026-10-06T22:00:00Z');
 
-Deno.test('exactly the five actions José chose need approval', () => {
-  assertEquals(Object.keys(logic.APPROVAL_LABELS).sort(), ['cancel_sent_item', 'cash_out', 'close_shift', 'discount', 'void_payment']);
+Deno.test('exactly the actions José chose need approval', () => {
+  // 2026-10-14: voiding a cash withdrawal joins them; undoing a withdrawal
+  // moves the expected cash as much as registering one.
+  assertEquals(Object.keys(logic.APPROVAL_LABELS).sort(), ['cancel_sent_item', 'cash_out', 'close_shift', 'discount', 'void_cash_out', 'void_payment']);
 });
 
 Deno.test('staff must ask; an admin or the platform acts alone', () => {
