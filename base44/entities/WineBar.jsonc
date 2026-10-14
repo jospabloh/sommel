@@ -147,6 +147,21 @@
       "default": 4,
       "description": "Largo de TODOS los PINs del bar (checador, terminal y aprobación del encargado). 4 por defecto; el admin puede elegir 5 o 6 en Ajustes. Con largo fijo el teclado entra solo al teclear el último dígito. Cambiarlo no rehace los PINs ya puestos: quien tenga otro largo debe volver a ponerlo."
     },
+    "print_comandas": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si es true, enviar a cocina o barra imprime la comanda en la impresora que tenga ese tipo, y cancelar un renglón ya enviado imprime un aviso de cambio. Apagado por defecto: las comandas se ven en la pantalla Cocina y barra."
+    },
+    "auto_deliver_no_station": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si es true, los renglones de productos sin estación (por ejemplo agua o una botella cerrada) quedan entregados al enviarlos, porque ninguna estación los puede marcar listos."
+    },
+    "cash_out_max": {
+      "type": "integer",
+      "default": 0,
+      "description": "Monto máximo de UN retiro de efectivo, en centavos. 0 = sin tope. Un retiro mayor se rechaza aunque lo apruebe un administrador."
+    },
     "service_hours": {
       "type": "object",
       "description": "Ventana de horario de servicio del bar (para saber cuándo NO desplegar, §8 del plan)"

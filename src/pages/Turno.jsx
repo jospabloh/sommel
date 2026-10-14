@@ -94,6 +94,7 @@ export default function Turno() {
         data={data}
         canCorte={canCorte}
         onCashOut={() => setCashOutOpen(true)}
+        onChanged={load}
         onClose={() => setCloseOpen(true)}
       />
     );

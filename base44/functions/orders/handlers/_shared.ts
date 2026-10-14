@@ -1,7 +1,8 @@
 // Small impure helpers shared across `orders` handlers. Not import-free (it
 // touches `Ctx`/`svc`), so it lives apart from `_logic.ts`, which `deno test`
 // must be able to load with zero imports.
-import { computeOrderTotals, activePaymentsTotal, httpError, type Ctx } from '../_guard.ts';
+import { computeOrderTotals, activePaymentsTotal, httpError, personName, type Ctx } from '../_guard.ts';
+import { buildComandaLines, comandaDedupeKey, groupByStation } from './_comanda.ts';
 
 /**
  * Loads the order's lines and computes the totals the order WOULD have,
@@ -59,5 +60,51 @@ export async function assertTotalCoversPayments(
   const { total } = await previewOrderTotals(ctx, order, droppedItemId, qtyOverride);
   if (total < paid) {
     httpError(409, 'paid_exceeds_total', 'Ya se cobró más de lo que quedaría de la cuenta. Anula un pago primero.');
+  }
+}
+
+/** "Mesa 4 + Mesa 5", or "Para llevar · Ana" (same wording as the ticket). */
+export async function placeLabel(ctx: Ctx, order: any): Promise<string> {
+  if (order?.type === 'llevar') return `Para llevar${order.customer_name ? ` · ${order.customer_name}` : ''}`;
+  const names: string[] = [];
+  for (const id of order?.table_ids ?? []) {
+    const [t] = await ctx.svc.entities.BarTable.filter({ id });
+    if (t?.name) names.push(t.name);
+  }
+  return names.join(' + ') || 'Mesa';
+}
+
+/**
+ * Queues the printed comanda (or the cancel notice) when the bar turned on
+ * `print_comandas` in Ajustes. Best effort: the lines are already sent or
+ * cancelled, so a failure here never fails the action; it is reported back
+ * as `print_warning` instead. One job per station, deduplicated by its lines.
+ */
+export async function queueComandas(ctx: Ctx, order: any, items: any[], mode: 'send' | 'cancel'): Promise<string | null> {
+  if (ctx.bar?.print_comandas !== true || !items?.length) return null;
+  try {
+    const [place, by] = [await placeLabel(ctx, order), personName(ctx.self) || ctx.user?.email || ''];
+    const when = new Date().toISOString();
+    for (const [station, group] of groupByStation(items)) {
+      const kind = mode === 'cancel' ? 'cambio' : station;
+      const dedupeKey = comandaDedupeKey(order.id, kind, group);
+      const existing = await ctx.svc.entities.PrintJob.filter({ tenant_id: ctx.tenantId, dedupe_key: dedupeKey });
+      if (existing.length > 0) continue;
+      await ctx.svc.entities.PrintJob.create({
+        tenant_id: ctx.tenantId,
+        // A cancel notice prints where that station prints: its kind is
+        // 'cambio' and the station decides the title.
+        kind,
+        title: `${kind === 'cambio' ? 'Cambio' : station === 'cocina' ? 'Cocina' : 'Barra'} · ${place}`,
+        lines: buildComandaLines({ kind, station, place, when, by, items: group }),
+        source_id: order.id,
+        dedupe_key: dedupeKey,
+        status: 'pendiente',
+        attempts: 0,
+      });
+    }
+    return null;
+  } catch {
+    return 'La comanda no se pudo mandar a imprimir. Revísala en Impresión.';
   }
 }

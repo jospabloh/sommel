@@ -121,6 +121,31 @@ export interface CashOutInput {
   idempotency_key: string;
 }
 
+/**
+ * The bar's cap for ONE withdrawal (Ajustes, `cash_out_max`, centavos; 0 = no
+ * cap). Checked on the server before approval, so an admin's PIN cannot
+ * approve past it (2026-10-14: a $999,999.99 withdrawal went through).
+ */
+export function assertCashOutWithinCap(amount: number, cap: unknown): void {
+  if (typeof cap === 'number' && Number.isInteger(cap) && cap > 0 && amount > cap) {
+    throw new LogicError('cash_out_over_cap', `El retiro pasa del tope del bar (${centsLabel(cap)}). Cámbialo en Ajustes si hace falta.`);
+  }
+}
+
+/** Why a cash movement cannot be voided, or null when it can. */
+export function cashOutVoidBlocker(movement: { amount?: number | null; voided_at?: string | null; shift_id?: string | null }, openShiftId: string | null): string | null {
+  if (movement.voided_at) return 'already_voided';
+  if (!((movement.amount ?? 0) < 0)) return 'not_a_withdrawal';
+  if (!openShiftId || movement.shift_id !== openShiftId) return 'shift_closed';
+  return null;
+}
+
+function centsLabel(cents: number): string {
+  const pesos = Math.floor(cents / 100);
+  const rest = String(cents % 100).padStart(2, '0');
+  return `$${pesos.toLocaleString('en-US')}.${rest}`;
+}
+
 export function validateCashOut(body: any): CashOutInput {
   const amount = body?.amount;
   if (!isInt(amount) || amount <= 0) {
