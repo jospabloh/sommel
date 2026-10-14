@@ -38,7 +38,7 @@ export function daysBetween(from, to) {
 
 /** '28 sep 2026' from 'YYYY-MM-DD'. */
 export function fmtDay(dateStr) {
-  if (!dateStr) return '';
+  if (!dateStr || typeof dateStr !== 'string') return '';
   const [y, m, d] = dateStr.split('-').map(Number);
   return `${d} ${MONTHS[m - 1]} ${y}`;
 }

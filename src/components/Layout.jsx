@@ -237,6 +237,8 @@ export default function Layout() {
           ) : (
             <button
               onClick={handleLogout}
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
             >
               <LogOut className="w-5 h-5 shrink-0" />

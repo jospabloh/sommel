@@ -33,7 +33,7 @@ export default function Checador() {
     setError(null);
     try {
       const res = await callFn('attendance', 'roster');
-      setPeople(res.people || []);
+      setPeople(Array.isArray(res.people) ? res.people.filter((p) => p && typeof p === 'object') : []);
       setSeeTeam(!!res.see_team);
       setPinLength(res.pin_length ?? null);
     } catch (err) {

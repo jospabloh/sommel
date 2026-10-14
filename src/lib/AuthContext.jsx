@@ -2,7 +2,8 @@ import React, { createContext, useState, useContext, useEffect, useMemo, useSync
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
 import { loginPath, isAuthPath } from '@/lib/loginPath';
-import { getTerminalState, subscribeTerminal } from '@/lib/terminal/terminalStore';
+import { getTerminalState, lockTerminal, subscribeTerminal } from '@/lib/terminal/terminalStore';
+import { clearPendingName } from '@/lib/pendingName';
 import { effectiveUser, isTerminalAccount } from '@/lib/terminal/terminalUser';
 
 const AuthContext = createContext();
@@ -106,6 +107,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = (shouldRedirect = true) => {
+    // Nothing of this session may outlive it on a shared device: the terminal
+    // pass lives in memory only, but it must not wait for the page to reload.
+    lockTerminal();
+    // A name typed at signup only waits for a bar; one for an account that
+    // already has a bar is stale and must not stay behind with its email.
+    if (user?.tenant_id) clearPendingName(user.email);
     setUser(null);
     setIsAuthenticated(false);
     

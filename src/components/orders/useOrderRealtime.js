@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { flattenRow, flattenEvent } from './helpers';
+import { applyRealtimeEvent, hasUsablePayload } from '@/lib/realtimeMerge';
 
 export function useOrderRealtime(orderId) {
   const [order, setOrder] = useState(null);
@@ -59,34 +60,18 @@ export function useOrderRealtime(orderId) {
         setNotFound(true);
         return;
       }
-      setOrder(row);
+      // A payload-less (or slimmed, `_oversize`) event says nothing about the new state; and merging
+      // (not replacing) keeps a partial payload from blanking the order.
+      if (!hasUsablePayload(evt)) return;
+      setOrder((prev) => (prev ? { ...prev, ...row } : prev));
     });
 
     const unsubItems = base44.entities.OrderItem.subscribe((evt) => {
-      const row = flattenEvent(evt);
-      if (!row?.id) return;
-      // A create/update event for a line not in THIS order is irrelevant;
-      // a delete event carries no order_id once gone, so it's matched below
-      // purely by id already being present in local state.
-      setItems((prev) => {
-        const idx = prev.findIndex((i) => i.id === row.id);
-        if (evt.type === 'delete') {
-          return idx === -1 ? prev : prev.filter((i) => i.id !== row.id);
-        }
-        if (row.order_id && row.order_id !== orderId) {
-          // Line moved to another order (mergeOrders) — drop it locally.
-          return idx === -1 ? prev : prev.filter((i) => i.id !== row.id);
-        }
-        if (idx === -1) {
-          // Could be a line freshly created here, or one just merged IN from
-          // another order — either way it belongs now.
-          if (row.order_id && row.order_id !== orderId) return prev;
-          return [...prev, row];
-        }
-        const next = prev.slice();
-        next[idx] = { ...next[idx], ...row };
-        return next;
-      });
+      // Judged on the merged row: a line we hold keeps its stored order_id
+      // through a partial payload, a moved line (mergeOrders) is dropped, and
+      // an unknown line is only added when its payload says it is ours, never
+      // as a bare `{ id }` row.
+      setItems((prev) => applyRealtimeEvent(prev, evt, (i) => i.order_id === orderId));
     });
 
     return () => {

@@ -23,6 +23,8 @@ export default function Cuenta() {
     setError(null);
     try {
       const res = await callFn('settings', 'billing');
+      // A reply with no bar would leave the spinner forever with no way out.
+      if (!res?.bar || typeof res.bar !== 'object') throw new Error('No se pudo cargar tu cuenta');
       setBar(res.bar);
     } catch (err) {
       setError(err.message || 'No se pudo cargar tu cuenta');

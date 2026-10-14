@@ -65,6 +65,8 @@ export default function CobroPanel({ open, onOpenChange, orderId, onChanged }) {
     if (!orderId) return;
     try {
       const res = await callFn('payments', 'summary', { order_id: orderId });
+      // A reply with no order cannot be charged; the panel below reads `order.status`.
+      if (!res?.order || typeof res.order !== 'object') throw new Error('No se pudo cargar el cobro');
       setData(res);
       setLoadError('');
       if (res.shift_open) setNoShift(false);

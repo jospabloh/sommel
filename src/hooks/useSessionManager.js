@@ -21,13 +21,31 @@ const HEARTBEAT_INTERVAL_MS = 4 * 60 * 1000; // heartbeat every 4 min
 const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click', 'wheel'];
 const DEVICE_ID_KEY = 'acacia_device_id';
 
-function getOrCreateDeviceId() {
-  let id = localStorage.getItem(DEVICE_ID_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(DEVICE_ID_KEY, id);
+// Blocked storage (private mode, "block all cookies") makes localStorage throw;
+// this runs inside an effect of Layout, where a throw would blank the whole app.
+// Without storage the id lasts for the page's life, like printing's device id.
+let memoryDeviceId = null;
+
+function newDeviceId() {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   }
-  return id;
+}
+
+function getOrCreateDeviceId() {
+  try {
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = newDeviceId();
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    if (!memoryDeviceId) memoryDeviceId = newDeviceId();
+    return memoryDeviceId;
+  }
 }
 
 function getDeviceName() {

@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/lib/ThemeContext'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import UpdateBanner from '@/components/UpdateBanner'
 import TouchMode from '@/components/touch/TouchMode'
+import PageErrorBoundary from '@/components/PageErrorBoundary'
 // Catches Chrome's install event on any screen, before the layout mounts.
 import '@/lib/screen/installPrompt'
 
@@ -16,7 +17,11 @@ import '@/lib/screen/installPrompt'
 // login screen is just as stale).
 ReactDOM.createRoot(document.getElementById('root')).render(
   <ThemeProvider>
-    <App />
+    {/* Last net: an error outside the layout's own boundary (login, onboarding, the
+        terminal lock, the layout itself) shows a way out instead of a blank page. */}
+    <PageErrorBoundary>
+      <App />
+    </PageErrorBoundary>
     <ThemeSwitcher />
     <UpdateBanner />
     <TouchMode />

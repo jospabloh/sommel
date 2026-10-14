@@ -8,7 +8,10 @@ import { Button } from '@/components/ui/button';
 import { fmtDateTime, fmtTime } from './helpers';
 
 export default function OpenShiftPanel({ data, canCorte, onCashOut, onClose }) {
-  const { shift, cash_outs: cashOuts, totals_by_method: totals, sales_total: salesTotal } = data;
+  const { shift, sales_total: salesTotal } = data;
+  // A reply from another deployed version may lack a list or send null.
+  const cashOuts = Array.isArray(data.cash_outs) ? data.cash_outs : [];
+  const totals = Array.isArray(data.totals_by_method) ? data.totals_by_method : [];
   return (
     <div className="space-y-5">
       <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-1">
