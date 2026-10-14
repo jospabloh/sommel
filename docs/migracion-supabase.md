@@ -144,7 +144,7 @@ el puente con Mission Control (mismo HMAC por app); el dominio
 
 | Fase | Qué | Cómo se verifica |
 |---|---|---|
-| 0 | Infra: organización ACACIA (gratuita), proyecto `sommel`, proyecto en Vercel, Resend, respaldo diario con `pg_dump` | El proyecto responde; el primer respaldo existe fuera de Supabase |
+| 0 | Infra: proyecto `sommel` en la organización actual (gratis), proyecto en Vercel, Resend, respaldo diario con `pg_dump` | El proyecto responde; el primer respaldo existe fuera de Supabase |
 | 1 | Esquema, RLS, índices únicos, `profile`, pruebas de aislamiento en SQL | Pruebas de aislamiento en CI, verdes |
 | 2 | Capa `entities` + guard portado + los 21 routers | Las 600+ pruebas de lógica, más pruebas nuevas del guard contra un Postgres real (rama de Supabase) |
 | 3 | Cliente: supabase-js, páginas de auth, `callFn`, lecturas directas, tiempo real | Recorrido completo en el navegador contra el proyecto nuevo, a 390/834/1440 |
@@ -187,9 +187,9 @@ de Sommel; Mission Control se puede quedar en la organización gratuita):
   primero; o
 - si José decide que los respaldos diarios automáticos y sin pausa valen ya.
 
-Pasar a Pro es un clic sobre el mismo proyecto: no se migra nada. Para eso el
-proyecto de Sommel se crea en una organización "ACACIA" separada (también
-gratuita), así el día que pague, paga solo por lo que es SaaS.
+Pasar a Pro no migra nada: el proyecto se transfiere (con sus datos) a una
+organización "ACACIA" y esa organización se pasa a Pro, así se paga solo por lo
+que es SaaS. Mientras tanto el proyecto vive en la organización actual, gratis.
 
 Proyectos pausados de la organización personal (`liuma-dev`, `fidelity-mvp`,
 `plink-fx`): José pidió borrarlos. La herramienta de Supabase de esta sesión
@@ -201,8 +201,8 @@ General → Delete project). Borrar es irreversible y se lleva sus respaldos.
 Tomadas por José: migrar ahora con datos de prueba; empezar sin pagar.
 Por omisión, salvo que diga otra cosa: frontend en Vercel; remitente
 `sommel@acaciaco.com.mx` por Resend; datos limpios (el menú se reimporta).
-Lo único que requiere a José: crear la organización "ACACIA" (gratuita) en
-Supabase, porque una organización nueva no se puede crear desde aquí.
+Nada requiere a José para arrancar: el proyecto se crea en la organización
+actual, gratis.
 
 ## 7. Riesgos conocidos
 
