@@ -12,9 +12,9 @@
  * const` lines below and the `export const CHANGELOG = [` opener exactly as
  * they are. Newest entry first. Every entry is written in user language.
  */
-export const APP_VERSION = "0.15.1";
+export const APP_VERSION = "0.15.2";
 
-export const RELEASE_DATE = "2026-10-09";
+export const RELEASE_DATE = "2026-10-15";
 
 // Public contact channels. Not secrets. The same email lives in
 // src/lib/billingNotice.js (SUPPORT_EMAIL); the WhatsApp line is the ACACIA
@@ -26,6 +26,41 @@ export const SUPPORT_WHATSAPP_URL = "https://wa.me/524498958291";
 // #14, one entry per PR, versions 0.<PR number>.0). From here on the release
 // script adds a patch entry per release.
 export const CHANGELOG = [
+  {
+    version: "0.15.2",
+    date: "2026-10-15",
+    changes: [
+      "Impresión USB: distinguir el controlador de Windows de un cable desconectado",
+      "Impresión en Windows: paso único \"Preparar impresora\"",
+      "CLAUDE.md: Preparar impresora verificado en la caja Wansoft",
+      "Terminal: preguntar si se mantiene la sesión 30 s antes de bloquear",
+      "Modo pantalla táctil y registro de avisos \"ocupado\"",
+      "Propina por cada pago al dividir la cuenta",
+      "Extras con precio: por producto o para todos",
+      "Desplazar con el dedo: encendido de fábrica y también con toque real",
+      "PIN de largo fijo: entra al último dígito y tiembla si es incorrecto",
+      "Scroll tipo iPad, prueba de pantalla y la terminal bloqueada se actualiza sola",
+      "El dedo mueve solo lo que tocas: el menú ya no arrastra toda la app",
+      "Teclado en pantalla: se ve lo que escribes",
+      "Absorber los 429 de Base44 en el cobro y la impresión",
+      "Propina propia al volver a cobrar una parte anulada",
+      "Pantalla en blanco al cerrar Ligar productos e Historial; atrapa-errores por pantalla",
+      "Módulo 30: aviso de versión nueva compartido (reemplaza AppUpdateBanner)",
+      "Inventario a medias, ticket viejo tras anular y división que se pierde al reabrir el cobro",
+      "Ajustes → Servicio: comandas impresas, entrega sin estación y tope/anulación de retiros",
+      "Confirmar cantidades grandes por renglón (20 de fábrica, configurable en Ajustes)",
+      "Robustez: datos raros del servidor, tiempo real, teclado en pantalla y cerrar sesión",
+      "Menos operaciones de Base44 por cobro (raíz del aviso 'ocupado')",
+      "Diseño: migrar Sommel a Supabase + Vercel (capacidad medida en Base44)",
+      "Supabase fase 1: esquema, RLS y pruebas de aislamiento",
+      "QA de un bar nuevo: arreglos de comandas, inventario, reportes, ajustes y addItems idempotente",
+      "Anular un pago se puede repetir y termina la reapertura; existencias sin desfase; zona visible",
+      "CLAUDE.md: publicación de #86 verificada en producción",
+      "Barra lateral con el bar, correo en español, invitación en teléfono, entrega sin estación y existencia negativa",
+      "CLAUDE.md: #88 publicado y verificado; el correo en español necesita dominio propio",
+      "Módulo 29: marco de la app, con Checar y Cambiar usuario a la vista en la terminal",
+    ],
+  },
   {
     version: "0.15.1",
     date: "2026-10-09",
