@@ -1,7 +1,7 @@
 // orders.addItems — entrega-1-contratos.md §4 "orders".
 import { loadOwned, requirePermission, requireWritable, hasPermission, pickSurvivor, httpError, HttpError, redactItemCosts, type Ctx, type Route } from '../_guard.ts';
-import { LogicError, validateBatchKey, batchLineKeys, addLinesIdempotent, narrowByField, resolveItemPricing, resolveExtras, withExtras, validateQty, isOrderOpen, needsQtyConfirm, qtyConfirmThreshold } from './_logic.ts';
-import { recomputeOrderTotals } from './_shared.ts';
+import { LogicError, validateBatchKey, batchLineKeys, addLinesIdempotent, narrowByField, resolveItemPricing, resolveExtras, withExtras, validateQty, isOrderOpen, needsQtyConfirm, qtyConfirmThreshold, negativeStockAllowed, stockNeeds } from './_logic.ts';
+import { recomputeOrderTotals, assertStockForLines } from './_shared.ts';
 
 export const addItems: Route = async (ctx: Ctx, body: any) => {
   const order = await loadOwned(ctx, 'Order', body?.order_id);
@@ -77,6 +77,7 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
     : [];
 
   const resolved: any[] = [];
+  const stockLines: Array<{ product: any; variant: string | null; qty: number }> = [];
   for (const raw of items) {
     if (!raw?.product_id) httpError(400, 'product_required', 'Cada renglón necesita un producto');
     const product = await loadOwned(ctx, 'Product', raw.product_id);
@@ -85,6 +86,7 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
       const base = resolveItemPricing(product, { variant: raw.variant, modifiers: raw.modifiers });
       // unit_price = base + extras; unit_cost stays the base cost.
       const pricing = withExtras(base, resolveExtras(extrasCatalog, raw.product_id, raw.extras, order.tenant_id));
+      stockLines.push({ product, variant: pricing.variant ?? null, qty });
       resolved.push({
         product_id: raw.product_id,
         qty,
@@ -95,6 +97,14 @@ export const addItems: Route = async (ctx: Ctx, body: any) => {
       if (err instanceof LogicError) throw new HttpError(400, err.code, err.message);
       throw err;
     }
+  }
+
+  // Lines whose supply is short are refused before anything is written
+  // (Ajustes → Servicio, allow_negative_stock). Lines already stored by an
+  // earlier attempt of this batch are not counted again.
+  if (!negativeStockAllowed(ctx.bar) && stockNeeds(stockLines).size > 0) {
+    const storedKeys = keys ? new Set((await findByKeys(keys)).map((r: any) => r.idempotency_key)) : new Set<string>();
+    await assertStockForLines(ctx, order.tenant_id, stockLines.filter((_, i) => !keys || !storedKeys.has(keys[i])));
   }
 
   const { rows: createdItems, idempotent } = await addLinesIdempotent({

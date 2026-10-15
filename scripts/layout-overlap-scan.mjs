@@ -180,6 +180,7 @@ const SCREENS = [
   { key: 'staff', path: '/staff' },
   { key: 'permisos', path: '/permisos' },
   { key: 'ajustes', path: '/ajustes' },
+  { key: 'ajustes-servicio', path: '/ajustes', after: async (page) => { await page.locator('#allow-negative-stock').scrollIntoViewIfNeeded(); await page.waitForTimeout(300); } },
   { key: 'cuenta', path: '/cuenta' },
   { key: 'soporte', path: '/soporte' },
   { key: 'about', path: '/about' },
