@@ -573,6 +573,16 @@ puede editar ahí o con "Editar con IA"). Estaba en inglés; ahora está en el
 repo traducida, con el mismo diseño y los placeholders `{{first_name}}` y
 `{{otp_code}}`. Base44 la toma al sincronizar `main`.
 
+**Invitación cuando el correo falla, probada en pantalla (2026-10-15).**
+`scan:layout --only staff-correo-fallido` simula `manageStaff.invite` con
+`email_sent: false` + `invite_url` y espera el cuadro con el enlace. Salieron
+dos fallas a lo angosto y se corrigieron en `Staff.jsx`: un correo largo se
+salía del aviso (ahora `overflow-wrap:anywhere`) y, en teléfono, el enlace va
+en su propio renglón. También "Agregar a alguien sin correo" se salía 13 px a
+320 (ya pasaba antes); ahora parte la línea. 0 problemas a todas las anchuras,
+claro y oscuro. El link del servidor (`inviteLink`) ya lo cubre
+`qa_client_fixes_test.ts`; no se tocó ningún bar real.
+
 **Checador por usuario.** Con `Asistencia:ver_equipo` (admins por defecto) es
 la tablet compartida: se ve todo el equipo y se checa a cualquiera con su PIN.
 Sin ese permiso `attendance.roster` solo devuelve a quien inició sesión, la

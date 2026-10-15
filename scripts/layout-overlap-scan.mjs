@@ -85,7 +85,9 @@ const fnData = {
   },
   reports: { summary: { totals: { sales: 1200000, orders: 40, avg_ticket: 30000, tips: 90000 }, previous_totals: { sales: 1000000, orders: 35, avg_ticket: 28000, tips: 80000 }, by_hour: [], by_product: [], top_products: [], by_category: [], by_person: [], by_method: [], cancellations: { count: 0, items: [] }, courtesies: [], waste: { count: 0 }, range: {}, previous_range: {} } },
   session: { listSessions: { sessions: [{ id: 'se1', device: 'iPad Safari', last_active_at: NOW, current: true }], current_device_id: 'd' } },
-  manageStaff: { list: { staff: [{ id: 'u1', full_name: 'Dueño Prueba', email: 'dueno@example.invalid', app_role: 'bar_admin' }, { id: 'u2', full_name: 'Mariana Villaseñor Domínguez', email: 'mariana.villasenor.dominguez@example.invalid', app_role: 'staff' }], invites: [{ id: 'iv1', email: 'invitado.con.correo.largo@example.invalid', status: 'pending' }] } },
+  manageStaff: { list: { staff: [{ id: 'u1', full_name: 'Dueño Prueba', email: 'dueno@example.invalid', app_role: 'bar_admin' }, { id: 'u2', full_name: 'Mariana Villaseñor Domínguez', email: 'mariana.villasenor.dominguez@example.invalid', app_role: 'staff' }], invites: [{ id: 'iv1', email: 'invitado.con.correo.largo@example.invalid', status: 'pending' }] },
+    // The invite mail always "fails" here, so staff-correo-fallido shows the share-link box.
+    invite: { ok: true, invited_existing: false, email_sent: false, invite_url: 'https://sommel.acaciaco.com.mx/register?email=persona.con.correo.muy.largo%40example.invalid' } },
   permissions: { getProfile: { overrides: {} } },
   printing: { queue: { jobs: [] } },
   orders: {},
@@ -157,6 +159,16 @@ const SCREENS = [
   { key: 'menu-producto', path: '/menu', after: async (page) => { await page.getByRole('button', { name: /^Producto$/ }).first().click(); await page.waitForTimeout(500); } },
   { key: 'inventario-nuevo', path: '/inventario', after: async (page) => { await page.getByRole('button', { name: /Nuevo insumo/ }).first().click(); await page.waitForTimeout(500); } },
   { key: 'staff-invitar', path: '/staff', after: async (page) => { await page.locator('input[type=email]').first().fill('persona.con.correo.muy.largo@example.invalid').catch(() => {}); } },
+  { key: 'staff-correo-fallido', path: '/staff', after: async (page) => {
+    await page.locator('input[type=email]').first().fill('persona.con.correo.muy.largo@example.invalid');
+    await page.getByRole('button', { name: /Invitar/ }).first().click();
+    await page.getByRole('textbox', { name: 'Enlace de invitación' }).waitFor({ timeout: 5000 });
+    // Close the transient toast so the scan measures the page, not the toast.
+    // Radix: F8 focuses the toast viewport, Escape dismisses the focused toast.
+    await page.keyboard.press('F8');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+  } },
   { key: 'menu', path: '/menu' },
   { key: 'cocina', path: '/estacion/kitchen' },
   { key: 'barra', path: '/estacion/bar' },
