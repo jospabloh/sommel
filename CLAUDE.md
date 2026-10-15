@@ -2087,3 +2087,22 @@ registrada como `20261015180000 bar_service_defaults`; releído: defaults
 `true`/`false`, `not null`. **No verificado:** el rechazo `insufficient_stock`
 contra Base44 en vivo (habría que escribir en un bar: ligar un insumo y pedir
 de más), y el correo en español (necesita dominio de correo).
+
+### Dominio de correo propio para Sommel (2026-10-15)
+
+Para que Base44 use la plantilla en español hace falta enviar desde un dominio
+propio. Se activó `no-reply@sommel.acaciaco.com.mx` (remitente "Sommel") con
+`POST custom-email-domains` sobre `sommel.acaciaco.com.mx`, el único dominio
+conectado a la app. Así nada toca el correo de Google de `acaciaco.com.mx`.
+José agregó en GoDaddy (DNS de `acaciaco.com.mx`) tres CNAME de SendGrid:
+`em.sommel`, `s1._domainkey.sommel` y `s2._domainkey.sommel`, apuntando a
+`u116678720.wl221.sendgrid.net` y sus `domainkey`. Resolvieron en 8.8.8.8 y
+"Verificar" (Panel → Dominios → Correos) lo dejó **Activo**. No se usó
+`custom-email-domains/configure`: en un dominio que espera DNS lo "reinicia".
+
+Después del Activo, la plantilla dice "Se envía: El correo de Base44 mientras
+se revisa tu versión. Puede tardar hasta una hora". **Pendiente de verificar:**
+que un registro real reciba el código en español y desde
+`no-reply@sommel.acaciaco.com.mx`. El asunto ("Verify your email for Sommel")
+no está en el archivo de la plantilla; si sigue en inglés, se cambia en el
+panel (Editar con IA) y no desde el repo.
