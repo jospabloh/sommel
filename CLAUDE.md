@@ -558,6 +558,31 @@ rol (`roleLabel` en `src/lib/rbac.js`) arriba de "Cerrar sesión", y la barra
 mide la pantalla (`sticky h-screen`): lo que hace scroll es el menú, no el
 bloque de sesión.
 
+**Nombre del bar en la barra lateral (2026-10-15).** En `lg` sale bajo
+"Sommel" (truncado, con `title`). Viene de `useBarSummary`
+(`src/lib/useBarSummary.js`), el mismo `settings.billing` y la misma
+`queryKey ['license-banner', tenantId]` que `LicenseBanner`, así que React
+Query hace una sola petición. `BarNameCard` invalida esa query al guardar.
+`scan:layout` ahora manda `name` en el billing simulado y acepta
+`--theme dark`; revisado a 390 y 1440, claro y oscuro, 0 problemas.
+
+**Correo de verificación en español (2026-10-15).** La plantilla del correo
+de código de Base44 vive en `base44/emails/EmailVerification.html` (Panel →
+Correos electrónicos → Correos de la aplicación → Verificación del correo; se
+puede editar ahí o con "Editar con IA"). Estaba en inglés; ahora está en el
+repo traducida, con el mismo diseño y los placeholders `{{first_name}}` y
+`{{otp_code}}`. Base44 la toma al sincronizar `main`.
+
+**Invitación cuando el correo falla, probada en pantalla (2026-10-15).**
+`scan:layout --only staff-correo-fallido` simula `manageStaff.invite` con
+`email_sent: false` + `invite_url` y espera el cuadro con el enlace. Salieron
+dos fallas a lo angosto y se corrigieron en `Staff.jsx`: un correo largo se
+salía del aviso (ahora `overflow-wrap:anywhere`) y, en teléfono, el enlace va
+en su propio renglón. También "Agregar a alguien sin correo" se salía 13 px a
+320 (ya pasaba antes); ahora parte la línea. 0 problemas a todas las anchuras,
+claro y oscuro. El link del servidor (`inviteLink`) ya lo cubre
+`qa_client_fixes_test.ts`; no se tocó ningún bar real.
+
 **Checador por usuario.** Con `Asistencia:ver_equipo` (admins por defecto) es
 la tablet compartida: se ve todo el equipo y se checa a cualquiera con su PIN.
 Sin ese permiso `attendance.roster` solo devuelve a quien inició sesión, la
@@ -1830,13 +1855,17 @@ sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
 - `isolation.sql` exige una base **vacía**. En cuanto el proyecto real tenga
   datos, ya no se corre ahí: se usa una rama de Supabase o el job de CI.
 - **Migración 3 (`support_ticket` sin escritura del navegador), por la revisión
-  de Codex en #84:** en el repo y en CI (1,633 aserciones). **Pendiente en el
-  proyecto real:** las escrituras por el MCP de Supabase (`apply_migration` y
-  `execute_sql` con DDL) se quedan esperando una aprobación que no llega y
-  vencen a los 60 s sin aplicar nada (releído: sigue en la migración 2). Sin
-  riesgo mientras tanto: no hay usuarios ni datos, y sin bar
-  `app.current_tenant()` es nulo, así que la política rechaza todo alta. Se
-  aplica antes de cualquier usuario real.
+  de Codex en #84:** en el repo, en CI (1,633 aserciones) y **aplicada al
+  proyecto real el 2026-10-15** desde el SQL Editor del dashboard (el MCP de
+  Supabase se cuelga al escribir: `apply_migration` y `execute_sql` con DDL
+  vencen a los 60 s sin aplicar nada). Se registró a mano en
+  `supabase_migrations.schema_migrations` como `20261015120000
+  support_ticket_server_only`. Releído después: `support_ticket` solo tiene
+  la política `tenant_read` (SELECT, `authenticated`) y ni `authenticated` ni
+  `anon` tienen INSERT, de tabla ni de columna.
+- **Limpieza de la organización (2026-10-15):** se borraron los proyectos
+  pausados `liuma-dev`, `fidelity-mvp` y `plink-fx`. Quedan `sommel` y
+  `acacia-mission-control`.
 - Base44 sigue siendo producción. Nada del cliente ni de las funciones apunta
   todavía a Supabase. Eso es la fase 2 y la 3 (`docs/migracion-supabase.md` §4).
 
@@ -1997,3 +2026,40 @@ check:functions, validate:rls y deno test (732/0).
 **Despliegue:** sin cambios de esquema. Publicar la función `payments` y luego el sitio; comprobar por comportamiento que `voidPayment` sobre un pago ya anulado responde `idempotent: true`. La comanda atascada de producción se destraba repitiendo la anulación de ese pago.
 
 **Publicado y verificado en producción, 2026-10-15.** Primer `deploy` sin `github/sync` previo: siguió sirviendo el código viejo (`already_voided`). Tras `sync` + `deploy`, repetir la anulación del pago atascado (bar de prueba "Bar Prueba Tres") respondió `idempotent: true` con la comanda `abierta` y `paid` 0, y `cancelOrder` la dejó `cancelada` con total 0. **Regla:** siempre `POST /github/sync` antes de `POST /deploy`, y verificar por comportamiento.
+
+## Entrega sin estación de fábrica y existencia negativa como ajuste (2026-10-15)
+
+Decisiones de José. **Código en el repo; se publica con el flujo de deploy.**
+
+- **"Entregar solos los productos sin estación" viene encendido.** Regla:
+  `autoDeliverNoStationOn(bar)` (`orders/handlers/_logic.ts`) = todo menos un
+  `false` guardado. La misma regla en `settings/_shared.ts` y en
+  `OperationCard`. El esquema (`WineBar.auto_deliver_no_station`) pasa a
+  `default: true`. Un bar que ya guardó `false` sigue apagado. El texto de
+  ayuda explica para qué sirve: lo que nadie prepara no aparece en Cocina y
+  barra, así que nadie lo podría marcar listo.
+- **Existencia negativa, apagada de fábrica** (`WineBar.allow_negative_stock`,
+  Ajustes → Servicio, solo un `true` la enciende). Apagada:
+  - `orders.addItems` y `orders.updateItem` (solo las piezas que suben)
+    responden 409 `insufficient_stock` si el insumo ligado no alcanza
+    (`stockNeeds` + `assertStockCovers`, suma por insumo y respeta la
+    variante). Una lectura `$in` de los insumos, y **ninguna** si nada de la
+    petición descuenta inventario o si el bar lo permite. En un reintento de
+    `addItems` no cuentan los renglones que ya guardó el intento anterior.
+  - `inventory.addWaste` responde 400 `insufficient_stock` si la merma es
+    mayor que la existencia recalculada de los movimientos
+    (`assertWasteFits`). El conteo ya exigía ≥ 0.
+  - **El cobro nunca se bloquea** (lo servido ya se sirvió), ni la merma al
+    cancelar algo preparado. Por eso la existencia todavía puede quedar
+    negativa con comandas abiertas desde antes, y la fila de Inventario
+    conserva su aviso "Existencia negativa".
+  - Se compara contra la existencia actual, sin apartar lo que piden otras
+    comandas abiertas sin cobrar (eso costaría leer todas las comandas
+    abiertas en cada alta, y la cuota es compartida).
+- Supabase: migración 4 (`20261015000004_bar_service_defaults.sql`, también en
+  el job `supabase-isolation`).
+- Pruebas: `negative_stock_test.ts` y `service_settings_test.ts`. Manual:
+  "¿Puedo vender si no me alcanza un insumo?". `scan:layout` gana
+  `ajustes-servicio`; revisado a 390, 834 y 1440, claro y oscuro, 0 problemas.
+- **Orden de deploy:** esquema primero (`allow_negative_stock` es campo nuevo),
+  luego `orders`, `inventory` y `settings`, luego el sitio.

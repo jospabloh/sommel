@@ -59,7 +59,7 @@ export default function OperationCard({ bar, onSaved }) {
         <Settings2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
         <div>
           <h2 className="font-display text-lg font-semibold">Servicio</h2>
-          <p className="text-sm text-muted-foreground">Cómo se mandan las comandas, cuándo se confirma una cantidad y cuánto se puede retirar de la caja.</p>
+          <p className="text-sm text-muted-foreground">Cómo se mandan las comandas, si el inventario puede quedar en negativo, cuándo se confirma una cantidad y cuánto se puede retirar de la caja.</p>
         </div>
       </div>
 
@@ -75,10 +75,19 @@ export default function OperationCard({ bar, onSaved }) {
       <ToggleRow
         id="auto-deliver"
         title="Entregar solos los productos sin estación"
-        help="Lo que no va a cocina ni a barra (agua, una botella cerrada) queda entregado al enviarlo, en vez de quedarse como enviado."
-        checked={bar?.auto_deliver_no_station === true}
+        help="Lo que nadie prepara (agua, un refresco, una botella cerrada) no aparece en Cocina y barra, así que nadie lo podría marcar listo. Encendido, queda entregado en cuanto envías la comanda. Apagado, se queda como enviado."
+        checked={bar?.auto_deliver_no_station !== false}
         disabled={busy}
         onChange={(v) => save({ auto_deliver_no_station: v }, v ? 'Se entregarán solos' : 'Ya no se entregan solos')}
+      />
+
+      <ToggleRow
+        id="allow-negative-stock"
+        title="Permitir existencia negativa"
+        help="Apagado: no se puede agregar a una comanda ni dar de merma más de lo que hay de un insumo. Encendido: se permite y el insumo queda en negativo hasta el siguiente conteo."
+        checked={bar?.allow_negative_stock === true}
+        disabled={busy}
+        onChange={(v) => save({ allow_negative_stock: v }, v ? 'Se permite existencia negativa' : 'Ya no se permite existencia negativa')}
       />
 
       <form

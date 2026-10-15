@@ -262,3 +262,20 @@ export function linkedProductNames(
     .filter((p) => p.track_inventory === true && p.inventory_item_id === itemId)
     .map((p) => String(p.name ?? ''));
 }
+
+/** True only when the bar saved `allow_negative_stock: true` (José, 2026-10-15). */
+export function negativeStockAllowed(bar: { allow_negative_stock?: unknown } | null | undefined): boolean {
+  return bar?.allow_negative_stock === true;
+}
+
+/** A waste larger than the stock is refused unless the bar allows negative stock. */
+export function assertWasteFits(stock: number, qty: number, allowed: boolean, item: { name?: string | null; unit?: string | null }): void {
+  if (allowed) return;
+  if (round3(stock - qty) < 0) {
+    const unit = item.unit ? ` ${item.unit}` : '';
+    throw new LogicError(
+      'insufficient_stock',
+      `La merma es mayor que la existencia de ${item.name || 'este insumo'}: quedan ${Math.max(0, round3(stock))}${unit}. Haz un conteo si la existencia está atrasada.`
+    );
+  }
+}

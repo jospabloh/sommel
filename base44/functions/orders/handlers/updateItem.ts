@@ -5,7 +5,7 @@
 // sending.
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCost, type Ctx, type Route } from '../_guard.ts';
 import { LogicError, resolveModifiers, validateQty, isOrderOpen, canEditItem, needsQtyConfirm, qtyConfirmThreshold } from './_logic.ts';
-import { recomputeOrderTotals, assertTotalCoversPayments } from './_shared.ts';
+import { recomputeOrderTotals, assertTotalCoversPayments, assertStockForLines } from './_shared.ts';
 
 export const updateItem: Route = async (ctx: Ctx, body: any) => {
   const item = await loadOwned(ctx, 'OrderItem', body?.item_id);
@@ -34,6 +34,12 @@ export const updateItem: Route = async (ctx: Ctx, body: any) => {
     if (needsQtyConfirm(patch.qty, threshold, item.qty ?? 0, body?.confirm_qty === true)) {
       throw new HttpError(409, 'qty_confirm_required', `¿Seguro? Son ${patch.qty} piezas.`, { qty: patch.qty, threshold });
     }
+  }
+
+  // Only the extra units count against the supply (Ajustes, allow_negative_stock).
+  if (typeof patch.qty === 'number' && patch.qty > (item.qty ?? 0)) {
+    const product = await loadOwned(ctx, 'Product', item.product_id);
+    await assertStockForLines(ctx, order.tenant_id, [{ product, variant: item.variant ?? null, qty: patch.qty - (item.qty ?? 0) }]);
   }
 
   if (body?.modifiers !== undefined) {

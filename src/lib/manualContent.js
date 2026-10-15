@@ -169,7 +169,7 @@ export const MANUAL_SECTIONS = [
     id: 'inventario',
     title: 'Inventario',
     summary: 'Existencias, entradas, merma y conteos.',
-    keywords: ['insumo', 'stock', 'existencia', 'merma', 'conteo', 'entrada', 'botella', 'bajo', 'alerta'],
+    keywords: ['insumo', 'stock', 'existencia', 'merma', 'conteo', 'entrada', 'botella', 'bajo', 'alerta', 'negativa', 'no alcanza'],
     items: [
       {
         q: '¿Cómo veo cuánto tengo?',
@@ -190,6 +190,10 @@ export const MANUAL_SECTIONS = [
       {
         q: '¿Cómo descuenta el inventario cuando vendo?',
         a: 'Si ligaste un producto del menú a un insumo, cada venta cobrada descuenta la cantidad que definiste. Si un renglón ya preparado se cancela, se registra como merma.',
+      },
+      {
+        q: '¿Puedo vender si no me alcanza un insumo?',
+        a: 'De fábrica, no: si un producto ligado necesita más de lo que hay de su insumo, la comanda no lo deja agregar, y una merma no puede ser mayor que la existencia. Si tu conteo suele ir atrasado, el administrador puede encender «Permitir existencia negativa» en Ajustes, Servicio. El cobro nunca se bloquea por esto.',
       },
       {
         q: '¿Quién puede crear insumos y ligarlos al menú?',

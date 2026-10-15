@@ -2,7 +2,7 @@
 // 'nuevo' line becomes 'enviado' with sent_at = now; calling it again with
 // nothing left in 'nuevo' just returns an empty list, not an error.
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, redactItemCosts, type Ctx, type Route } from '../_guard.ts';
-import { isOrderOpen, canSendItem, sendStatusFor } from './_logic.ts';
+import { isOrderOpen, canSendItem, sendStatusFor, autoDeliverNoStationOn } from './_logic.ts';
 import { queueComandas } from './_shared.ts';
 
 export const send: Route = async (ctx: Ctx, body: any) => {
@@ -20,7 +20,7 @@ export const send: Route = async (ctx: Ctx, body: any) => {
 
   const now = new Date().toISOString();
   const sent: any[] = [];
-  const autoDeliver = ctx.bar?.auto_deliver_no_station === true;
+  const autoDeliver = autoDeliverNoStationOn(ctx.bar);
   for (const item of toSend) {
     const status = sendStatusFor(item.station, autoDeliver);
     const updated = await ctx.svc.entities.OrderItem.update(item.id, { status, sent_at: now });

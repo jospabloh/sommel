@@ -154,8 +154,13 @@
     },
     "auto_deliver_no_station": {
       "type": "boolean",
+      "default": true,
+      "description": "Si no es false, los renglones de productos sin estación (por ejemplo agua o una botella cerrada) quedan entregados al enviarlos, porque ninguna estación los puede marcar listos. Encendido de fábrica (decisión de José, 2026-10-15): solo un false guardado lo apaga."
+    },
+    "allow_negative_stock": {
+      "type": "boolean",
       "default": false,
-      "description": "Si es true, los renglones de productos sin estación (por ejemplo agua o una botella cerrada) quedan entregados al enviarlos, porque ninguna estación los puede marcar listos."
+      "description": "Si es true, se puede agregar a una comanda o dar de merma más de lo que hay de un insumo y la existencia queda negativa. Apagado de fábrica (decisión de José, 2026-10-15): orders.addItems/updateItem y inventory.addWaste rechazan con insufficient_stock. El cobro nunca se bloquea."
     },
     "cash_out_max": {
       "type": "integer",

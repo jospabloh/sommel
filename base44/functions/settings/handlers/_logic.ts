@@ -38,6 +38,8 @@ export const EDITABLE_FIELDS = [
   'print_comandas',
   // Lines of products with no station are marked delivered when sent.
   'auto_deliver_no_station',
+  // Sell or waste past zero stock; off by default (José, 2026-10-15).
+  'allow_negative_stock',
   // Maximum of ONE cash withdrawal, in centavos; 0 = no limit.
   'cash_out_max',
   // A line above this many pieces asks "¿Seguro?" first; 0 = never ask.
@@ -205,7 +207,7 @@ export function buildSettingsPatch(
     if (body.pin_length !== 4 && body.pin_length !== 5 && body.pin_length !== 6) throw new LogicError('invalid_value', 'El PIN debe ser de 4, 5 o 6 números');
     patch.pin_length = body.pin_length;
   }
-  for (const flag of ['print_comandas', 'auto_deliver_no_station'] as const) {
+  for (const flag of ['print_comandas', 'auto_deliver_no_station', 'allow_negative_stock'] as const) {
     if (flag in body) {
       if (typeof body[flag] !== 'boolean') throw new LogicError('invalid_value', 'Valor no válido');
       patch[flag] = body[flag];

@@ -21,7 +21,9 @@ export function settingsView(bar: any, viewerId?: string | null) {
     approval_qr_enabled: bar?.approval_qr_enabled === true,
     pin_length: [4, 5, 6].includes(bar?.pin_length) ? bar.pin_length : 4,
     print_comandas: bar?.print_comandas === true,
-    auto_deliver_no_station: bar?.auto_deliver_no_station === true,
+    // On by default: only a saved false turns it off (same rule as orders.send).
+    auto_deliver_no_station: bar?.auto_deliver_no_station !== false,
+    allow_negative_stock: bar?.allow_negative_stock === true,
     cash_out_max: Number.isInteger(bar?.cash_out_max) && bar.cash_out_max > 0 ? bar.cash_out_max : null,
     qty_confirm_threshold: Number.isInteger(bar?.qty_confirm_threshold) && bar.qty_confirm_threshold >= 0 ? bar.qty_confirm_threshold : 20,
     // Read-only license fields for the billing banner (Layout.jsx). Not in

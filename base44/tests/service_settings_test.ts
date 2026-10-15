@@ -6,7 +6,7 @@ import {
   comandaDedupeKey,
   groupByStation,
 } from '../functions/orders/handlers/_comanda.ts';
-import { sendStatusFor } from '../functions/orders/handlers/_logic.ts';
+import { sendStatusFor, autoDeliverNoStationOn } from '../functions/orders/handlers/_logic.ts';
 import { assertCashOutWithinCap, cashOutVoidBlocker, LogicError } from '../functions/shifts/handlers/_logic.ts';
 import { cashOutMax, buildSettingsPatch } from '../functions/settings/handlers/_logic.ts';
 
@@ -54,7 +54,7 @@ Deno.test('the comanda shows what to prepare and no prices; the cancel notice sa
 Deno.test('products with no station are delivered on send only when the bar turned it on', () => {
   assert(sendStatusFor('none', true) === 'entregado', 'auto deliver');
   assert(sendStatusFor(undefined, true) === 'entregado', 'missing station counts as none');
-  assert(sendStatusFor('none', false) === 'enviado', 'off by default');
+  assert(sendStatusFor('none', false) === 'enviado', 'off when the bar turned it off');
   assert(sendStatusFor('kitchen', true) === 'enviado' && sendStatusFor('bar', true) === 'enviado', 'stations still prepare');
 });
 
@@ -105,4 +105,11 @@ Deno.test('a line past the bar threshold asks "¿Seguro?" once; small and shrink
   assert(patch.qty_confirm_threshold === 30, 'saved');
   throwsCode(() => buildSettingsPatch({ qty_confirm_threshold: -1 }, []), 'invalid_qty_confirm');
   throwsCode(() => buildSettingsPatch({ qty_confirm_threshold: 1000 }, []), 'invalid_qty_confirm');
+});
+
+Deno.test('auto deliver with no station is on unless the bar saved false (2026-10-15)', () => {
+  assert(autoDeliverNoStationOn({}) === true, 'missing field = on');
+  assert(autoDeliverNoStationOn(null) === true, 'no bar row = on');
+  assert(autoDeliverNoStationOn({ auto_deliver_no_station: true }) === true, 'true = on');
+  assert(autoDeliverNoStationOn({ auto_deliver_no_station: false }) === false, 'saved false = off');
 });

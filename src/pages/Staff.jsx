@@ -149,11 +149,12 @@ export default function Staff() {
       </form>
       {shareLink ? (
         <div role="alert" className="-mt-5 mb-8 rounded-xl border border-border bg-card p-4 space-y-3">
-          <p className="text-sm">
+          <p className="text-sm [overflow-wrap:anywhere]">
             <strong>El correo para {shareLink.email} no salió.</strong> La invitación sí quedó guardada: mándale este enlace por WhatsApp o como prefieras. Debe entrar con ese mismo correo.
           </p>
-          <div className="flex gap-2">
-            <Input readOnly value={shareLink.url} onFocus={(e) => e.target.select()} className="h-11 flex-1 text-sm" aria-label="Enlace de invitación" />
+          {/* On a phone the link gets its own row so most of it is readable. */}
+          <div className="flex flex-wrap sm:flex-nowrap gap-2">
+            <Input readOnly value={shareLink.url} onFocus={(e) => e.target.select()} className="h-11 basis-full grow sm:basis-0 min-w-0 text-sm" aria-label="Enlace de invitación" />
             <Button
               type="button"
               variant="outline"
@@ -176,8 +177,8 @@ export default function Staff() {
         </div>
       ) : null}
       <div className="-mt-5 mb-8">
-        <Button type="button" variant="ghost" className="h-11 px-2" onClick={() => setAddingPerson(true)}>
-          <UserRoundPlus className="w-4 h-4 mr-1" /> Agregar a alguien sin correo
+        <Button type="button" variant="ghost" className="h-auto min-h-11 max-w-full whitespace-normal text-left px-2" onClick={() => setAddingPerson(true)}>
+          <UserRoundPlus className="w-4 h-4 mr-1 shrink-0" /> Agregar a alguien sin correo
         </Button>
       </div>
 

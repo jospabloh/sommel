@@ -284,6 +284,11 @@ export function mergeTableIds(into: string[] | null | undefined, from: string[] 
  * product with no station (water, a closed bottle) is delivered right away:
  * no station shows it, so nobody could ever mark it ready (2026-10-14).
  */
+/** On unless the bar saved `false` (on by default since 2026-10-15). */
+export function autoDeliverNoStationOn(bar: { auto_deliver_no_station?: unknown } | null | undefined): boolean {
+  return bar?.auto_deliver_no_station !== false;
+}
+
 export function sendStatusFor(station: unknown, autoDeliverNoStation: boolean): 'enviado' | 'entregado' {
   const hasStation = station === 'kitchen' || station === 'bar';
   return autoDeliverNoStation && !hasStation ? 'entregado' : 'enviado';
@@ -541,4 +546,54 @@ async function keepOnePerKey(
     if (survivor) rows.push(survivor);
   }
   return rows;
+}
+
+// ---- Negative stock (José, 2026-10-15) ----
+// Off by default: a line whose supply does not have enough stock is refused
+// when it is added (or its qty goes up), not at cobro. The cobro never blocks:
+// what was served was served, so stock can still dip below zero from lines
+// that were already open. The admin can allow it in Ajustes → Servicio.
+
+/** True only when the bar saved `allow_negative_stock: true`. */
+export function negativeStockAllowed(bar: { allow_negative_stock?: unknown } | null | undefined): boolean {
+  return bar?.allow_negative_stock === true;
+}
+
+/** Supply needed per inventory item for these lines (qty = how many MORE units). */
+export function stockNeeds(
+  lines: Array<{ product: CancelInvProduct | null | undefined; variant?: string | null; qty: number }>
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const line of lines) {
+    const per = unitQty(line.product, line.variant ?? null);
+    const qty = typeof line.qty === 'number' && line.qty > 0 ? line.qty : 0;
+    if (per <= 0 || qty <= 0) continue;
+    const id = line.product!.inventory_item_id as string;
+    out.set(id, Math.round(((out.get(id) ?? 0) + per * qty) * 1000) / 1000);
+  }
+  return out;
+}
+
+/**
+ * Throws `insufficient_stock` naming the first supply that cannot cover its
+ * need. A supply that was not found (or belongs to another bar) is skipped:
+ * the cobro skips it too, so it never moves.
+ */
+export function assertStockCovers(
+  needs: Map<string, number>,
+  supplies: Map<string, { name?: string | null; unit?: string | null; stock?: number | null }>
+): void {
+  for (const [id, needed] of needs) {
+    const supply = supplies.get(id);
+    if (!supply) continue;
+    const stock = typeof supply.stock === 'number' && Number.isFinite(supply.stock) ? supply.stock : 0;
+    if (needed > stock + 1e-9) {
+      const left = Math.max(0, stock);
+      const unit = supply.unit ? ` ${supply.unit}` : '';
+      throw new LogicError(
+        'insufficient_stock',
+        `No alcanza el inventario de ${supply.name || 'un insumo'}: quedan ${left}${unit} y se necesitan ${needed}${unit}`
+      );
+    }
+  }
 }
