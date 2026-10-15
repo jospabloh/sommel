@@ -149,6 +149,27 @@ export function canCloseWithoutPayment(order: { total?: number | null; subtotal?
   return (order.total ?? 0) === 0 && (order.subtotal ?? 0) > 0 && paid === 0;
 }
 
+/**
+ * Retry of a void whose payment is ALREADY voided (2026-10-15: a 429 hit
+ * between "mark the payment voided" and "update the order", leaving a
+ * `cobrada` order that live payments no longer cover). Decides whether the
+ * order must go back to `abierta`. Only a human void reopens: payments the
+ * system itself voided (`duplicado`, `excede_total`) never do, because a
+ * live twin already covers them. Total 0 (cortesia) reopens only when no live
+ * payment is left, which is what voiding its $0 marker means.
+ */
+export function reopenAfterVoid(
+  order: { status?: string | null; total?: number | null },
+  payment: { voided_by?: string | null },
+  payments: Array<{ amount?: number | null; voided_at?: string | null }>
+): boolean {
+  if (order.status !== 'cobrada') return false;
+  if (payment.voided_by === 'sistema') return false;
+  const total = order.total ?? 0;
+  if (total > 0) return !shouldClose(total, paidTotal(payments));
+  return (payments ?? []).every((p) => !!p.voided_at);
+}
+
 export function validateReason(reason: unknown): string {
   const trimmed = typeof reason === 'string' ? reason.trim() : '';
   if (!trimmed) throw new LogicError('reason_required', 'El motivo es obligatorio');
@@ -376,6 +397,21 @@ export function planInventoryMovements(
 /** stock = Σ qty of the supply's movements (converges even if writes cross). */
 export function stockFromMovements(movements: Array<{ qty?: number | null }>): number {
   return round3((movements ?? []).reduce((s, m) => s + (typeof m.qty === 'number' ? m.qty : 0), 0));
+}
+
+/**
+ * Movements read back for a stock recompute, plus the ones this very call just
+ * wrote when the read does not return them yet (2026-10-15: a $0 close left
+ * InventoryItem.stock short of the ledger because the recompute read did not
+ * see the fresh 'venta' row). The ledger is the truth, so a row we know we
+ * created always counts, once.
+ */
+export function withJustCreated<T extends { idempotency_key?: string | null; item_id?: string | null }>(
+  read: T[],
+  created: T[]
+): T[] {
+  const seen = new Set((read ?? []).map((r) => r.idempotency_key));
+  return [...(read ?? []), ...created.filter((c) => !seen.has(c.idempotency_key))];
 }
 
 // ---- Batched inventory reads (2026-10-14) ----

@@ -19,6 +19,7 @@ import {
   narrowByField,
   planInventoryMovements,
   stockFromMovements,
+  withJustCreated,
   ventaKeyOf,
   type InvProduct,
 } from './_logic.ts';
@@ -81,6 +82,25 @@ export async function writeTotals(ctx: Ctx, order: any, patch: Record<string, un
 export async function setTablesStatus(ctx: Ctx, order: any, status: 'available' | 'occupied'): Promise<void> {
   for (const tableId of order.table_ids ?? []) {
     await ctx.svc.entities.BarTable.update(tableId, { status });
+  }
+}
+
+/** Marks the order's tables occupied, skipping any already occupied (by this
+ *  order or another one, which this never takes over). */
+export async function occupyFreeTables(ctx: Ctx, order: any): Promise<void> {
+  for (const tableId of order.table_ids ?? []) {
+    const [t] = await ctx.svc.entities.BarTable.filter({ id: tableId });
+    if (t && t.status !== 'occupied') await ctx.svc.entities.BarTable.update(tableId, { status: 'occupied' });
+  }
+}
+
+/** Refuses (409 table_busy) when another order already took one of the order's tables. */
+export async function assertTablesFree(ctx: Ctx, order: any): Promise<void> {
+  for (const tableId of order.table_ids ?? []) {
+    const [t] = await ctx.svc.entities.BarTable.filter({ id: tableId });
+    if (t?.status === 'occupied') {
+      httpError(409, 'table_busy', 'La mesa ya tiene otra comanda. Libérala antes de anular este pago.');
+    }
   }
 }
 
@@ -231,6 +251,7 @@ export async function deductInventory(ctx: Ctx, orderId: string): Promise<string
     const byKey = groupByField(existingRead.rows, 'idempotency_key');
 
     const created: string[] = [];
+    const createdRows: any[] = [];
     for (const m of valid) {
       try {
         // A key we could not check is a movement we cannot safely write.
@@ -243,7 +264,7 @@ export async function deductInventory(ctx: Ctx, orderId: string): Promise<string
         if (mermaCoveredBySale(m, byKey)) continue;
         if ((byKey.get(m.idempotency_key) ?? []).length > 0) continue;
         const supply = supplies.get(m.inventory_item_id);
-        await ctx.svc.entities.InventoryMovement.create({
+        const row = {
           tenant_id: ctx.tenantId,
           item_id: m.inventory_item_id,
           type: m.type,
@@ -253,8 +274,10 @@ export async function deductInventory(ctx: Ctx, orderId: string): Promise<string
           order_item_id: m.order_item_id,
           idempotency_key: m.idempotency_key,
           created_by: ctx.user?.email,
-        });
+        };
+        await ctx.svc.entities.InventoryMovement.create(row);
         created.push(m.idempotency_key);
+        createdRows.push(row);
       } catch {
         failed++;
       }
@@ -274,7 +297,7 @@ export async function deductInventory(ctx: Ctx, orderId: string): Promise<string
     }
 
     const stockRead = await fetchIn(ctx.svc.entities.InventoryMovement, { tenant_id: ctx.tenantId }, 'item_id', Array.from(touched));
-    const byItem = groupByField(stockRead.rows, 'item_id');
+    const byItem = groupByField(withJustCreated(stockRead.rows, createdRows), 'item_id');
     for (const itemId of touched) {
       try {
         if (stockRead.failed.has(itemId)) throw new Error('stock_read_failed');

@@ -28,7 +28,10 @@ export default function TableCard({ table, order, onTap, onEdit, canEdit, style 
     >
       <button type="button" onClick={onTap} className="absolute inset-0 rounded-2xl" aria-label={`Mesa ${table.name}`} />
       <div className="flex items-start justify-between gap-2 pointer-events-none">
-        <div className="font-display font-semibold text-base leading-tight truncate">{table.name}</div>
+        <div className="min-w-0">
+          <div className="font-display font-semibold text-base leading-tight truncate">{table.name}</div>
+          {table.zone ? <div className="text-[11px] leading-tight opacity-60 truncate">{table.zone}</div> : null}
+        </div>
         {canEdit && (
           <button
             type="button"
