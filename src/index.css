@@ -131,34 +131,11 @@
   --theme-switcher-bottom: calc(var(--bottom-bar-h, 10rem) + 0.75rem);
 }
 
-/* Inside the app (Layout mounted) the switcher sits in a reserved slot of the
-   sidebar footer instead of the corner: Layout measures the slot and sets
-   data-rail-switcher plus --rail-switcher-left/-bottom. It is anchored on the
-   left so it opens over the page, not off the screen. This rule comes after
-   data-bottom-bar on purpose: in the sidebar it never meets Orden's bar. */
-:root[data-rail-switcher] {
-  --theme-switcher-bottom: var(--rail-switcher-bottom, 1rem);
-}
-:root[data-rail-switcher] [data-theme-switcher] {
-  left: var(--rail-switcher-left, 1.25rem);
-  right: auto !important;
-}
-/* PinPad keeps the corner switcher's column free on phones; with the switcher
-   in the sidebar there is nothing to keep it from. */
-:root[data-rail-switcher] .pin-pad {
-  padding-right: 0;
-}
-
 /* New-version notice (src/components/UpdateBanner.jsx, module 30), placement
-   only. Sommel has no top bar: its side menu spans the full height and stays on
-   screen on phones, so the notice shifts right of the menu instead of down.
-   Layout.jsx sets data-rail-switcher while the menu is mounted; on login (no
-   menu) the notice stays centred. The offset follows the <aside> width: w-20
-   below 1024px, lg:w-60 from there. */
-:root[data-rail-switcher] { --update-banner-left: 5rem; }
-@media (min-width: 1024px) {
-  :root[data-rail-switcher] { --update-banner-left: 15rem; }
-}
+   only. Inside the app the shell's top bar (module 29, h-14) holds the menu and
+   the avatar, so the notice goes just beneath it; on login and the 404 there is
+   no bar and it keeps its default top. */
+:root:has([data-app-shell]) { --update-banner-top: 4rem; }
 
 /*
  * On-screen keyboard (touch mode, 2026-10-13). While it is open the page
