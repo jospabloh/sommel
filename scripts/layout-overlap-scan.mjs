@@ -30,6 +30,8 @@ const NOW = new Date().toISOString();
 const USERS = {
   admin: { id: 'u1', email: 'dueno@example.invalid', full_name: 'Dueño Prueba', role: 'user', app_role: 'bar_admin', tenant_id: T },
   staff: { id: 'u2', email: 'mesero@example.invalid', full_name: 'Mesero Prueba', role: 'user', app_role: 'staff', tenant_id: T },
+  // The bare terminal account; terminalScreen() unlocks it as Mesero Prueba.
+  terminal: { id: 't1', email: 'terminal@terminales.example.invalid', full_name: 'Terminal Caja', role: 'user', app_role: 'terminal', tenant_id: T },
 };
 const tables = ['Mesa 1', 'Mesa 2', 'Barra 3', 'Terraza 4', 'Mesa 5', 'Mesa 6', 'Mesa 7', 'Reservada 8', 'Mesa 9'].map((name, i) => ({
   id: `bt${i}`, tenant_id: T, name, seats: 2 + (i % 5), status: i % 3 === 0 ? 'occupied' : 'free', created_date: NOW,
@@ -138,6 +140,16 @@ async function mockBackend(ctx, who) {
 
 // --------------------------------------------------------------- screens --
 // `after` runs once the screen has loaded, to open a dialog/sheet to scan.
+// Unlocks the terminal from inside the page: Vite dev serves the app's own
+// module, so this import is the same terminalStore instance the app reads.
+const unlockTerminal = async (page) => {
+  await page.evaluate(async () => {
+    const m = await import('/src/lib/terminal/terminalStore.js');
+    m.setUnlocked({ pass: 'scan', expires_at: new Date(Date.now() + 36e5).toISOString(), person: { id: 'u2', name: 'Mesero Prueba', email: 'mesero@example.invalid', app_role: 'staff' } });
+  });
+  await page.waitForTimeout(600);
+};
+
 const SCREENS = [
   { key: 'login', path: '/login', anon: true },
   { key: 'register', path: '/register', anon: true },
@@ -152,6 +164,9 @@ const SCREENS = [
   { key: 'orden-menu', path: '/orden/o1', after: async (page) => { await page.locator('button:has(svg.lucide-ellipsis-vertical)').first().click().catch(() => {}); await page.waitForTimeout(400); } },
   { key: 'turno', path: '/turno' },
   { key: 'mesas-staff', path: '/mesas', who: 'staff' },
+  { key: 'mesas-terminal', path: '/mesas', who: 'terminal', after: unlockTerminal },
+  { key: 'orden-terminal', path: '/orden/o1', who: 'terminal', after: unlockTerminal },
+  { key: 'mesas-avatar', path: '/mesas', after: async (page) => { await page.getByRole('button', { name: /^Cuenta de/ }).click(); await page.waitForTimeout(300); } },
   { key: 'orden-staff', path: '/orden/o1', who: 'staff' },
   { key: 'turno-salida', path: '/turno', after: async (page) => { await page.getByRole('button', { name: /Registrar salida/ }).first().click(); await page.waitForTimeout(500); } },
   { key: 'turno-cierre', path: '/turno', after: async (page) => { await page.getByRole('button', { name: /Cerrar turno|Hacer corte|Cerrar/ }).first().click(); await page.waitForTimeout(500); } },
@@ -221,6 +236,10 @@ async function measure(page, phase) {
       for (let a = el; a && a !== document.documentElement; a = a.parentElement) if (getComputedStyle(a).position === 'fixed') return a;
       return null;
     };
+    const stickyOf = (el) => {
+      for (let a = el; a && a !== document.documentElement; a = a.parentElement) if (getComputedStyle(a).position === 'sticky') return a;
+      return null;
+    };
     const skipFixed = (a, b) => phase === 'top' && scrollable && (!!fixedOf(a) !== !!fixedOf(b));
     // b sits fully inside a and is the thing hit at its own centre: a deliberate overlay.
     const nestedOnTop = (a, b, ra, rb) => ra.left <= rb.left + 1 && ra.right >= rb.right - 1 && ra.top <= rb.top + 1 && ra.bottom >= rb.bottom - 1 && (() => {
@@ -244,6 +263,9 @@ async function measure(page, phase) {
         if (a.closest('label') && a.closest('label') === b.closest('label')) continue;
         const area = inter(rects[i], rects[j]);
         if (area && skipFixed(a, b)) continue;
+        // Sticky chrome (the shell's top bar, module 29; Orden's own header) is
+        // drawn over the page, which scrolls beneath it: not an overlap.
+        if (area && stickyOf(a) !== stickyOf(b)) continue;
         if (area && (nestedOnTop(a, b, rects[i], rects[j]) || nestedOnTop(b, a, rects[j], rects[i]))) continue;
         if (area) overlaps.push(`${label(a)} X ${label(b)} (${Math.round(area)}px2)`);
       }
@@ -260,7 +282,7 @@ async function measure(page, phase) {
         if (at.closest('label') && at.closest('label') === els[i].closest('label')) continue;
         // A <label>/<td> or sibling text is not a competing control.
         const hit = at.closest(SEL) || at.closest('[data-theme-switcher], [class*="fixed"]');
-        if (!hit || hit === els[i] || skipFixed(els[i], hit)) continue;
+        if (!hit || hit === els[i] || skipFixed(els[i], hit) || stickyOf(els[i]) !== stickyOf(hit)) continue;
         covered.push(`${label(els[i])} covered by ${label(hit)}`);
         break;
       }

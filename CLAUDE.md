@@ -2106,3 +2106,37 @@ que un registro real reciba el código en español y desde
 `no-reply@sommel.acaciaco.com.mx`. El asunto ("Verify your email for Sommel")
 no está en el archivo de la plantilla; si sigue en inglés, se cambia en el
 panel (Editar con IA) y no desde el repo.
+
+## Módulo 29: marco de la app (AppShell), 2026-10-15
+
+`src/components/AppShell.jsx` y `PageHeader.jsx` son copia exacta de
+`acacia-app-standard/shared/shell/` (`cmp`); no se editan aquí. `Layout.jsx`
+es lo único propio:
+- **Arriba:** "Sommel" a la izquierda (lleva a Mesas); a la derecha el nombre
+  del bar y el **avatar**, la única puerta a la cuenta: Cuenta, Acerca de,
+  Instalar Sommel, Pantalla completa y Cerrar sesión. Ya no hay botón de
+  cerrar sesión en el menú, ni Cuenta, Soporte o Acerca de como secciones;
+  Soporte es "Enviar sugerencia" al pie del menú, junto a "Contraer menú".
+- **Terminal (decisión de José):** "Checar" y "Cambiar usuario" van a la vista
+  en la barra de arriba, a un toque (`TerminalQuickActions.jsx`, solo íconos en
+  teléfono), en lugar del nombre del bar; el avatar de la terminal no tiene
+  "Cerrar sesión" (desharía la terminal) y repite "Cambiar usuario". El menú de
+  una terminal arranca **colapsado** (riel de íconos) si nadie eligió otra cosa
+  en ese equipo (`acacia-shell-collapsed`).
+- **El selector de tema regresa a la esquina** (módulo 12): se quitó el lugar
+  reservado del pie del menú (`data-rail-switcher` y su CSS), y con él el
+  `pr-0` de `PinPad`, que vuelve a dejar libre su columna en teléfono. Costo
+  conocido: al hacer scroll, el selector pasa por encima de lo que cruce esa
+  esquina (en Orden, un renglón por un momento); al final de cada página hay
+  `pb-20` para que lo último quede libre.
+- El aviso de versión nueva va bajo la barra (`--update-banner-top: 4rem`
+  cuando hay `[data-app-shell]`). La barra fija de Orden empieza donde termina
+  el menú (`useSidebarEdge`, medido) y su encabezado es `sticky top-14`.
+- El marco ya pone margen en `<main>`; Layout lo deshace con márgenes negativos
+  para no retocar cada página.
+- `scan:layout` gana `mesas-terminal`, `orden-terminal` (desbloquea la terminal
+  importando el mismo `terminalStore` que la app en Vite dev) y `mesas-avatar`,
+  e ignora lo que pasa por debajo de una barra `sticky` al hacer scroll. 14
+  pantallas a 390/834/1440, claro y oscuro: 0 problemas.
+- **Pendiente:** `PageHeader` en cada página (hoy cada página pinta su propio
+  título y acciones). Es la otra mitad del módulo 29.
