@@ -571,7 +571,15 @@ de código de Base44 vive en `base44/emails/EmailVerification.html` (Panel →
 Correos electrónicos → Correos de la aplicación → Verificación del correo; se
 puede editar ahí o con "Editar con IA"). Estaba en inglés; ahora está en el
 repo traducida, con el mismo diseño y los placeholders `{{first_name}}` y
-`{{otp_code}}`. Base44 la toma al sincronizar `main`.
+`{{otp_code}}`. **Corrección tras publicar:** Base44 la guarda (Panel →
+Correos → Verificación del correo ya muestra "Restablecer"), pero dice "Se
+envía: El correo de Base44. Tu versión necesita tu propio dominio de correo
+antes de poder llegar a nuevos registros". La app no tiene dominio de correo
+(`GET custom-email-domains` = `[]`), así que **el correo sigue saliendo en
+inglés** hasta encender uno (`POST custom-email-domains`, con registros DNS).
+Ojo: al abrir la plantilla en el panel, Base44 empuja su copia en inglés a
+`main` ("Email template EmailVerification saved"); hay que quedarse con la del
+repo.
 
 **Invitación cuando el correo falla, probada en pantalla (2026-10-15).**
 `scan:layout --only staff-correo-fallido` simula `manageStaff.invite` con
@@ -2063,3 +2071,19 @@ Decisiones de José. **Código en el repo; se publica con el flujo de deploy.**
   `ajustes-servicio`; revisado a 390, 834 y 1440, claro y oscuro, 0 problemas.
 - **Orden de deploy:** esquema primero (`allow_negative_stock` es campo nuevo),
   luego `orders`, `inventory` y `settings`, luego el sitio.
+
+### Publicado y verificado (2026-10-15, PR #88)
+
+`github/sync` jaló `bcc261b`; el esquema desplegado de `WineBar` ya trae
+`allow_negative_stock` (default `false`) y `auto_deliver_no_station` (default
+`true`). Se publicó con `POST /deploy`. Verificado por contenido: el bundle
+servido contiene "Permitir existencia negativa", `data-sidebar-bar-name`, "Lo
+que nadie prepara" y el arreglo del enlace de invitación; `settings.get` (solo
+lectura, Sommel QA) responde `allow_negative_stock: false` y
+`auto_deliver_no_station: true`. `orders` e `inventory` se redesplegaron con su
+`entry.ts` de `main` (`coding/redeploy-function`) sin error del empaquetador y
+se volvió a publicar. Supabase: migración 4 aplicada desde el SQL Editor y
+registrada como `20261015180000 bar_service_defaults`; releído: defaults
+`true`/`false`, `not null`. **No verificado:** el rechazo `insufficient_stock`
+contra Base44 en vivo (habría que escribir en un bar: ligar un insumo y pedir
+de más), y el correo en español (necesita dominio de correo).
