@@ -26,7 +26,13 @@ export default function Aprobar() {
     try {
       setData(await callFn('security', 'getApprovalRequest', { request_id: id }));
     } catch (err) {
-      setError(err.code === 'forbidden' ? 'Solo un administrador del bar puede aprobar.' : err.message);
+      setError(
+        err.code === 'forbidden'
+          ? 'Solo un administrador del bar puede aprobar.'
+          : err.code === 'not_found'
+            ? 'No encontramos esta solicitud. Revisa el código QR o pide que generen otro en la terminal.'
+            : err.message || 'No se pudo abrir la solicitud. Intenta de nuevo.'
+      );
     }
   }, [id]);
 

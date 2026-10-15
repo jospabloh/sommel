@@ -1,5 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
-import { buildNewBar, normalizeDisplayName } from './_trial_logic.ts';
+import { buildNewBar, buildTenantPull, normalizeDisplayName } from './_trial_logic.ts';
 
 // The only way a user gets a tenant: User.tenant_id/app_role are rls.write:false
 // (Module 24 of jospabloh/acacia-app-standard), so onboarding can no longer set
@@ -56,6 +56,19 @@ export default async function(req: Request): Promise<Response> {
         await svc.entities.WineBar.delete(bar.id);
       } catch (_) { /* keep reporting the original failure */ }
       throw error;
+    }
+    // Tell Mission Control now instead of waiting for the daily sync. Never
+    // fatal: the bar is already created and the user attached.
+    try {
+      const ping = buildTenantPull(bar.id);
+      await fetch(ping.url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: ping.body,
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch (_) {
+      console.warn('[createWineBar] tenant-pull ping to Mission Control failed');
     }
     return Response.json({ ok: true, bar_id: bar.id });
   } catch (error) {

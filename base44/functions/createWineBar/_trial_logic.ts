@@ -31,3 +31,14 @@ export function normalizeDisplayName(input: unknown): string | null {
   const v = input.replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/\s+/g, ' ');
   return v.length >= 1 && v.length <= 60 ? v : null;
 }
+
+// New-bar notice to Mission Control (same contract StockFlow uses): an unsigned
+// POST of {app, tenantId}. MC re-reads the tenant through the bridge, so a
+// forged ping cannot invent a bar. Best effort: the signup never depends on it
+// (the daily licence sync is the net).
+export const TENANT_PULL_URL = 'https://control.acaciaco.com.mx/api/ingest/tenant-pull';
+export const MC_APP_ID = 'sommel';
+
+export function buildTenantPull(barId: string): { url: string; body: string } {
+  return { url: TENANT_PULL_URL, body: JSON.stringify({ app: MC_APP_ID, tenantId: barId }) };
+}

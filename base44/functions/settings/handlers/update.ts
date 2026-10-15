@@ -17,7 +17,9 @@ export const update: Route = async (ctx: Ctx, body: any) => {
 
   let patch: Record<string, unknown>;
   try {
-    patch = buildSettingsPatch(body ?? {}, effectiveMethods(bar));
+    patch = buildSettingsPatch(body ?? {}, effectiveMethods(bar), {
+      canRename: ctx.appRole === 'bar_admin',
+    });
   } catch (err) {
     if (err instanceof LogicError) throw new HttpError(400, err.code, err.message);
     throw err;
