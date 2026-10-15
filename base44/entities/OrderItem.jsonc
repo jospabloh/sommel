@@ -58,7 +58,8 @@
     "cancel_reason": { "type": "string", "description": "Motivo de cancelación" },
     "cancelled_by": { "type": "string", "description": "Email de quien canceló el renglón (contrato §3: 'queda registrado quién y por qué')" },
     "prepared": { "type": "boolean", "default": false, "description": "Si ya se preparó, para saber si cancelar genera merma (§5)" },
-    "created_by": { "type": "string", "description": "Email de quien agregó el renglón" }
+    "created_by": { "type": "string", "description": "Email de quien agregó el renglón" },
+    "idempotency_key": { "type": "string", "description": "batch_key:índice, puesto por orders.addItems cuando el cliente manda batch_key. Si un reintento (por ejemplo tras un 429 que sí alcanzó a escribir) repite la tanda, el servidor reconoce los renglones ya guardados y no los crea otra vez. Solo lo escribe el servidor; la entidad completa ya es de escritura solo de plataforma." }
   },
   "required": ["tenant_id", "order_id", "product_id"],
   "rls": {

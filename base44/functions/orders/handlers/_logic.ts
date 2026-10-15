@@ -437,3 +437,94 @@ export function planCancelOrderInventory(
   }
   return out;
 }
+
+// ---- addItems idempotency (2026-10-15) ----
+// A 429 can arrive AFTER addItems wrote its lines; the retry (automatic or the
+// waiter tapping again) used to create them a second time and double the check.
+// The client sends one `batch_key` per attempt and every line is stored with
+// `idempotency_key = batch_key:index`.
+
+/** A client-made key: 8 to 64 chars of letters, digits, `_` and `-` (a uuid fits). */
+export function validateBatchKey(raw: unknown): string | null {
+  if (raw == null || raw === '') return null;
+  if (typeof raw !== 'string' || !/^[A-Za-z0-9_-]{8,64}$/.test(raw)) {
+    throw new LogicError('invalid_batch_key', 'La llave de la tanda no es válida');
+  }
+  return raw;
+}
+
+/** One key per line of the batch, in order. */
+export function batchLineKeys(batchKey: string, count: number): string[] {
+  return Array.from({ length: count }, (_, i) => `${batchKey}:${i}`);
+}
+
+export interface IdempotentBatchArgs {
+  /** Per-line keys, or null for a client without batch_key (old behavior). */
+  keys: string[] | null;
+  lines: any[];
+  /** Rows of this order whose idempotency_key is in `keys`. */
+  find: (keys: string[]) => Promise<any[]>;
+  create: (line: any, key: string | null) => Promise<any>;
+  /** Cancels a duplicate row (never deletes). */
+  neutralize: (row: any) => Promise<void>;
+  /** Deterministic survivor of a group (oldest created_date, id tiebreak). */
+  pick: (rows: any[]) => any | null;
+}
+
+function groupByKey(rows: any[], keys: string[]): Map<string, any[]> {
+  const wanted = new Set(keys);
+  const out = new Map<string, any[]>();
+  for (const r of rows ?? []) {
+    const k = r?.idempotency_key;
+    if (r == null || typeof k !== 'string' || !wanted.has(k)) continue;
+    const list = out.get(k) ?? [];
+    list.push(r);
+    out.set(k, list);
+  }
+  return out;
+}
+
+/**
+ * Creates only the lines of the batch that are not stored yet, then keeps one
+ * survivor per key: if two requests ran at once, the losing row is cancelled
+ * with reason 'duplicado' (same convention as payments and inventory).
+ * `idempotent` is true when every line already existed.
+ */
+export async function addLinesIdempotent(args: IdempotentBatchArgs): Promise<{ rows: any[]; idempotent: boolean }> {
+  const { keys, lines, find, create, neutralize, pick } = args;
+  if (!keys) {
+    const rows: any[] = [];
+    for (const line of lines) rows.push(await create(line, null));
+    return { rows, idempotent: false };
+  }
+
+  const before = groupByKey(await find(keys), keys);
+  const created = new Map<string, any>();
+  for (let i = 0; i < lines.length; i++) {
+    if (before.has(keys[i])) continue;
+    created.set(keys[i], await create(lines[i], keys[i]));
+  }
+  if (created.size === 0) {
+    return { rows: keys.map((k) => pick(before.get(k) ?? [])).filter(Boolean), idempotent: true };
+  }
+
+  // Concurrent twin requests: re-read and keep one row per key.
+  let after: Map<string, any[]>;
+  try {
+    after = groupByKey(await find(keys), keys);
+  } catch {
+    return { rows: keys.map((k) => created.get(k) ?? pick(before.get(k) ?? [])).filter(Boolean), idempotent: false };
+  }
+  const rows: any[] = [];
+  for (const k of keys) {
+    const group = after.get(k) ?? [];
+    const survivor = pick(group) ?? created.get(k) ?? null;
+    for (const row of group) {
+      if (survivor && row.id !== survivor.id && row.status !== 'cancelado') {
+        try { await neutralize(row); } catch { /* best effort: the next replay retries it */ }
+      }
+    }
+    if (survivor) rows.push(survivor);
+  }
+  return { rows, idempotent: false };
+}

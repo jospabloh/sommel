@@ -57,7 +57,8 @@ export const cancelOrder: Route = async (ctx: Ctx, body: any) => {
   }
 
   // Every line is cancelled now: subtotal/total drop with them (2026-10-14).
-  const totals = await previewOrderTotals(ctx, order);
+  // A fixed tip would otherwise survive on a cancelled order with no lines.
+  const totals = await previewOrderTotals(ctx, { ...order, tip: 0, tip_pct: null });
   // Waste for prepared lines, and give back what an earlier (voided) payment
   // already deducted. Best effort, idempotent by key.
   const inventoryWarning = await cancelOrderInventory(ctx, finalItems);

@@ -1929,3 +1929,46 @@ Código **en el repo**; nada publicado ni verificado en vivo.
 - Pruebas: `qa_client_fixes_test.ts`, `request_id_test.ts` y casos nuevos en `settings_logic_test.ts`.
 
 **Verificado:** lint, build, `check:guards`, `check:functions`, `deno test` (701/0) y `deno lint`. **No verificado:** nada contra Base44 ni Mission Control (que `tenant-pull` acepte la app `sommel` depende de su fila en `apps`, que existe desde 2026-09-30); las pantallas a 390/1440; el motivo real del fallo del correo de invitación.
+
+## addItems idempotente, corte sin cierres de $0 y cancelOrder en cero (2026-10-15)
+
+- **`orders.addItems` ya no duplica renglones al reintentar.** En producción un
+  `addItems` escribió sus 3 renglones y aun así respondió 429 (la cuota se agotó
+  después de los creates); el reintento los creó otra vez y la cuenta quedó al
+  doble. Ahora el cliente manda `batch_key` (uuid por intento, `Orden.jsx` la
+  conserva mientras la hoja tenga el mismo contenido y la suelta al tener éxito;
+  `reuseBatchKey` en `orders/helpers.js`) y el servidor guarda
+  `OrderItem.idempotency_key = batch_key:índice` (campo nuevo). Antes de crear
+  lee por esas llaves con `$in`: si ya están todas responde los renglones
+  guardados con `idempotent: true` (sin pedir confirmación de cantidad ni leer
+  productos); si faltan algunas, crea solo esas. Después de crear relee y cancela
+  los duplicados de dos peticiones simultáneas (sobreviviente = el más antiguo,
+  `cancel_reason: 'duplicado'`, nunca se borra). La lógica vive en
+  `addLinesIdempotent` (`orders/handlers/_logic.ts`, sin imports). Sin
+  `batch_key` el comportamiento es el de antes. `orders.addItems` entra a
+  `IDEMPOTENT_WRITES` porque `Orden.jsx` (único llamador) siempre la manda; el
+  reenvío tras `qty_confirm_required` reusa la misma llave. Límite aceptado: si
+  alguien cambia la hoja tras un fallo, la llave cambia y no hay forma de saber
+  si el intento anterior sí llegó.
+- **Corte:** `salesByMethod` (`shifts/handlers/_logic.ts`) ignora los pagos de
+  $0 ("Cerrar cuenta sin cobro"), igual que reportes: ya no cuentan como pago ni
+  imprimen "Efectivo $0.00". Esto cierra el pendiente anotado en la sección de
+  reportes del 2026-10-14.
+- **`cancelOrder`** calcula los totales con `tip: 0, tip_pct: null`: una comanda
+  cancelada queda en total 0 aunque tuviera propina fija. `Orden.jsx` muestra un
+  toast cuando `cancelOrder` responde `inventory_warning` (mismo patrón que
+  `CobroPanel`).
+- Docs: `entrega-1-contratos.md` §4 (addItems, cancelItem, cancelOrder,
+  upsertTable) y `entrega-2-contratos.md` §5 (`inventory.archiveItem`,
+  `item_archived`, `item_linked`).
+- Pruebas: `base44/tests/add_items_idempotent_test.ts` (simula el 429 después de
+  escribir, la tanda parcial, dos peticiones a la vez, sin `batch_key`, el corte
+  y el total de `cancelOrder`).
+
+**No verificado:** nada contra Base44 (los `entry.ts` importan el SDK; que
+`OrderItem.filter` acepte `idempotency_key: {$in}` se confía en lo comprobado para
+otros campos, con respaldo uno por uno); la hoja de producto en navegador.
+**Orden de despliegue:** primero el esquema de `OrderItem` (`idempotency_key`;
+sin él Base44 descarta el campo en silencio y la protección no actúa), luego
+funciones (`orders`, `shifts`) y por último el sitio. Verificar por contenido que
+`addItems` con un `batch_key` repetido responde `idempotent: true`.
