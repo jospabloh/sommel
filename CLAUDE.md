@@ -566,6 +566,13 @@ Query hace una sola petición. `BarNameCard` invalida esa query al guardar.
 `scan:layout` ahora manda `name` en el billing simulado y acepta
 `--theme dark`; revisado a 390 y 1440, claro y oscuro, 0 problemas.
 
+**Correo de verificación en español (2026-10-15).** La plantilla del correo
+de código de Base44 vive en `base44/emails/EmailVerification.html` (Panel →
+Correos electrónicos → Correos de la aplicación → Verificación del correo; se
+puede editar ahí o con "Editar con IA"). Estaba en inglés; ahora está en el
+repo traducida, con el mismo diseño y los placeholders `{{first_name}}` y
+`{{otp_code}}`. Base44 la toma al sincronizar `main`.
+
 **Checador por usuario.** Con `Asistencia:ver_equipo` (admins por defecto) es
 la tablet compartida: se ve todo el equipo y se checa a cualquiera con su PIN.
 Sin ese permiso `attendance.roster` solo devuelve a quien inició sesión, la
