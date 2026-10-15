@@ -70,7 +70,8 @@ const inventory = Array.from({ length: 8 }, (_, i) => ({ id: `ii${i}`, name: ['M
 
 const fnData = {
   catalog: { categories, products },
-  attendance: { people, records: [], totals: [], range: {} },
+  // see_team: the admin's checador shows the whole team (what checador-pin taps).
+  attendance: { people, see_team: true, pin_length: 4, records: [], totals: [], range: {} },
   shifts: {
     current: { shift: { id: 's1', opened_at: NOW, opened_by: 'Dueño Prueba', opening_float: 150000, expected_cash: 420000 }, cash_outs: [{ id: 'm1', reason: 'Compra de hielo y limones para la barra', amount: 25000, created_date: NOW }], totals_by_method: [{ key: 'efectivo', label: 'Efectivo', count: 8, amount: 270000 }, { key: 'tarjeta', label: 'Tarjeta', count: 5, amount: 640000 }], sales_total: 910000 },
     list: { shifts: [{ id: 's0', opened_at: NOW, closed_at: NOW, opened_by: 'Dueño Prueba', sales_total: 1200000, difference: -5000, status: 'closed' }] },
@@ -224,7 +225,11 @@ async function measure(page, phase) {
       const t = el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || el.getAttribute('placeholder') || el.getAttribute('name') || '';
       return `${el.tagName.toLowerCase()} "${t.replace(/\s+/g, ' ').trim().slice(0, 36)}"`;
     };
-    const modal = document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"]');
+    // An open dialog, or an open disclosure menu (the shell's avatar menu:
+    // aria-expanded + aria-controls), is an overlay: only it is judged.
+    const opener = document.querySelector('[aria-expanded="true"][aria-controls]');
+    const menuPanel = opener ? document.getElementById(opener.getAttribute('aria-controls')) : null;
+    const modal = document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"]') || (menuPanel && menuPanel.tagName !== 'DIALOG' ? menuPanel : null);
     const visible = (el) => {
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) return false;
@@ -251,6 +256,7 @@ async function measure(page, phase) {
       for (let a = el; a && a !== document.documentElement; a = a.parentElement) if (getComputedStyle(a).position === 'fixed') return a;
       return null;
     };
+    const scrolledNow = (document.scrollingElement?.scrollTop ?? 0) > 0;
     const stickyOf = (el) => {
       for (let a = el; a && a !== document.documentElement; a = a.parentElement) if (getComputedStyle(a).position === 'sticky') return a;
       return null;
@@ -279,8 +285,10 @@ async function measure(page, phase) {
         const area = inter(rects[i], rects[j]);
         if (area && skipFixed(a, b)) continue;
         // Sticky chrome (the shell's top bar, module 29; Orden's own header) is
-        // drawn over the page, which scrolls beneath it: not an overlap.
-        if (area && stickyOf(a) !== stickyOf(b)) continue;
+        // drawn over the page, which scrolls beneath it: not an overlap, but
+        // only once the page has scrolled. Unscrolled, a control under sticky
+        // chrome is a real layout defect.
+        if (area && scrolledNow && stickyOf(a) !== stickyOf(b)) continue;
         if (area && (nestedOnTop(a, b, rects[i], rects[j]) || nestedOnTop(b, a, rects[j], rects[i]))) continue;
         if (area) overlaps.push(`${label(a)} X ${label(b)} (${Math.round(area)}px2)`);
       }
@@ -297,7 +305,7 @@ async function measure(page, phase) {
         if (at.closest('label') && at.closest('label') === els[i].closest('label')) continue;
         // A <label>/<td> or sibling text is not a competing control.
         const hit = at.closest(SEL) || at.closest('[data-theme-switcher], [class*="fixed"]');
-        if (!hit || hit === els[i] || skipFixed(els[i], hit) || stickyOf(els[i]) !== stickyOf(hit)) continue;
+        if (!hit || hit === els[i] || skipFixed(els[i], hit) || (scrolledNow && stickyOf(els[i]) !== stickyOf(hit))) continue;
         covered.push(`${label(els[i])} covered by ${label(hit)}`);
         break;
       }
@@ -343,7 +351,9 @@ for (const vp of vps) {
     if (ONLY_SCREENS && !ONLY_SCREENS.includes(scr.key)) continue;
     const who = scr.who || 'admin';
     const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, hasTouch: vp.w <= 1024, isMobile: vp.w <= 834, deviceScaleFactor: 1 });
-    if (!scr.anon) await ctx.addInitScript((theme) => { try { localStorage.setItem('base44_access_token', 'mock'); localStorage.setItem('sommel-theme', theme); } catch { /* none */ } }, THEME);
+    // The theme applies to every screen (login and register too); the mock
+    // token only to the signed-in ones.
+    await ctx.addInitScript(({ theme, anon }) => { try { if (!anon) localStorage.setItem('base44_access_token', 'mock'); localStorage.setItem('sommel-theme', theme); } catch { /* none */ } }, { theme: THEME, anon: !!scr.anon });
     await mockBackend(ctx, who);
     const page = await ctx.newPage();
     const errors = [];
@@ -364,7 +374,9 @@ for (const vp of vps) {
         await page.screenshot({ path: `${SHOTS}/${scr.key}-${vp.w}x${vp.h}-${phase}.png` });
       }
     }
-    if (errors.length) report.push({ vp: `${vp.w}x${vp.h}`, screen: scr.key, errorsOnly: errors });
+    // A page error or a failed step (an `after` that throws, e.g. the update
+    // notice offset check) is a problem too: it must fail the scan.
+    if (errors.length) { problems += errors.length; report.push({ vp: `${vp.w}x${vp.h}`, screen: scr.key, errorsOnly: errors }); }
     await ctx.close();
   }
 }

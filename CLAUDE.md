@@ -571,15 +571,7 @@ de código de Base44 vive en `base44/emails/EmailVerification.html` (Panel →
 Correos electrónicos → Correos de la aplicación → Verificación del correo; se
 puede editar ahí o con "Editar con IA"). Estaba en inglés; ahora está en el
 repo traducida, con el mismo diseño y los placeholders `{{first_name}}` y
-`{{otp_code}}`. **Corrección tras publicar:** Base44 la guarda (Panel →
-Correos → Verificación del correo ya muestra "Restablecer"), pero dice "Se
-envía: El correo de Base44. Tu versión necesita tu propio dominio de correo
-antes de poder llegar a nuevos registros". La app no tiene dominio de correo
-(`GET custom-email-domains` = `[]`), así que **el correo sigue saliendo en
-inglés** hasta encender uno (`POST custom-email-domains`, con registros DNS).
-Ojo: al abrir la plantilla en el panel, Base44 empuja su copia en inglés a
-`main` ("Email template EmailVerification saved"); hay que quedarse con la del
-repo.
+`{{otp_code}}`. Base44 la toma al sincronizar `main`.
 
 **Invitación cuando el correo falla, probada en pantalla (2026-10-15).**
 `scan:layout --only staff-correo-fallido` simula `manageStaff.invite` con
@@ -1671,10 +1663,7 @@ Con sesión, el aviso del módulo 30 quedaba a 0.75 rem de arriba, justo sobre
 `LicenseBanner` ("Periodo de prueba", "Solo lectura", "Suspendida"): mientras
 nadie lo cerraba, no se leía el aviso de licencia. `LicenseBanner` publica su
 alto en `--license-banner-h` (`src/lib/useHeightVar.js`, copia del de StockFlow)
-y `index.css` suma ese alto a `--update-banner-top` dentro de la app
-(**actualizado el 2026-10-15 para el marco del módulo 29:** `4rem` de la barra
-superior + el alto del banner; `scan:layout --only mesas-update-offset` lo
-mide y falla si el aviso empieza antes de que termine el banner). Sin banner,
+y `index.css` suma ese alto a `--update-banner-top` dentro de la app. Sin banner,
 la variable no existe y el aviso queda donde estaba. Verificado con el build
 local y la sesión real de Sommel QA a 390/834/1440, claro y oscuro: el aviso
 empieza 12 px debajo del banner en los seis casos. Sigue tapando parte del
@@ -2123,18 +2112,6 @@ que un registro real reciba el código en español y desde
 no está en el archivo de la plantilla; si sigue en inglés, se cambia en el
 panel (Editar con IA) y no desde el repo.
 
-**Revisado a las 12:14 del 2026-10-15:** la línea "Se envía" ya no aparece en
-Panel → Correos → Verificación del correo (Base44 terminó de revisar la
-versión propia) y la vista previa sale en español ("Hola, Alex:", "Usa este
-código de verificación..."). **El asunto sigue en inglés**, "Verify your email for Sommel", y **no se puede
-cambiar**: se le pidió a "Editar con IA" (2026-10-15) y respondió que
-EmailVerification es uno de los cuatro correos reservados de la plataforma; el
-asunto lo genera Base44 a partir del nombre de la app, cualquier `<title>` del
-archivo se descarta, y solo cambia si se cambia el nombre de la app. No tocó el
-archivo ni subió nada a `main`. (Dijo también que el asunto sigue el patrón
-"Verifica tu correo para Sommel", pero el panel muestra la versión en inglés;
-no se comprobó en un correo real.) No se mandó correo de prueba; falta ver un registro real llegar desde
-`no-reply@sommel.acaciaco.com.mx`.
 
 ## Módulo 29: marco de la app (AppShell), 2026-10-15
 
@@ -2169,3 +2146,42 @@ es lo único propio:
   pantallas a 390/834/1440, claro y oscuro: 0 problemas.
 - **Pendiente:** `PageHeader` en cada página (hoy cada página pinta su propio
   título y acciones). Es la otra mitad del módulo 29.
+
+## Correcciones y revisión posterior (2026-10-15, tarde)
+
+Lo que se supo después de publicar, sin reescribir las secciones de arriba.
+
+- **Correo de verificación.** "Base44 la toma al sincronizar `main`" no bastó:
+  Base44 la guarda, pero solo la manda con un dominio de correo propio (se
+  activó `no-reply@sommel.acaciaco.com.mx`, ver "Dominio de correo propio") y
+  tras una revisión de hasta una hora. Al abrir la plantilla en el panel,
+  Base44 empujó a `main` su copia en inglés ("Email template EmailVerification
+  saved"); hay que quedarse con la del repo.
+- **12:14:** la línea "Se envía" desapareció y la vista previa sale en español.
+  El **asunto sigue en inglés y no se puede cambiar**: "Editar con IA" respondió
+  que EmailVerification es uno de los cuatro correos reservados, que el asunto
+  lo genera Base44 con el nombre de la app y que el `<title>` del archivo se
+  descarta. No tocó el archivo ni `main`.
+- **Correo de prueba ("Enviarme una prueba", con permiso de José):** llegó a
+  h.josepablo@gmail.com con asunto `[Test] Verify your email for Sommel`
+  (inglés, contra lo que dijo el builder), cuerpo en español, y **desde
+  `app@base44.com`**, no desde `no-reply@sommel.acaciaco.com.mx`. No se sabe si
+  la prueba usa otro remitente que un registro real: sigue sin verificar.
+- **Avisos al usuario:** el paso del código (`VerifyEmailStep.jsx`) y el paso 2
+  de la invitación (`_invite_email.ts`, con su prueba) ya no dicen que el
+  correo llega en inglés: dicen que solo el asunto viene en inglés, sin nombrar
+  remitente. `ForgotPassword.jsx` no cambia (esa plantilla es la de Base44).
+- **Aviso de versión bajo el banner de licencia (#77):** con el marco del
+  módulo 29 queda en `4rem` + `--license-banner-h`; `scan:layout --only
+  mesas-update-offset` lo mide.
+- **`scan:layout`, por la revisión de Codex en #77, #88 y #90:** un paso que
+  falla o un error de página ya cuenta como problema (sale 1); `--theme dark`
+  aplica también a login y registro; lo que pasa bajo una barra `sticky` solo
+  se ignora con la página ya desplazada; el menú del avatar abierto se juzga
+  como un diálogo. El mock de `attendance.roster` trae `see_team`, así que
+  `checador-pin` ya corre. Todas las pantallas a 390/834/1440, claro y oscuro:
+  0 problemas.
+- **Historial de este archivo:** #89 y #93 corrigieron texto dentro de
+  secciones anteriores; Codex lo marcó y se devolvió a su forma original. Las
+  correcciones van aquí.
+
