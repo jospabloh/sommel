@@ -7,6 +7,7 @@
 import {
   LogicError,
   aggregate,
+  prorateDiscount,
   hourOf,
   inWindow,
   resolveRange,
@@ -230,6 +231,7 @@ Deno.test('costs: null cost is never counted as 0; profit only over costed lines
     margin_pct: 60,
     uncosted_items: 2,
     costed_sales: 20000,
+    courtesy_cost: 0,
   });
   const sinCosto = out.by_product.find((r: any) => r.name === 'Sin costo');
   eq(sinCosto.cost, 0);
@@ -302,4 +304,91 @@ Deno.test('empty period: zeros, 24 hour buckets, no divide by zero', () => {
   eq(out.by_hour.length, 24);
   eq(out.by_product, []);
   eq(out.cancellations, { count: 0, items: [] });
+});
+
+// ---- QA fixes 2026-10-14 ----------------------------------------------------
+
+Deno.test('prorateDiscount: exact centavos, the last line with money absorbs the residue', () => {
+  const shares = prorateDiscount([1000, 1000, 1000], 100); // 33.33 each
+  eq(shares.reduce((a, b) => a + b, 0), 100);
+  eq(shares, [33, 33, 34]);
+  eq(prorateDiscount([500, 0, 1500], 200), [50, 0, 150]);
+  eq(prorateDiscount([300, 700], 0), [0, 0]);
+  eq(prorateDiscount([300, 700], 5000), [300, 700]); // capped at the lines' total
+  eq(prorateDiscount([], 100), []);
+});
+
+Deno.test('tables reconcile to the cent with sales_net when orders carry discounts and courtesies', () => {
+  const orders = [
+    { id: 'a', status: 'cobrada', closed_at: t(20), subtotal: 3000, discount: 100, discount_kind: 'descuento', tip: 300, total: 3200 },
+    { id: 'b', status: 'cobrada', closed_at: t(21), subtotal: 5000, discount: 5000, discount_kind: 'cortesia', tip: 0, total: 0 },
+    { id: 'c', status: 'cobrada', closed_at: t(22), subtotal: 700, discount: 0, tip: 0, total: 700 },
+  ];
+  const items = [
+    { order_id: 'a', product_id: 'p1', name: 'A', qty: 1, unit_price: 1000, status: 'entregado' },
+    { order_id: 'a', product_id: 'p2', name: 'B', qty: 1, unit_price: 1000, status: 'entregado' },
+    { order_id: 'a', product_id: 'p3', name: 'C', qty: 1, unit_price: 1000, status: 'entregado' },
+    { order_id: 'b', product_id: 'p1', name: 'A', qty: 5, unit_price: 1000, status: 'entregado' },
+    { order_id: 'c', product_id: 'p1', name: 'A', qty: 1, unit_price: 700, status: 'entregado' },
+  ];
+  const products = [
+    { id: 'p1', category_id: 'c1' },
+    { id: 'p2', category_id: 'c1' },
+    { id: 'p3', category_id: 'c2' },
+  ];
+  const out: any = aggregate(base({ orders, items, products }));
+  const sum = (rows: any[]) => rows.reduce((a, r) => a + r.sales, 0);
+  eq(out.totals.sales_net, 3600);
+  eq(sum(out.by_product), 3600);
+  eq(sum(out.by_category), 3600);
+  eq(sum(out.top_products), 3600);
+  // Courtesy pieces are not sold pieces in the tables.
+  eq(out.by_product.find((r: any) => r.name === 'A').qty, 2);
+  eq(out.courtesies.length, 1); // the courtesy still shows in its own list
+});
+
+Deno.test('costs: profit and margin use net sales (discount and courtesy), courtesy cost is a loss', () => {
+  const orders = [
+    { id: 'a', status: 'cobrada', closed_at: t(20), subtotal: 2000, discount: 500, discount_kind: 'descuento', tip: 0, total: 1500 },
+    { id: 'b', status: 'cobrada', closed_at: t(21), subtotal: 1000, discount: 1000, discount_kind: 'cortesia', tip: 0, total: 0 },
+  ];
+  const items = [
+    { order_id: 'a', product_id: 'p1', name: 'X', qty: 2, unit_price: 1000, unit_cost: 400, status: 'entregado' },
+    { order_id: 'b', product_id: 'p1', name: 'X', qty: 1, unit_price: 1000, unit_cost: 400, status: 'entregado' },
+  ];
+  const out: any = aggregate(base({ orders, items, includeCosts: true }));
+  eq(out.costs.costed_sales, 1500); // 2000 gross - 500 discount
+  eq(out.costs.cost, 1200); // 800 sold + 400 given away
+  eq(out.costs.profit, 300); // 1500 - 1200, not 3000 - 1200
+  eq(out.costs.margin_pct, 20);
+  eq(out.costs.courtesy_cost, 400);
+  eq(out.by_product[0].profit, 700); // 1500 net - 800 cost, courtesy not in the row
+});
+
+Deno.test('by_method: a $0 courtesy close marker is not a payment', () => {
+  const orders = [
+    { id: 'a', status: 'cobrada', closed_at: t(20), total: 1000 },
+    { id: 'b', status: 'cobrada', closed_at: t(21), total: 0, discount: 500, discount_kind: 'cortesia' },
+  ];
+  const payments = [
+    { order_id: 'a', method: 'efectivo', method_label: 'Efectivo', amount: 1000 },
+    { order_id: 'b', method: 'efectivo', method_label: 'Efectivo', amount: 0 },
+  ];
+  const out: any = aggregate(base({ orders, payments }));
+  eq(out.by_method, [{ method: 'efectivo', label: 'Efectivo', count: 1, amount: 1000 }]);
+});
+
+Deno.test('cancellations: who cancelled comes from the line, then from its order', () => {
+  const cancelledItems = [
+    { order_id: 'o1', name: 'Con renglón', qty: 1, status: 'cancelado', cancelled_by: 'ana@x.mx', updated_date: t(20) },
+    { order_id: 'o2', name: 'Solo orden', qty: 1, status: 'cancelado', updated_date: t(21) },
+    { order_id: 'o3', name: 'Nadie', qty: 1, status: 'cancelado', updated_date: t(22) },
+  ];
+  const cancelledOrders = [{ id: 'o1', cancelled_by: 'otro@x.mx' }, { id: 'o2', cancelled_by: 'beto@x.mx' }];
+  const out: any = aggregate(base({ cancelledItems, cancelledOrders, people: { 'beto@x.mx': 'Beto' } }));
+  const by = (n: string) => out.cancellations.items.find((i: any) => i.name === n);
+  eq(by('Con renglón').cancelled_by, 'ana@x.mx');
+  eq(by('Solo orden').cancelled_by, 'beto@x.mx');
+  eq(by('Solo orden').cancelled_by_name, 'Beto');
+  eq(by('Nadie').cancelled_by, '');
 });

@@ -79,6 +79,7 @@ export const cancelOrder: Route = async (ctx: Ctx, body: any) => {
     discount: totals.discount,
     tip: totals.tip,
     total: totals.total,
+    cancelled_by: ctx.user.email,
   });
 
   return { order: updated, reason, ...(inventoryWarning ? { inventory_warning: inventoryWarning } : {}) };

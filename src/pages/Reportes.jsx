@@ -90,7 +90,7 @@ export default function Reportes() {
   const showCosts = data && data.costs;
 
   const productColumns = [
-    { key: 'name', label: 'Producto', render: (r) => <span className="font-medium break-all">{r.name}</span> },
+    { key: 'name', label: 'Producto', render: (r) => <span className="font-medium break-words inline-block min-w-[8rem]">{r.name}</span> },
     { key: 'qty', label: 'Cant.', align: 'right', render: qtyFmt },
     { key: 'sales', label: 'Ventas', align: 'right', render: money },
   ];
@@ -189,7 +189,7 @@ export default function Reportes() {
           </Section>
 
           <div className="grid gap-5 lg:grid-cols-2">
-            <Section title="Por producto">
+            <Section title="Por producto" hint="Ventas netas: después de descuentos y sin propina. Las cortesías no entran, van aparte.">
               <BarTable rows={data.by_product} columns={productColumns} barKey="sales" rowKey={(r) => `${r.product_id}-${r.name}`} />
               {showCosts && data.by_product.some((r) => r.uncosted) ? (
                 <p className="text-xs text-muted-foreground mt-2">* Incluye renglones sin costo capturado, que no entran en la utilidad.</p>
