@@ -1,8 +1,8 @@
 // Small impure helpers shared across `orders` handlers. Not import-free (it
 // touches `Ctx`/`svc`), so it lives apart from `_logic.ts`, which `deno test`
 // must be able to load with zero imports.
-import { computeOrderTotals, activePaymentsTotal, httpError, personName, type Ctx } from '../_guard.ts';
-import { narrowByField } from './_logic.ts';
+import { computeOrderTotals, activePaymentsTotal, httpError, HttpError, personName, type Ctx } from '../_guard.ts';
+import { narrowByField, LogicError, negativeStockAllowed, stockNeeds, assertStockCovers } from './_logic.ts';
 import { buildComandaLines, comandaDedupeKey, groupByStation } from './_comanda.ts';
 
 /**
@@ -118,5 +118,38 @@ export async function queueComandas(ctx: Ctx, order: any, items: any[], mode: 's
     return null;
   } catch {
     return 'La comanda no se pudo mandar a imprimir. Revísala en Impresión.';
+  }
+}
+
+/**
+ * Refuses (409 insufficient_stock) lines whose supply does not cover them,
+ * unless the bar allows negative stock. One $in read for all the supplies,
+ * and none at all when nothing tracks inventory.
+ */
+export async function assertStockForLines(
+  ctx: Ctx,
+  tenantId: string,
+  lines: Array<{ product: any; variant?: string | null; qty: number }>
+): Promise<void> {
+  if (negativeStockAllowed(ctx.bar)) return;
+  const needs = stockNeeds(lines);
+  if (needs.size === 0) return;
+  const ids = Array.from(needs.keys());
+  let rows: any[];
+  try {
+    rows = await ctx.svc.entities.InventoryItem.filter({ id: { $in: ids } });
+  } catch {
+    rows = [];
+    for (const id of ids) rows.push(...(await ctx.svc.entities.InventoryItem.filter({ id })));
+  }
+  const supplies = new Map<string, any>();
+  for (const row of rows) {
+    if (row && ids.includes(row.id) && row.tenant_id === tenantId) supplies.set(row.id, row);
+  }
+  try {
+    assertStockCovers(needs, supplies);
+  } catch (err) {
+    if (err instanceof LogicError) throw new HttpError(409, err.code, err.message);
+    throw err;
   }
 }

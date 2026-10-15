@@ -3,27 +3,14 @@
 // informational ONLY: it never blocks login or navigation, and any failure to
 // load renders nothing (the server still enforces the real gate on each write).
 //
-// The client cannot read WineBar directly (its entity RLS never matches a flat
-// row, verified live), so the bar comes through settings.billing, which needs
-// membership only (no permission key), so restricted staff still see why their
-// writes are refused.
+// The bar comes from useBarSummary (settings.billing, membership only), so
+// restricted staff still see why their writes are refused.
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Info, Lock } from 'lucide-react';
-import { callFn } from '@/lib/api';
-import { useAuth } from '@/lib/AuthContext';
+import { useBarSummary } from '@/lib/useBarSummary';
 import { billingNotice, SUPPORT_EMAIL } from '@/lib/billingNotice';
 import { cn } from '@/lib/utils';
 import { useHeightVar } from '@/lib/useHeightVar';
-
-async function fetchBar() {
-  try {
-    const res = await callFn('settings', 'billing');
-    return res?.bar ?? null;
-  } catch {
-    return null;
-  }
-}
 
 // Status chips carry meaning, not surface, so they get an explicit dark
 // counterpart (module 12): a deep tint behind lighter text.
@@ -35,17 +22,7 @@ const TONES = {
 const ICONS = { danger: Lock, warning: AlertTriangle, info: Info };
 
 export default function LicenseBanner() {
-  const { user } = useAuth();
-  const tenantId = user?.tenant_id ?? null;
-
-  const { data: bar } = useQuery({
-    queryKey: ['license-banner', tenantId],
-    queryFn: fetchBar,
-    enabled: !!tenantId,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    retry: false,
-  });
+  const { data: bar } = useBarSummary();
 
   // Its height feeds --update-banner-top (index.css), so the new-version
   // notice sits under this banner instead of covering it.

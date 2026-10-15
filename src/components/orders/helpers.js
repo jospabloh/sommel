@@ -96,6 +96,22 @@ export function lineSubtitle(item) {
 }
 
 /**
+ * One batch_key per attempt to add lines. Taps on the same sheet with the same
+ * content reuse the key (so a retry after "ocupado" cannot double the check);
+ * a different payload, or a finished attempt (prev = null), gets a new one.
+ */
+export function reuseBatchKey(prev, payload, makeKey) {
+  const sig = JSON.stringify(payload ?? null);
+  if (prev && prev.sig === sig && prev.key) return prev;
+  return { key: makeKey(), sig };
+}
+
+export function newBatchKey() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/**
  * Adds rows to a line list, or updates them in place when the id is already
  * there. Two paths deliver a freshly added line: the addItems response and the
  * OrderItem realtime event, in either order. A blind append showed the line

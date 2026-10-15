@@ -219,6 +219,10 @@ export function salesByMethod(payments: PaymentLike[], methods: MethodDef[] | nu
   for (const m of methods ?? []) if (m?.key) labels.set(m.key, m.label);
   const groups = new Map<string, MethodTotal>();
   for (const p of activePayments(payments)) {
+    // "Cerrar cuenta sin cobro" stores a $0 marker payment: it is not a
+    // payment, so it neither counts nor prints a "$0.00" line (same rule as
+    // reports/handlers/_logic.ts).
+    if ((p.amount ?? 0) === 0) continue;
     const key = p.method || 'otro';
     let g = groups.get(key);
     if (!g) {

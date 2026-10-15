@@ -23,6 +23,7 @@ import {
   verifyAssertion,
   verifyRegistration,
 } from '../_passkey_logic.ts';
+import { isPlausibleRecordId } from '../_request_id_logic.ts';
 
 const MAX_PASSKEYS_PER_ADMIN = 5;
 
@@ -51,7 +52,8 @@ function str(value: unknown, max = 4096): string {
 
 async function loadRequest(ctx: Ctx, id: unknown, tenantId: string): Promise<any> {
   const requestId = str(id, 64);
-  const [row] = requestId ? await ctx.svc.entities.ApprovalRequest.filter({ id: requestId }) : [];
+  // A malformed id would make the backend throw (500); it is simply "not found".
+  const [row] = requestId && isPlausibleRecordId(requestId) ? await ctx.svc.entities.ApprovalRequest.filter({ id: requestId }) : [];
   // Missing and another bar's answer the same (no existence oracle).
   if (!row || row.tenant_id !== tenantId) httpError(404, 'not_found', 'No se encontró la solicitud');
   return row;

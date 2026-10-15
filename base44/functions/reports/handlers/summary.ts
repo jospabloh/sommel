@@ -71,6 +71,15 @@ export const summary: Route = async (ctx: Ctx, body: any) => {
       fetchAll(svc.User, scope),
     ]);
 
+  // Lines cancelled through cancelOrder (before it stamped cancelled_by on
+  // them) are attributed to the order's canceller, so read those orders.
+  const orphanOrderIds = [
+    ...new Set(
+      cancelledItems.filter((i: any) => !i.cancelled_by && i.order_id).map((i: any) => String(i.order_id))
+    ),
+  ] as string[];
+  const cancelledOrders = orphanOrderIds.length > 0 ? await fetchByIds(svc.Order, scope, 'id', orphanOrderIds) : [];
+
   const people: Record<string, string> = {};
   for (const u of users) {
     if (u.email) people[u.email] = personName(u);
@@ -86,6 +95,7 @@ export const summary: Route = async (ctx: Ctx, body: any) => {
     items,
     payments,
     cancelledItems,
+    cancelledOrders,
     products,
     categories,
     wasteMovements,

@@ -284,6 +284,11 @@ export function mergeTableIds(into: string[] | null | undefined, from: string[] 
  * product with no station (water, a closed bottle) is delivered right away:
  * no station shows it, so nobody could ever mark it ready (2026-10-14).
  */
+/** On unless the bar saved `false` (on by default since 2026-10-15). */
+export function autoDeliverNoStationOn(bar: { auto_deliver_no_station?: unknown } | null | undefined): boolean {
+  return bar?.auto_deliver_no_station !== false;
+}
+
 export function sendStatusFor(station: unknown, autoDeliverNoStation: boolean): 'enviado' | 'entregado' {
   const hasStation = station === 'kitchen' || station === 'bar';
   return autoDeliverNoStation && !hasStation ? 'entregado' : 'enviado';
@@ -313,4 +318,282 @@ export function needsQtyConfirm(qty: unknown, threshold: number, previousQty = 0
 export function narrowByField<T extends Record<string, any>>(rows: T[], field: string, ids: Iterable<string>): T[] {
   const set = new Set(Array.from(ids, String));
   return (rows ?? []).filter((r) => r != null && set.has(String(r[field])));
+}
+
+// ---- QA fixes 2026-10-14 ----
+
+/**
+ * True when `cancelItem` is a repeat of a request that already wrote (a retry
+ * after a 429 that did land): same line, same reason, same person. The
+ * handler answers ok instead of 409 `invalid_status`.
+ */
+export function isRepeatedCancel(
+  item: { status?: string | null; cancel_reason?: string | null; cancelled_by?: string | null },
+  reason: string,
+  email: string | null | undefined
+): boolean {
+  return item?.status === 'cancelado' && item.cancel_reason === reason && (item.cancelled_by ?? '') === (email ?? '');
+}
+
+/** upsertTable fields: seats integer 0..99; zone string; x/y finite numbers. Undefined = not sent. */
+export function validateTableFields(body: any): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (body?.seats !== undefined) {
+    const s = body.seats;
+    if (typeof s !== 'number' || !Number.isInteger(s) || s < 0 || s > 99) {
+      throw new LogicError('invalid_seats', 'Los lugares deben ser un número entero de 0 a 99');
+    }
+    out.seats = s;
+  }
+  if (body?.zone !== undefined) {
+    if (typeof body.zone !== 'string') throw new LogicError('invalid_zone', 'La zona debe ser texto');
+    out.zone = body.zone.trim();
+  }
+  for (const k of ['x', 'y'] as const) {
+    if (body?.[k] !== undefined) {
+      if (typeof body[k] !== 'number' || !Number.isFinite(body[k])) {
+        throw new LogicError('invalid_position', 'La posición de la mesa debe ser un número');
+      }
+      out[k] = body[k];
+    }
+  }
+  return out;
+}
+
+// ---- cancelOrder inventory (mirror of payments' planInventoryMovements) ----
+// Kept here because Deno functions cannot import across directories.
+
+export interface CancelInvProduct {
+  track_inventory?: boolean | null;
+  inventory_item_id?: string | null;
+  inventory_qty?: number | null;
+  variants?: Array<{ key: string; inventory_qty?: number | null }> | null;
+}
+
+export interface CancelInvItem {
+  id: string;
+  product_id: string;
+  variant?: string | null;
+  qty?: number | null;
+  prepared?: boolean | null;
+}
+
+export interface CancelMovement {
+  inventory_item_id: string;
+  order_item_id: string;
+  type: 'merma' | 'devolucion';
+  qty: number;
+  idempotency_key: string;
+  reason: string;
+}
+
+function unitQty(product: CancelInvProduct | null | undefined, variant?: string | null): number {
+  if (!product || !product.track_inventory || !product.inventory_item_id) return 0;
+  let per: number | null | undefined = product.inventory_qty;
+  if (variant && Array.isArray(product.variants)) {
+    const v = product.variants.find((x) => x.key === variant);
+    if (v && typeof v.inventory_qty === 'number') per = v.inventory_qty;
+  }
+  return typeof per === 'number' && Number.isFinite(per) && per > 0 ? per : 0;
+}
+
+/**
+ * Inventory effect of cancelling a whole order (every line is cancelled).
+ * `ventaByItem` maps order_item_id -> its live 'venta' movement (qty != 0),
+ * left by an earlier payment that was later voided.
+ * - Line with a live sale: prepared -> the sale already is the waste, nothing;
+ *   not prepared -> 'devolucion' that gives the supply back (key reversa:<id>).
+ * - Line without a sale: prepared -> 'merma' (key merma:<id>, like cobro);
+ *   not prepared -> nothing.
+ */
+export function planCancelOrderInventory(
+  items: CancelInvItem[],
+  productsById: Record<string, CancelInvProduct | null | undefined>,
+  ventaByItem: Map<string, { qty?: number | null; item_id?: string | null }>
+): CancelMovement[] {
+  const out: CancelMovement[] = [];
+  for (const item of items) {
+    const venta = ventaByItem.get(item.id);
+    if (venta && (venta.qty ?? 0) !== 0) {
+      if (item.prepared || !venta.item_id) continue;
+      out.push({
+        inventory_item_id: venta.item_id,
+        order_item_id: item.id,
+        type: 'devolucion',
+        qty: Math.abs(venta.qty as number),
+        idempotency_key: `reversa:${item.id}`,
+        reason: 'Comanda cancelada',
+      });
+      continue;
+    }
+    if (!item.prepared) continue;
+    const product = productsById[item.product_id];
+    const per = unitQty(product, item.variant);
+    const qty = typeof item.qty === 'number' && item.qty > 0 ? item.qty : 0;
+    if (per <= 0 || qty <= 0) continue;
+    out.push({
+      inventory_item_id: product!.inventory_item_id as string,
+      order_item_id: item.id,
+      type: 'merma',
+      qty: -Math.round(per * qty * 1000) / 1000,
+      idempotency_key: `merma:${item.id}`,
+      reason: 'Cancelado ya preparado',
+    });
+  }
+  return out;
+}
+
+// ---- addItems idempotency (2026-10-15) ----
+// A 429 can arrive AFTER addItems wrote its lines; the retry (automatic or the
+// waiter tapping again) used to create them a second time and double the check.
+// The client sends one `batch_key` per attempt and every line is stored with
+// `idempotency_key = batch_key:index`.
+
+/** A client-made key: 8 to 64 chars of letters, digits, `_` and `-` (a uuid fits). */
+export function validateBatchKey(raw: unknown): string | null {
+  if (raw == null || raw === '') return null;
+  if (typeof raw !== 'string' || !/^[A-Za-z0-9_-]{8,64}$/.test(raw)) {
+    throw new LogicError('invalid_batch_key', 'La llave de la tanda no es válida');
+  }
+  return raw;
+}
+
+/** One key per line of the batch, in order. */
+export function batchLineKeys(batchKey: string, count: number): string[] {
+  return Array.from({ length: count }, (_, i) => `${batchKey}:${i}`);
+}
+
+export interface IdempotentBatchArgs {
+  /** Per-line keys, or null for a client without batch_key (old behavior). */
+  keys: string[] | null;
+  lines: any[];
+  /** Rows of this order whose idempotency_key is in `keys`. */
+  find: (keys: string[]) => Promise<any[]>;
+  create: (line: any, key: string | null) => Promise<any>;
+  /** Cancels a duplicate row (never deletes). */
+  neutralize: (row: any) => Promise<void>;
+  /** Deterministic survivor of a group (oldest created_date, id tiebreak). */
+  pick: (rows: any[]) => any | null;
+}
+
+function groupByKey(rows: any[], keys: string[]): Map<string, any[]> {
+  const wanted = new Set(keys);
+  const out = new Map<string, any[]>();
+  for (const r of rows ?? []) {
+    const k = r?.idempotency_key;
+    if (r == null || typeof k !== 'string' || !wanted.has(k)) continue;
+    const list = out.get(k) ?? [];
+    list.push(r);
+    out.set(k, list);
+  }
+  return out;
+}
+
+/**
+ * Creates only the lines of the batch that are not stored yet, then keeps one
+ * survivor per key: if two requests ran at once, the losing row is cancelled
+ * with reason 'duplicado' (same convention as payments and inventory).
+ * `idempotent` is true when every line already existed.
+ */
+export async function addLinesIdempotent(args: IdempotentBatchArgs): Promise<{ rows: any[]; idempotent: boolean }> {
+  const { keys, lines, find, create, neutralize, pick } = args;
+  if (!keys) {
+    const rows: any[] = [];
+    for (const line of lines) rows.push(await create(line, null));
+    return { rows, idempotent: false };
+  }
+
+  const before = groupByKey(await find(keys), keys);
+  const created = new Map<string, any>();
+  for (let i = 0; i < lines.length; i++) {
+    if (before.has(keys[i])) continue;
+    created.set(keys[i], await create(lines[i], keys[i]));
+  }
+  if (created.size === 0) {
+    // A replay. Twins left live by an earlier run whose clean-up failed are
+    // neutralised here too, or the order keeps counting them.
+    return { rows: await keepOnePerKey(keys, before, created, neutralize, pick), idempotent: true };
+  }
+
+  // Concurrent twin requests: re-read and keep one row per key.
+  let after: Map<string, any[]>;
+  try {
+    after = groupByKey(await find(keys), keys);
+  } catch {
+    return { rows: keys.map((k) => created.get(k) ?? pick(before.get(k) ?? [])).filter(Boolean), idempotent: false };
+  }
+  return { rows: await keepOnePerKey(keys, after, created, neutralize, pick), idempotent: false };
+}
+
+/** One survivor per key (pick's choice); every other live row of that key is
+ *  neutralised, best effort: whatever fails is retried by the next replay. */
+async function keepOnePerKey(
+  keys: string[],
+  groups: Map<string, any[]>,
+  created: Map<string, any>,
+  neutralize: IdempotentBatchArgs['neutralize'],
+  pick: IdempotentBatchArgs['pick'],
+): Promise<any[]> {
+  const rows: any[] = [];
+  for (const k of keys) {
+    const group = groups.get(k) ?? [];
+    const survivor = pick(group) ?? created.get(k) ?? null;
+    for (const row of group) {
+      if (survivor && row.id !== survivor.id && row.status !== 'cancelado') {
+        try { await neutralize(row); } catch { /* best effort: the next replay retries it */ }
+      }
+    }
+    if (survivor) rows.push(survivor);
+  }
+  return rows;
+}
+
+// ---- Negative stock (José, 2026-10-15) ----
+// Off by default: a line whose supply does not have enough stock is refused
+// when it is added (or its qty goes up), not at cobro. The cobro never blocks:
+// what was served was served, so stock can still dip below zero from lines
+// that were already open. The admin can allow it in Ajustes → Servicio.
+
+/** True only when the bar saved `allow_negative_stock: true`. */
+export function negativeStockAllowed(bar: { allow_negative_stock?: unknown } | null | undefined): boolean {
+  return bar?.allow_negative_stock === true;
+}
+
+/** Supply needed per inventory item for these lines (qty = how many MORE units). */
+export function stockNeeds(
+  lines: Array<{ product: CancelInvProduct | null | undefined; variant?: string | null; qty: number }>
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const line of lines) {
+    const per = unitQty(line.product, line.variant ?? null);
+    const qty = typeof line.qty === 'number' && line.qty > 0 ? line.qty : 0;
+    if (per <= 0 || qty <= 0) continue;
+    const id = line.product!.inventory_item_id as string;
+    out.set(id, Math.round(((out.get(id) ?? 0) + per * qty) * 1000) / 1000);
+  }
+  return out;
+}
+
+/**
+ * Throws `insufficient_stock` naming the first supply that cannot cover its
+ * need. A supply that was not found (or belongs to another bar) is skipped:
+ * the cobro skips it too, so it never moves.
+ */
+export function assertStockCovers(
+  needs: Map<string, number>,
+  supplies: Map<string, { name?: string | null; unit?: string | null; stock?: number | null }>
+): void {
+  for (const [id, needed] of needs) {
+    const supply = supplies.get(id);
+    if (!supply) continue;
+    const stock = typeof supply.stock === 'number' && Number.isFinite(supply.stock) ? supply.stock : 0;
+    if (needed > stock + 1e-9) {
+      const left = Math.max(0, stock);
+      const unit = supply.unit ? ` ${supply.unit}` : '';
+      throw new LogicError(
+        'insufficient_stock',
+        `No alcanza el inventario de ${supply.name || 'un insumo'}: quedan ${left}${unit} y se necesitan ${needed}${unit}`
+      );
+    }
+  }
 }

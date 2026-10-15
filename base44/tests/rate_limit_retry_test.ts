@@ -88,9 +88,13 @@ Deno.test('client retries only writes the server makes idempotent', () => {
   assert(isRetryable('printing', 'markPrinted'));
   assert(isRetryable('printing', 'markFailed'));
   // No such guarantee: repeating these could do the work twice.
-  assert(!isRetryable('payments', 'voidPayment'));
-  assert(!isRetryable('orders', 'addItems'));
+  assert(!isRetryable('payments', 'applyDiscount'));
+  // voidPayment (2026-10-15): a repeat finishes the order side, it never voids another payment.
+  assert(isRetryable('payments', 'voidPayment'));
+  assert(!isRetryable('orders', 'updateItem'));
+  // addItems is idempotent per batch_key (the client always sends one).
+  assert(isRetryable('orders', 'addItems'));
   assert(!isRetryable('printing', 'claimNext'));
   assert(!isRetryable('shifts', 'close'));
-  assertEquals(Object.keys(IDEMPOTENT_WRITES).sort(), ['payments', 'printing']);
+  assertEquals(Object.keys(IDEMPOTENT_WRITES).sort(), ['orders', 'payments', 'printing']);
 });

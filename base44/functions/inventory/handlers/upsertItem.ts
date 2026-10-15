@@ -2,7 +2,7 @@
 // movements); `unit_cost` only with Menú:ver_costos and, when not sent or not
 // allowed, the stored value is kept.
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, type Ctx, type Route } from '../_guard.ts';
-import { applyUnitCost, normalizeItemFields, redactUnitCost } from './_logic.ts';
+import { applyUnitCost, assertNotArchived, normalizeItemFields, redactUnitCost } from './_logic.ts';
 import { guardLogic } from './_shared.ts';
 
 export const upsertItem: Route = async (ctx: Ctx, body: any) => {
@@ -11,6 +11,7 @@ export const upsertItem: Route = async (ctx: Ctx, body: any) => {
 
   await requirePermission(ctx, 'Inventario:editar');
   requireWritable(ctx);
+  if (existing) guardLogic(() => assertNotArchived(existing));
   if (!existing && !ctx.tenantId) httpError(403, 'no_tenant', 'No perteneces a ningún bar');
 
   const canSeeCosts = await hasPermission(ctx, 'Menú:ver_costos');

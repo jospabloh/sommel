@@ -119,7 +119,7 @@ gate.
 | `setTip` | `{ order_id, pct?, amount? }` (ninguno = quitar) | `{ order }` — 409 `has_payments` | `Cobro:cobrar` |
 | `splitPreview` | `{ order_id, mode: 'equal', parts }` o `{ order_id, mode: 'items', item_ids }` | `{ amounts: [cents] }` o `{ amount }` — sin escribir; `items` prorratea descuento y propina | `Cobro:cobrar` |
 | `addPayment` | `{ order_id, method, amount, tip?: { pct } \| { amount }, received?, split_label?, idempotency_key }` | `{ payment, order, remaining, change, closed: bool }` — 409 `order_tip_set` si la cuenta ya tiene propina general | `Cobro:cobrar` |
-| `voidPayment` | `{ payment_id, reason }` | `{ payment, order }` — solo si el turno del pago sigue abierto; si la orden estaba `cobrada` vuelve a `abierta` | `Cobro:anular_pago` |
+| `voidPayment` | `{ payment_id, reason }` | `{ payment, order }`. Solo si el turno del pago sigue abierto; si la orden estaba `cobrada` vuelve a `abierta`. Repetir con el pago ya anulado completa la comanda desde los pagos vivos y responde además `idempotent: true`, sin pedir aprobación otra vez y **sin exigir turno abierto**: termina una anulación ya aprobada (por ejemplo, cortada por un 429), no anula nada nuevo, y el corte del turno viejo no cambia | `Cobro:anular_pago` |
 | `requestTicket` | `{ order_id }` | `{ job }` — crea `PrintJob` `ticket` | `Cobro:cobrar` |
 
 Propina por pago (2026-10-13): `amount` es la parte de la cuenta de quien paga
@@ -190,7 +190,8 @@ un correo). Sin destinatarios → `fallido`, `email_error: 'sin_destinatarios'`.
 | `addEntry` | `{ item_id, qty, unit_cost?, reason?, idempotency_key }` | `{ movement, item }` — `qty > 0`; `unit_cost` (con permiso) actualiza el costo del insumo | `Inventario:editar` |
 | `addWaste` | `{ item_id, qty, reason, idempotency_key }` | `{ movement, item }` — motivo obligatorio; guarda `qty` negativo y el costo vigente | `Inventario:merma` |
 | `count` | `{ item_id, counted, reason?, idempotency_key }` | `{ movement, item }` — movimiento `conteo` con `qty = counted - stock` | `Inventario:editar` |
-| `linkProduct` | `{ product_id, inventory_item_id \| null, inventory_qty?, variant_qtys?: { [variantKey]: number } }` | `{ product }` — pone `track_inventory` | `Inventario:editar` |
+| `linkProduct` | `{ product_id, inventory_item_id \| null, inventory_qty?, variant_qtys?: { [variantKey]: number } }` | `{ product }` — pone `track_inventory`; un insumo dado de baja responde 400 `item_archived` | `Inventario:editar` |
+| `archiveItem` | `{ item_id }` | `{ ok, item_id, archived_at }` — da de baja el insumo (`archived_at`; conserva fila y movimientos, sale de la lista y del selector); idempotente; con productos ligados responde 409 `item_linked` y los nombra; después, escribir movimientos sobre él responde 400 `item_archived` | `Inventario:editar` |
 
 `stock` nunca se escribe desde el cliente: tras cada movimiento el servidor
 lo **recalcula como Σ qty** de los movimientos del insumo (converge aunque

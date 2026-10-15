@@ -558,6 +558,39 @@ rol (`roleLabel` en `src/lib/rbac.js`) arriba de "Cerrar sesión", y la barra
 mide la pantalla (`sticky h-screen`): lo que hace scroll es el menú, no el
 bloque de sesión.
 
+**Nombre del bar en la barra lateral (2026-10-15).** En `lg` sale bajo
+"Sommel" (truncado, con `title`). Viene de `useBarSummary`
+(`src/lib/useBarSummary.js`), el mismo `settings.billing` y la misma
+`queryKey ['license-banner', tenantId]` que `LicenseBanner`, así que React
+Query hace una sola petición. `BarNameCard` invalida esa query al guardar.
+`scan:layout` ahora manda `name` en el billing simulado y acepta
+`--theme dark`; revisado a 390 y 1440, claro y oscuro, 0 problemas.
+
+**Correo de verificación en español (2026-10-15).** La plantilla del correo
+de código de Base44 vive en `base44/emails/EmailVerification.html` (Panel →
+Correos electrónicos → Correos de la aplicación → Verificación del correo; se
+puede editar ahí o con "Editar con IA"). Estaba en inglés; ahora está en el
+repo traducida, con el mismo diseño y los placeholders `{{first_name}}` y
+`{{otp_code}}`. **Corrección tras publicar:** Base44 la guarda (Panel →
+Correos → Verificación del correo ya muestra "Restablecer"), pero dice "Se
+envía: El correo de Base44. Tu versión necesita tu propio dominio de correo
+antes de poder llegar a nuevos registros". La app no tiene dominio de correo
+(`GET custom-email-domains` = `[]`), así que **el correo sigue saliendo en
+inglés** hasta encender uno (`POST custom-email-domains`, con registros DNS).
+Ojo: al abrir la plantilla en el panel, Base44 empuja su copia en inglés a
+`main` ("Email template EmailVerification saved"); hay que quedarse con la del
+repo.
+
+**Invitación cuando el correo falla, probada en pantalla (2026-10-15).**
+`scan:layout --only staff-correo-fallido` simula `manageStaff.invite` con
+`email_sent: false` + `invite_url` y espera el cuadro con el enlace. Salieron
+dos fallas a lo angosto y se corrigieron en `Staff.jsx`: un correo largo se
+salía del aviso (ahora `overflow-wrap:anywhere`) y, en teléfono, el enlace va
+en su propio renglón. También "Agregar a alguien sin correo" se salía 13 px a
+320 (ya pasaba antes); ahora parte la línea. 0 problemas a todas las anchuras,
+claro y oscuro. El link del servidor (`inviteLink`) ya lo cubre
+`qa_client_fixes_test.ts`; no se tocó ningún bar real.
+
 **Checador por usuario.** Con `Asistencia:ver_equipo` (admins por defecto) es
 la tablet compartida: se ve todo el equipo y se checa a cualquiera con su PIN.
 Sin ese permiso `attendance.roster` solo devuelve a quien inició sesión, la
@@ -1638,7 +1671,10 @@ Con sesión, el aviso del módulo 30 quedaba a 0.75 rem de arriba, justo sobre
 `LicenseBanner` ("Periodo de prueba", "Solo lectura", "Suspendida"): mientras
 nadie lo cerraba, no se leía el aviso de licencia. `LicenseBanner` publica su
 alto en `--license-banner-h` (`src/lib/useHeightVar.js`, copia del de StockFlow)
-y `index.css` suma ese alto a `--update-banner-top` dentro de la app. Sin banner,
+y `index.css` suma ese alto a `--update-banner-top` dentro de la app
+(**actualizado el 2026-10-15 para el marco del módulo 29:** `4rem` de la barra
+superior + el alto del banner; `scan:layout --only mesas-update-offset` lo
+mide y falla si el aviso empieza antes de que termine el banner). Sin banner,
 la variable no existe y el aviso queda donde estaba. Verificado con el build
 local y la sesión real de Sommel QA a 390/834/1440, claro y oscuro: el aviso
 empieza 12 px debajo del banner en los seis casos. Sigue tapando parte del
@@ -1843,12 +1879,280 @@ sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
 - `isolation.sql` exige una base **vacía**. En cuanto el proyecto real tenga
   datos, ya no se corre ahí: se usa una rama de Supabase o el job de CI.
 - **Migración 3 (`support_ticket` sin escritura del navegador), por la revisión
-  de Codex en #84:** en el repo y en CI (1,633 aserciones). **Pendiente en el
-  proyecto real:** las escrituras por el MCP de Supabase (`apply_migration` y
-  `execute_sql` con DDL) se quedan esperando una aprobación que no llega y
-  vencen a los 60 s sin aplicar nada (releído: sigue en la migración 2). Sin
-  riesgo mientras tanto: no hay usuarios ni datos, y sin bar
-  `app.current_tenant()` es nulo, así que la política rechaza todo alta. Se
-  aplica antes de cualquier usuario real.
+  de Codex en #84:** en el repo, en CI (1,633 aserciones) y **aplicada al
+  proyecto real el 2026-10-15** desde el SQL Editor del dashboard (el MCP de
+  Supabase se cuelga al escribir: `apply_migration` y `execute_sql` con DDL
+  vencen a los 60 s sin aplicar nada). Se registró a mano en
+  `supabase_migrations.schema_migrations` como `20261015120000
+  support_ticket_server_only`. Releído después: `support_ticket` solo tiene
+  la política `tenant_read` (SELECT, `authenticated`) y ni `authenticated` ni
+  `anon` tienen INSERT, de tabla ni de columna.
+- **Limpieza de la organización (2026-10-15):** se borraron los proyectos
+  pausados `liuma-dev`, `fidelity-mvp` y `plink-fx`. Quedan `sommel` y
+  `acacia-mission-control`.
 - Base44 sigue siendo producción. Nada del cliente ni de las funciones apunta
   todavía a Supabase. Eso es la fase 2 y la 3 (`docs/migracion-supabase.md` §4).
+
+## QA 2026-10-14: comandas y mesas (rama qa-fix-orders)
+
+- `orders.cancelOrder` ahora recalcula `subtotal/discount/tip/total` (una comanda toda cancelada vale 0), escribe `cancelled_by` en cada renglón (como `cancelItem`) y ajusta inventario con `cancelOrderInventory` (`_cancelInventory.ts`; reglas puras `planCancelOrderInventory` en `_logic.ts`): renglón preparado sin venta viva = `merma:<id>`; renglón con venta viva (cobro anulado) no preparado = `devolucion` `reversa:<id>`; con venta viva y preparado no se toca (la venta ya es la merma). Idempotente por llave; es best effort y responde `inventory_warning` si algo falla. Hay una copia mínima de la planeación de `payments` porque las funciones no pueden importarse entre sí; `Orden.jsx` aún no muestra ese aviso.
+- `orders.cancelItem`: repetir la misma cancelación (mismo motivo y misma persona) responde ok con `idempotent: true` y vuelve a recalcular totales, en vez de 409 `invalid_status`.
+- `orders.upsertTable` valida (`validateTableFields`): `seats` entero 0..99, `zone` texto, `x/y` números; si no, 400 en español. La UI manda `zone: ''` para borrar la zona.
+- `TableMap`: las mesas sin `x/y` van a la cuadrícula automática bajo el mapa (`tableLayout.js`), nunca encimadas en 0,0.
+- Pruebas: `base44/tests/cancel_order_test.ts`.
+- **No verificado:** nada contra Base44 en vivo (los `entry.ts` importan el SDK); el descuento real de inventario de un cobro anulado y luego cancelado; el mapa con mesas mixtas en pantalla. Sin desplegar.
+
+## Inventario: dar de baja un insumo (2026-10-14)
+
+Hallazgo del recorrido: un insumo creado por error no se podía quitar. Código en
+el repo; nada publicado ni verificado en vivo.
+- **`inventory.archiveItem`** (`Inventario:editar`, `requireWritable`, `loadOwned`)
+  escribe `InventoryItem.archived_at` (campo nuevo; la entidad ya es de escritura
+  solo servicio, así que no hizo falta un candado de campo). No borra nada: el
+  registro y sus movimientos se conservan para el historial y los reportes de
+  merma. Es idempotente.
+- **Decisión de producto simple y segura:** si algún producto sigue ligado al
+  insumo (`track_inventory` + `inventory_item_id`), responde 409 `item_linked`
+  nombrando hasta tres productos; hay que desligarlos primero desde "Productos".
+  Así ninguna venta sigue descontando de un insumo oculto.
+- `list` y la alerta de mínimo ignoran los dados de baja (`activeItems`);
+  `upsertItem`, `addEntry`, `addWaste`, `count` y `linkProduct` rechazan uno
+  dado de baja con 400 `item_archived`. `movements` y reportes lo siguen leyendo.
+  No hay botón para reactivar: sería una acción aparte si hace falta.
+- Pantalla: botón "Dar de baja" en cada insumo (solo con `Inventario:editar`),
+  con confirmación (`ArchiveItemDialog`) que avisa si hay productos ligados.
+- **Existencia negativa:** no se bloquea (puede ser un conteo atrasado). La fila
+  ahora dice "Existencia negativa" y cómo corregirla (un conteo) en vez de un
+  "Agotado" ambiguo.
+- La descripción de `InventoryItem.unit` ahora lista ml; una prueba la amarra a
+  `INVENTORY_UNITS`. Pruebas nuevas en `base44/tests/inventory_logic_test.ts`.
+- **Orden de despliegue:** el esquema (`archived_at`) antes que las funciones;
+  sin él Base44 descarta el campo en silencio y el insumo no se oculta.
+  **No verificado:** nada contra Base44 (los `entry.ts` importan el SDK) ni las
+  pantallas a 390/1440 en claro y oscuro.
+
+## Reportes y corte: ventas netas, cortesías y quién canceló (2026-10-14)
+
+Cierra seis hallazgos del recorrido de QA. **Código en el repo; nada publicado.**
+
+- **Los productos se valoran NETOS.** `aggregate()` reparte el descuento de la
+  orden entre sus renglones en centavos exactos (`prorateDiscount`: el último
+  renglón con importe absorbe el residuo). Por producto, Por categoría y Más
+  vendidos suman ahora lo mismo que `totals.sales_net` (Ventas sin propina, la
+  cifra de la tarjeta "Sin propina"), no la tarjeta Ventas, que incluye la propina.
+- **Cortesías: fuera de las tablas de productos** (ni importe ni piezas; tienen su
+  apartado y su tarjeta), pero **su costo sí resta de la utilidad** como pérdida
+  real: `costs.courtesy_cost` lo expone. Utilidad y margen se calculan sobre venta
+  neta (después de descuento y cortesía, sin propina) menos costo. `items_sold` de
+  las tarjetas no cambió y sigue contando piezas de cortesía.
+- **Un pago de $0 ya no cuenta en "Por forma de pago"**: "Cerrar cuenta sin cobro"
+  guarda un marcador de $0 con el método elegido. Ojo: el corte de turno
+  (`shifts/handlers/_logic.ts` `salesByMethod`) tiene el mismo conteo inflado y NO
+  se tocó (fuera de este grupo).
+- **Quién canceló:** `cancelOrder` ahora escribe `cancelled_by` en cada renglón y
+  en la orden (campo nuevo `Order.cancelled_by`). El reporte usa el del renglón y,
+  si falta, lee la orden. Las cancelaciones ya hechas no tienen a nadie guardado y
+  siguen saliendo "Sin registro".
+- **Cierre de turno:** `loadOrdersAndCancellations` ya no lee todas las comandas
+  canceladas del bar: acota por `closed_at >= apertura` (con respaldo sin rango si
+  el backend rechaza el operador) y decide con `cancelledOrdersInShift`
+  (`_cancelled_logic.ts`): `shift_id` si lo trae; si no, la ventana del turno, con
+  tope superior al cierre (antes no lo tenía).
+- **Por producto a 390 px:** sin `break-all`; el nombre lleva `min-w-[8rem]` y la
+  tabla ya hace scroll horizontal dentro de su tarjeta. Los textos de ayuda de
+  Por producto y Costo y utilidad dicen que es venta neta.
+- Pruebas: `reports_logic_test.ts` (prorrateo, cuadre al centavo, utilidad,
+  marcador de $0, quién canceló) y `shift_cancelled_orders_test.ts`.
+
+**Verificado:** lint, build, check:guards, check:functions, validate:rls (27/14),
+validate:locks, deno test (702/0), deno lint. **No verificado:** nada contra Base44;
+la tabla a 390 px en navegador; que `closed_at: {$gte}` se acepte en `Order.filter`
+(hay respaldo). **Orden de deploy:** `Order.cancelled_by` es campo nuevo, así que
+esquema (`deploy:entities`) antes que funciones, o Base44 lo descarta en silencio.
+
+## QA e2e, grupo pantallas y ajustes (2026-10-14)
+
+Código **en el repo**; nada publicado ni verificado en vivo.
+- **Menú:** si `catalog.listProducts` falla, la página muestra "No se pudo cargar el menú" con "Reintentar" y ya no el vacío "Todavía no hay categorías" (`menuViewState`, `src/lib/menuViewState.js`). Antes un 429 dejaba a la dueña con un menú aparentemente vacío y el botón de crear la primera categoría.
+- **/aprobar/:id con id inválido** respondía 500: Base44 lanza al filtrar por un id que no es de 24 hex. `loadRequest` valida el formato (`security/_request_id_logic.ts`) y responde 404 `not_found`; la pantalla lo explica en español.
+- **Formas de pago:** el servidor exigía una forma `is_cash` pero no que estuviera activa, así que se podía dejar el bar sin efectivo cobrable. Decisión: se exige **al menos una forma en efectivo ACTIVA** (el corte cuenta efectivo contra el cajón) además de una activa cualquiera; `no_cash_method`. El interruptor de la última en efectivo activa se deshabilita en Ajustes.
+- **Nombre del bar:** `settings.update` acepta `name` (1 a 80 caracteres, sin saltos de línea ni caracteres de control) solo con `ctx.appRole === 'bar_admin'`; a otro rol responde 400 `name_admin_only`. Tarjeta `BarNameCard` en Ajustes, solo para el admin y nunca desde una terminal.
+- **Invitación sin correo:** desde el código no se puede saber por qué falla `Core.SendEmail` (candidatas: 429 de la cuota compartida o el límite por hora por destinatario). Se dejó el envío igual, pero ahora se registra el mensaje del error y, con `email_sent: false`, la respuesta trae `invite_url` (`inviteLink`, registro con el correo o login) que Staff muestra para copiar con un aviso claro.
+- **Aviso a Mission Control al crear el bar:** `createWineBar` hace POST sin firma a `https://control.acaciaco.com.mx/api/ingest/tenant-pull` con `{app: 'sommel', tenantId}` (mismo contrato que StockFlow; MC relee el bar por el puente), best effort con timeout de 8 s.
+- Pruebas: `qa_client_fixes_test.ts`, `request_id_test.ts` y casos nuevos en `settings_logic_test.ts`.
+
+**Verificado:** lint, build, `check:guards`, `check:functions`, `deno test` (701/0) y `deno lint`. **No verificado:** nada contra Base44 ni Mission Control (que `tenant-pull` acepte la app `sommel` depende de su fila en `apps`, que existe desde 2026-09-30); las pantallas a 390/1440; el motivo real del fallo del correo de invitación.
+
+## addItems idempotente, corte sin cierres de $0 y cancelOrder en cero (2026-10-15)
+
+- **`orders.addItems` ya no duplica renglones al reintentar.** En producción un
+  `addItems` escribió sus 3 renglones y aun así respondió 429 (la cuota se agotó
+  después de los creates); el reintento los creó otra vez y la cuenta quedó al
+  doble. Ahora el cliente manda `batch_key` (uuid por intento, `Orden.jsx` la
+  conserva mientras la hoja tenga el mismo contenido y la suelta al tener éxito;
+  `reuseBatchKey` en `orders/helpers.js`) y el servidor guarda
+  `OrderItem.idempotency_key = batch_key:índice` (campo nuevo). Antes de crear
+  lee por esas llaves con `$in`: si ya están todas responde los renglones
+  guardados con `idempotent: true` (sin pedir confirmación de cantidad ni leer
+  productos); si faltan algunas, crea solo esas. Después de crear relee y cancela
+  los duplicados de dos peticiones simultáneas (sobreviviente = el más antiguo,
+  `cancel_reason: 'duplicado'`, nunca se borra). La lógica vive en
+  `addLinesIdempotent` (`orders/handlers/_logic.ts`, sin imports). Sin
+  `batch_key` el comportamiento es el de antes. `orders.addItems` entra a
+  `IDEMPOTENT_WRITES` porque `Orden.jsx` (único llamador) siempre la manda; el
+  reenvío tras `qty_confirm_required` reusa la misma llave. Límite aceptado: si
+  alguien cambia la hoja tras un fallo, la llave cambia y no hay forma de saber
+  si el intento anterior sí llegó.
+- **Corte:** `salesByMethod` (`shifts/handlers/_logic.ts`) ignora los pagos de
+  $0 ("Cerrar cuenta sin cobro"), igual que reportes: ya no cuentan como pago ni
+  imprimen "Efectivo $0.00". Esto cierra el pendiente anotado en la sección de
+  reportes del 2026-10-14.
+- **`cancelOrder`** calcula los totales con `tip: 0, tip_pct: null`: una comanda
+  cancelada queda en total 0 aunque tuviera propina fija. `Orden.jsx` muestra un
+  toast cuando `cancelOrder` responde `inventory_warning` (mismo patrón que
+  `CobroPanel`).
+- Docs: `entrega-1-contratos.md` §4 (addItems, cancelItem, cancelOrder,
+  upsertTable) y `entrega-2-contratos.md` §5 (`inventory.archiveItem`,
+  `item_archived`, `item_linked`).
+- Pruebas: `base44/tests/add_items_idempotent_test.ts` (simula el 429 después de
+  escribir, la tanda parcial, dos peticiones a la vez, sin `batch_key`, el corte
+  y el total de `cancelOrder`).
+
+**No verificado:** nada contra Base44 (los `entry.ts` importan el SDK; que
+`OrderItem.filter` acepte `idempotency_key: {$in}` se confía en lo comprobado para
+otros campos, con respaldo uno por uno); la hoja de producto en navegador.
+**Orden de despliegue:** primero el esquema de `OrderItem` (`idempotency_key`;
+sin él Base44 descarta el campo en silencio y la protección no actúa), luego
+funciones (`orders`, `shifts`) y por último el sitio. Verificar por contenido que
+`addItems` con un `batch_key` repetido responde `idempotent: true`.
+
+### Revisión final antes de publicar (2026-10-15)
+
+Revisión adversarial de todo el diff. Un bloqueante, corregido: la `batch_key` de
+`addItems` solo se soltaba al tener éxito, así que tras un fallo, cerrar la hoja y
+volver a agregar el mismo producto reusaba la llave y el alta se "replayaba" sin
+agregarse (cobro de menos, sin aviso). Ahora elegir un producto o cerrar la hoja
+suelta la llave; solo un reintento con la hoja abierta la reusa. Además, los
+gemelos que `addItems` neutraliza (`cancel_reason: 'duplicado'`,
+`cancelled_by: 'sistema'`) ya no cuentan como cancelaciones en reportes
+(`isSystemDuplicate`) ni en el corte (`countsAsCancelled`); prueba en
+`system_duplicate_test.ts`. Verificado: lint, build, check:guards,
+check:functions, validate:rls y deno test (732/0).
+
+## voidPayment idempotente, stock del ledger y zona de la mesa (2026-10-15)
+
+**Qué.** (1) `payments.voidPayment` ya no responde 409 `already_voided` cuando el pago ya está anulado: termina el efecto sobre la comanda desde los pagos VIVOS (`paid`, `tip` = suma de `Payment.tip` vivos) y la reabre (`abierta`, `closed_at/closed_by` limpios, mesas ocupadas, con el mismo chequeo `table_busy`) si seguía `cobrada` y lo vivo ya no cubre el total (`reopenAfterVoid`, puro). Responde `idempotent: true`. Motivo: en producción un 429 dejó el `Payment` anulado y la `Order` en `cobrada` con `paid` 19500; el reintento daba 409 y `cancelOrder` daba `order_closed`. (2) `deductInventory` suma al recálculo de existencias los movimientos que él mismo acaba de escribir si la relectura no los devuelve (`withJustCreated`); el cierre de $0 sí llama `deductInventory` por el mismo camino, y todo fallo ya se reportaba como `inventory_warning`, así que la causa más probable es la lectura atrasada tras escribir. `retryInventory` ya recalculaba el stock aunque no faltaran movimientos. (3) `TableCard` muestra `BarTable.zone` discreta bajo el nombre.
+
+**Decisiones.** El reintento de un pago ya anulado **no pide aprobación del encargado**: esa aprobación se gastó en el primer intento y terminar un efecto ya aprobado no es una acción nueva; no puede anular nada (solo el `payment_id` dado) ni reabrir por un pago que anuló el sistema (`duplicado`, `excede_total`). Tampoco exige turno abierto en esa rama (el primer intento ya lo validó). Por eso `voidPayment` entra a `IDEMPOTENT_WRITES`. Si el primer intento falló antes de anular y la aprobación era por celular (un solo uso), el reintento da `approval_used`: falla cerrado.
+
+**Verificado:** `base44/tests/void_payment_idempotent_test.ts` (lógica pura; falla sin `reopenAfterVoid`/`withJustCreated`), más lint, build, check:guards, check:functions, validate:rls, deno test y deno lint. **No verificado:** nada contra Base44 en vivo (los `entry.ts` importan el SDK; el flujo del handler no se ejerció con entidades), la causa real del desfase de stock (inferida, no observada), la tarjeta de mesa en pantalla a 390/1440.
+
+**Despliegue:** sin cambios de esquema. Publicar la función `payments` y luego el sitio; comprobar por comportamiento que `voidPayment` sobre un pago ya anulado responde `idempotent: true`. La comanda atascada de producción se destraba repitiendo la anulación de ese pago.
+
+**Publicado y verificado en producción, 2026-10-15.** Primer `deploy` sin `github/sync` previo: siguió sirviendo el código viejo (`already_voided`). Tras `sync` + `deploy`, repetir la anulación del pago atascado (bar de prueba "Bar Prueba Tres") respondió `idempotent: true` con la comanda `abierta` y `paid` 0, y `cancelOrder` la dejó `cancelada` con total 0. **Regla:** siempre `POST /github/sync` antes de `POST /deploy`, y verificar por comportamiento.
+
+## Entrega sin estación de fábrica y existencia negativa como ajuste (2026-10-15)
+
+Decisiones de José. **Código en el repo; se publica con el flujo de deploy.**
+
+- **"Entregar solos los productos sin estación" viene encendido.** Regla:
+  `autoDeliverNoStationOn(bar)` (`orders/handlers/_logic.ts`) = todo menos un
+  `false` guardado. La misma regla en `settings/_shared.ts` y en
+  `OperationCard`. El esquema (`WineBar.auto_deliver_no_station`) pasa a
+  `default: true`. Un bar que ya guardó `false` sigue apagado. El texto de
+  ayuda explica para qué sirve: lo que nadie prepara no aparece en Cocina y
+  barra, así que nadie lo podría marcar listo.
+- **Existencia negativa, apagada de fábrica** (`WineBar.allow_negative_stock`,
+  Ajustes → Servicio, solo un `true` la enciende). Apagada:
+  - `orders.addItems` y `orders.updateItem` (solo las piezas que suben)
+    responden 409 `insufficient_stock` si el insumo ligado no alcanza
+    (`stockNeeds` + `assertStockCovers`, suma por insumo y respeta la
+    variante). Una lectura `$in` de los insumos, y **ninguna** si nada de la
+    petición descuenta inventario o si el bar lo permite. En un reintento de
+    `addItems` no cuentan los renglones que ya guardó el intento anterior.
+  - `inventory.addWaste` responde 400 `insufficient_stock` si la merma es
+    mayor que la existencia recalculada de los movimientos
+    (`assertWasteFits`). El conteo ya exigía ≥ 0.
+  - **El cobro nunca se bloquea** (lo servido ya se sirvió), ni la merma al
+    cancelar algo preparado. Por eso la existencia todavía puede quedar
+    negativa con comandas abiertas desde antes, y la fila de Inventario
+    conserva su aviso "Existencia negativa".
+  - Se compara contra la existencia actual, sin apartar lo que piden otras
+    comandas abiertas sin cobrar (eso costaría leer todas las comandas
+    abiertas en cada alta, y la cuota es compartida).
+- Supabase: migración 4 (`20261015000004_bar_service_defaults.sql`, también en
+  el job `supabase-isolation`).
+- Pruebas: `negative_stock_test.ts` y `service_settings_test.ts`. Manual:
+  "¿Puedo vender si no me alcanza un insumo?". `scan:layout` gana
+  `ajustes-servicio`; revisado a 390, 834 y 1440, claro y oscuro, 0 problemas.
+- **Orden de deploy:** esquema primero (`allow_negative_stock` es campo nuevo),
+  luego `orders`, `inventory` y `settings`, luego el sitio.
+
+### Publicado y verificado (2026-10-15, PR #88)
+
+`github/sync` jaló `bcc261b`; el esquema desplegado de `WineBar` ya trae
+`allow_negative_stock` (default `false`) y `auto_deliver_no_station` (default
+`true`). Se publicó con `POST /deploy`. Verificado por contenido: el bundle
+servido contiene "Permitir existencia negativa", `data-sidebar-bar-name`, "Lo
+que nadie prepara" y el arreglo del enlace de invitación; `settings.get` (solo
+lectura, Sommel QA) responde `allow_negative_stock: false` y
+`auto_deliver_no_station: true`. `orders` e `inventory` se redesplegaron con su
+`entry.ts` de `main` (`coding/redeploy-function`) sin error del empaquetador y
+se volvió a publicar. Supabase: migración 4 aplicada desde el SQL Editor y
+registrada como `20261015180000 bar_service_defaults`; releído: defaults
+`true`/`false`, `not null`. **No verificado:** el rechazo `insufficient_stock`
+contra Base44 en vivo (habría que escribir en un bar: ligar un insumo y pedir
+de más), y el correo en español (necesita dominio de correo).
+
+### Dominio de correo propio para Sommel (2026-10-15)
+
+Para que Base44 use la plantilla en español hace falta enviar desde un dominio
+propio. Se activó `no-reply@sommel.acaciaco.com.mx` (remitente "Sommel") con
+`POST custom-email-domains` sobre `sommel.acaciaco.com.mx`, el único dominio
+conectado a la app. Así nada toca el correo de Google de `acaciaco.com.mx`.
+José agregó en GoDaddy (DNS de `acaciaco.com.mx`) tres CNAME de SendGrid:
+`em.sommel`, `s1._domainkey.sommel` y `s2._domainkey.sommel`, apuntando a
+`u116678720.wl221.sendgrid.net` y sus `domainkey`. Resolvieron en 8.8.8.8 y
+"Verificar" (Panel → Dominios → Correos) lo dejó **Activo**. No se usó
+`custom-email-domains/configure`: en un dominio que espera DNS lo "reinicia".
+
+Después del Activo, la plantilla dice "Se envía: El correo de Base44 mientras
+se revisa tu versión. Puede tardar hasta una hora". **Pendiente de verificar:**
+que un registro real reciba el código en español y desde
+`no-reply@sommel.acaciaco.com.mx`. El asunto ("Verify your email for Sommel")
+no está en el archivo de la plantilla; si sigue en inglés, se cambia en el
+panel (Editar con IA) y no desde el repo.
+
+## Módulo 29: marco de la app (AppShell), 2026-10-15
+
+`src/components/AppShell.jsx` y `PageHeader.jsx` son copia exacta de
+`acacia-app-standard/shared/shell/` (`cmp`); no se editan aquí. `Layout.jsx`
+es lo único propio:
+- **Arriba:** "Sommel" a la izquierda (lleva a Mesas); a la derecha el nombre
+  del bar y el **avatar**, la única puerta a la cuenta: Cuenta, Acerca de,
+  Instalar Sommel, Pantalla completa y Cerrar sesión. Ya no hay botón de
+  cerrar sesión en el menú, ni Cuenta, Soporte o Acerca de como secciones;
+  Soporte es "Enviar sugerencia" al pie del menú, junto a "Contraer menú".
+- **Terminal (decisión de José):** "Checar" y "Cambiar usuario" van a la vista
+  en la barra de arriba, a un toque (`TerminalQuickActions.jsx`, solo íconos en
+  teléfono), en lugar del nombre del bar; el avatar de la terminal no tiene
+  "Cerrar sesión" (desharía la terminal) y repite "Cambiar usuario". El menú de
+  una terminal arranca **colapsado** (riel de íconos) si nadie eligió otra cosa
+  en ese equipo (`acacia-shell-collapsed`).
+- **El selector de tema regresa a la esquina** (módulo 12): se quitó el lugar
+  reservado del pie del menú (`data-rail-switcher` y su CSS), y con él el
+  `pr-0` de `PinPad`, que vuelve a dejar libre su columna en teléfono. Costo
+  conocido: al hacer scroll, el selector pasa por encima de lo que cruce esa
+  esquina (en Orden, un renglón por un momento); al final de cada página hay
+  `pb-20` para que lo último quede libre.
+- El aviso de versión nueva va bajo la barra (`--update-banner-top: 4rem`
+  cuando hay `[data-app-shell]`). La barra fija de Orden empieza donde termina
+  el menú (`useSidebarEdge`, medido) y su encabezado es `sticky top-14`.
+- El marco ya pone margen en `<main>`; Layout lo deshace con márgenes negativos
+  para no retocar cada página.
+- `scan:layout` gana `mesas-terminal`, `orden-terminal` (desbloquea la terminal
+  importando el mismo `terminalStore` que la app en Vite dev) y `mesas-avatar`,
+  e ignora lo que pasa por debajo de una barra `sticky` al hacer scroll. 14
+  pantallas a 390/834/1440, claro y oscuro: 0 problemas.
+- **Pendiente:** `PageHeader` en cada página (hoy cada página pinta su propio
+  título y acciones). Es la otra mitad del módulo 29.

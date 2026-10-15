@@ -1,12 +1,13 @@
 // inventory.addWaste: negative movement with the current cost. Reason required.
 import { loadOwned, requirePermission, requireWritable, hasPermission, type Ctx, type Route } from '../_guard.ts';
-import { redactUnitCost, validateIdempotencyKey, validatePositiveQty, validateWasteReason } from './_logic.ts';
+import { assertNotArchived, assertWasteFits, negativeStockAllowed, redactUnitCost, validateIdempotencyKey, validatePositiveQty, validateWasteReason } from './_logic.ts';
 import { guardLogic, recordMovement } from './_shared.ts';
 
 export const addWaste: Route = async (ctx: Ctx, body: any) => {
   const item = await loadOwned(ctx, 'InventoryItem', body?.item_id);
   await requirePermission(ctx, 'Inventario:merma');
   requireWritable(ctx);
+  guardLogic(() => assertNotArchived(item));
 
   const qty = guardLogic(() => validatePositiveQty(body?.qty));
   const reason = guardLogic(() => validateWasteReason(body?.reason));
@@ -14,7 +15,11 @@ export const addWaste: Route = async (ctx: Ctx, body: any) => {
 
   const result = await recordMovement(ctx, item, {
     type: 'merma',
-    qty: -qty,
+    // Checked against the stock recomputed from movements, right before writing.
+    qty: (stock: number) => {
+      guardLogic(() => assertWasteFits(stock, qty, negativeStockAllowed(ctx.bar), item));
+      return -qty;
+    },
     unit_cost: typeof item.unit_cost === 'number' ? item.unit_cost : null,
     reason,
     idempotency_key: key,

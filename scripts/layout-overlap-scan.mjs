@@ -3,7 +3,7 @@
 // screens of Sommel at phone / tablet / desktop widths, in Chromium.
 //
 // Usage:  node scripts/layout-overlap-scan.mjs [--only mesas,orden] [--width 390,834]
-//                                              [--shots dir] [--json out.json]
+//                                              [--shots dir] [--json out.json] [--theme dark]
 //   Starts Vite's dev server itself and fulfils EVERY /api/ request locally
 //   with simulated data (nothing reaches Base44). Exits 1 when it finds a
 //   problem. Needs a Playwright Chromium (PW_CHROMIUM overrides the path).
@@ -22,6 +22,7 @@ const only = argOf('--width') ? argOf('--width').split(',').map(Number) : null;
 const ONLY_SCREENS = argOf('--only') ? argOf('--only').split(',') : null;
 const SHOTS = argOf('--shots');
 const JSON_OUT = argOf('--json');
+const THEME = argOf('--theme') === 'dark' ? 'dark' : 'light';
 
 // ----------------------------------------------------------------- data --
 const T = 't1';
@@ -29,6 +30,8 @@ const NOW = new Date().toISOString();
 const USERS = {
   admin: { id: 'u1', email: 'dueno@example.invalid', full_name: 'Dueño Prueba', role: 'user', app_role: 'bar_admin', tenant_id: T },
   staff: { id: 'u2', email: 'mesero@example.invalid', full_name: 'Mesero Prueba', role: 'user', app_role: 'staff', tenant_id: T },
+  // The bare terminal account; terminalScreen() unlocks it as Mesero Prueba.
+  terminal: { id: 't1', email: 'terminal@terminales.example.invalid', full_name: 'Terminal Caja', role: 'user', app_role: 'terminal', tenant_id: T },
 };
 const tables = ['Mesa 1', 'Mesa 2', 'Barra 3', 'Terraza 4', 'Mesa 5', 'Mesa 6', 'Mesa 7', 'Reservada 8', 'Mesa 9'].map((name, i) => ({
   id: `bt${i}`, tenant_id: T, name, seats: 2 + (i % 5), status: i % 3 === 0 ? 'occupied' : 'free', created_date: NOW,
@@ -72,7 +75,7 @@ const fnData = {
     current: { shift: { id: 's1', opened_at: NOW, opened_by: 'Dueño Prueba', opening_float: 150000, expected_cash: 420000 }, cash_outs: [{ id: 'm1', reason: 'Compra de hielo y limones para la barra', amount: 25000, created_date: NOW }], totals_by_method: [{ key: 'efectivo', label: 'Efectivo', count: 8, amount: 270000 }, { key: 'tarjeta', label: 'Tarjeta', count: 5, amount: 640000 }], sales_total: 910000 },
     list: { shifts: [{ id: 's0', opened_at: NOW, closed_at: NOW, opened_by: 'Dueño Prueba', sales_total: 1200000, difference: -5000, status: 'closed' }] },
   },
-  settings: { get: { bar }, billing: { bar: { billing_status: bar.billing_status, trial_end_at: bar.trial_end_at } } },
+  settings: { get: { bar }, billing: { bar: { name: bar.name, billing_status: bar.billing_status, trial_end_at: bar.trial_end_at } } },
   inventory: { list: { items: inventory, low_ids: ['ii0', 'ii3'] } },
   stations: { getConfig: { bar: { name: bar.name, station_labels: {} } } },
   payments: {
@@ -84,7 +87,9 @@ const fnData = {
   },
   reports: { summary: { totals: { sales: 1200000, orders: 40, avg_ticket: 30000, tips: 90000 }, previous_totals: { sales: 1000000, orders: 35, avg_ticket: 28000, tips: 80000 }, by_hour: [], by_product: [], top_products: [], by_category: [], by_person: [], by_method: [], cancellations: { count: 0, items: [] }, courtesies: [], waste: { count: 0 }, range: {}, previous_range: {} } },
   session: { listSessions: { sessions: [{ id: 'se1', device: 'iPad Safari', last_active_at: NOW, current: true }], current_device_id: 'd' } },
-  manageStaff: { list: { staff: [{ id: 'u1', full_name: 'Dueño Prueba', email: 'dueno@example.invalid', app_role: 'bar_admin' }, { id: 'u2', full_name: 'Mariana Villaseñor Domínguez', email: 'mariana.villasenor.dominguez@example.invalid', app_role: 'staff' }], invites: [{ id: 'iv1', email: 'invitado.con.correo.largo@example.invalid', status: 'pending' }] } },
+  manageStaff: { list: { staff: [{ id: 'u1', full_name: 'Dueño Prueba', email: 'dueno@example.invalid', app_role: 'bar_admin' }, { id: 'u2', full_name: 'Mariana Villaseñor Domínguez', email: 'mariana.villasenor.dominguez@example.invalid', app_role: 'staff' }], invites: [{ id: 'iv1', email: 'invitado.con.correo.largo@example.invalid', status: 'pending' }] },
+    // The invite mail always "fails" here, so staff-correo-fallido shows the share-link box.
+    invite: { ok: true, invited_existing: false, email_sent: false, invite_url: 'https://sommel.acaciaco.com.mx/register?email=persona.con.correo.muy.largo%40example.invalid' } },
   permissions: { getProfile: { overrides: {} } },
   printing: { queue: { jobs: [] } },
   orders: {},
@@ -135,6 +140,16 @@ async function mockBackend(ctx, who) {
 
 // --------------------------------------------------------------- screens --
 // `after` runs once the screen has loaded, to open a dialog/sheet to scan.
+// Unlocks the terminal from inside the page: Vite dev serves the app's own
+// module, so this import is the same terminalStore instance the app reads.
+const unlockTerminal = async (page) => {
+  await page.evaluate(async () => {
+    const m = await import('/src/lib/terminal/terminalStore.js');
+    m.setUnlocked({ pass: 'scan', expires_at: new Date(Date.now() + 36e5).toISOString(), person: { id: 'u2', name: 'Mesero Prueba', email: 'mesero@example.invalid', app_role: 'staff' } });
+  });
+  await page.waitForTimeout(600);
+};
+
 const SCREENS = [
   { key: 'login', path: '/login', anon: true },
   { key: 'register', path: '/register', anon: true },
@@ -149,6 +164,24 @@ const SCREENS = [
   { key: 'orden-menu', path: '/orden/o1', after: async (page) => { await page.locator('button:has(svg.lucide-ellipsis-vertical)').first().click().catch(() => {}); await page.waitForTimeout(400); } },
   { key: 'turno', path: '/turno' },
   { key: 'mesas-staff', path: '/mesas', who: 'staff' },
+  { key: 'mesas-terminal', path: '/mesas', who: 'terminal', after: unlockTerminal },
+  { key: 'orden-terminal', path: '/orden/o1', who: 'terminal', after: unlockTerminal },
+  // Module 30 under module 29: the notice's top must clear the top bar AND the
+  // license banner (PR #77). Fails the step (reported as an error) otherwise.
+  { key: 'mesas-update-offset', path: '/mesas', after: async (page) => {
+    const r = await page.evaluate(() => {
+      const top = getComputedStyle(document.documentElement).getPropertyValue('--update-banner-top').trim();
+      const probe = document.createElement('div');
+      probe.style.cssText = `position:fixed;top:${top};height:1px`;
+      document.body.appendChild(probe);
+      const y = probe.getBoundingClientRect().top;
+      probe.remove();
+      const banner = document.querySelector('[data-license-banner]')?.getBoundingClientRect();
+      return { y, bannerBottom: banner ? banner.bottom : null };
+    });
+    if (r.bannerBottom == null || r.y < r.bannerBottom) throw new Error(`update notice at ${r.y}px, license banner ends at ${r.bannerBottom}px`);
+  } },
+  { key: 'mesas-avatar', path: '/mesas', after: async (page) => { await page.getByRole('button', { name: /^Cuenta de/ }).click(); await page.waitForTimeout(300); } },
   { key: 'orden-staff', path: '/orden/o1', who: 'staff' },
   { key: 'turno-salida', path: '/turno', after: async (page) => { await page.getByRole('button', { name: /Registrar salida/ }).first().click(); await page.waitForTimeout(500); } },
   { key: 'turno-cierre', path: '/turno', after: async (page) => { await page.getByRole('button', { name: /Cerrar turno|Hacer corte|Cerrar/ }).first().click(); await page.waitForTimeout(500); } },
@@ -156,6 +189,16 @@ const SCREENS = [
   { key: 'menu-producto', path: '/menu', after: async (page) => { await page.getByRole('button', { name: /^Producto$/ }).first().click(); await page.waitForTimeout(500); } },
   { key: 'inventario-nuevo', path: '/inventario', after: async (page) => { await page.getByRole('button', { name: /Nuevo insumo/ }).first().click(); await page.waitForTimeout(500); } },
   { key: 'staff-invitar', path: '/staff', after: async (page) => { await page.locator('input[type=email]').first().fill('persona.con.correo.muy.largo@example.invalid').catch(() => {}); } },
+  { key: 'staff-correo-fallido', path: '/staff', after: async (page) => {
+    await page.locator('input[type=email]').first().fill('persona.con.correo.muy.largo@example.invalid');
+    await page.getByRole('button', { name: /Invitar/ }).first().click();
+    await page.getByRole('textbox', { name: 'Enlace de invitación' }).waitFor({ timeout: 5000 });
+    // Close the transient toast so the scan measures the page, not the toast.
+    // Radix: F8 focuses the toast viewport, Escape dismisses the focused toast.
+    await page.keyboard.press('F8');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+  } },
   { key: 'menu', path: '/menu' },
   { key: 'cocina', path: '/estacion/kitchen' },
   { key: 'barra', path: '/estacion/bar' },
@@ -167,6 +210,7 @@ const SCREENS = [
   { key: 'staff', path: '/staff' },
   { key: 'permisos', path: '/permisos' },
   { key: 'ajustes', path: '/ajustes' },
+  { key: 'ajustes-servicio', path: '/ajustes', after: async (page) => { await page.locator('#allow-negative-stock').scrollIntoViewIfNeeded(); await page.waitForTimeout(300); } },
   { key: 'cuenta', path: '/cuenta' },
   { key: 'soporte', path: '/soporte' },
   { key: 'about', path: '/about' },
@@ -207,6 +251,10 @@ async function measure(page, phase) {
       for (let a = el; a && a !== document.documentElement; a = a.parentElement) if (getComputedStyle(a).position === 'fixed') return a;
       return null;
     };
+    const stickyOf = (el) => {
+      for (let a = el; a && a !== document.documentElement; a = a.parentElement) if (getComputedStyle(a).position === 'sticky') return a;
+      return null;
+    };
     const skipFixed = (a, b) => phase === 'top' && scrollable && (!!fixedOf(a) !== !!fixedOf(b));
     // b sits fully inside a and is the thing hit at its own centre: a deliberate overlay.
     const nestedOnTop = (a, b, ra, rb) => ra.left <= rb.left + 1 && ra.right >= rb.right - 1 && ra.top <= rb.top + 1 && ra.bottom >= rb.bottom - 1 && (() => {
@@ -230,6 +278,9 @@ async function measure(page, phase) {
         if (a.closest('label') && a.closest('label') === b.closest('label')) continue;
         const area = inter(rects[i], rects[j]);
         if (area && skipFixed(a, b)) continue;
+        // Sticky chrome (the shell's top bar, module 29; Orden's own header) is
+        // drawn over the page, which scrolls beneath it: not an overlap.
+        if (area && stickyOf(a) !== stickyOf(b)) continue;
         if (area && (nestedOnTop(a, b, rects[i], rects[j]) || nestedOnTop(b, a, rects[j], rects[i]))) continue;
         if (area) overlaps.push(`${label(a)} X ${label(b)} (${Math.round(area)}px2)`);
       }
@@ -246,7 +297,7 @@ async function measure(page, phase) {
         if (at.closest('label') && at.closest('label') === els[i].closest('label')) continue;
         // A <label>/<td> or sibling text is not a competing control.
         const hit = at.closest(SEL) || at.closest('[data-theme-switcher], [class*="fixed"]');
-        if (!hit || hit === els[i] || skipFixed(els[i], hit)) continue;
+        if (!hit || hit === els[i] || skipFixed(els[i], hit) || stickyOf(els[i]) !== stickyOf(hit)) continue;
         covered.push(`${label(els[i])} covered by ${label(hit)}`);
         break;
       }
@@ -292,7 +343,7 @@ for (const vp of vps) {
     if (ONLY_SCREENS && !ONLY_SCREENS.includes(scr.key)) continue;
     const who = scr.who || 'admin';
     const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, hasTouch: vp.w <= 1024, isMobile: vp.w <= 834, deviceScaleFactor: 1 });
-    if (!scr.anon) await ctx.addInitScript(() => { try { localStorage.setItem('base44_access_token', 'mock'); localStorage.setItem('sommel-theme', 'light'); } catch { /* none */ } });
+    if (!scr.anon) await ctx.addInitScript((theme) => { try { localStorage.setItem('base44_access_token', 'mock'); localStorage.setItem('sommel-theme', theme); } catch { /* none */ } }, THEME);
     await mockBackend(ctx, who);
     const page = await ctx.newPage();
     const errors = [];

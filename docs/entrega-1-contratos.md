@@ -121,15 +121,15 @@ Con variantes, `price`/`cost` del producto se ignoran y cada línea elige una.
 | action | payload | respuesta | permiso |
 |---|---|---|---|
 | `open` | `{ type: 'mesa'\|'llevar', table_id?, customer_name? }` | `{ order }` — mesa ocupada → 409 `table_busy` con `order_id` existente | `Comandas:tomar` |
-| `addItems` | `{ order_id, items: [{ product_id, variant?, qty, modifiers?, notes? }] }` | `{ items: OrderItem[] }` status `nuevo`; precio y costo **congelados del servidor** | `Comandas:tomar` |
+| `addItems` | `{ order_id, items: [{ product_id, variant?, qty, modifiers?, notes? }], batch_key?, confirm_qty? }` | `{ items: OrderItem[], idempotent? }` status `nuevo`; precio y costo **congelados del servidor**. `batch_key` (8 a 64 caracteres `A-Za-z0-9_-`, uno por intento; inválida → 400 `invalid_batch_key`) guarda cada renglón con `idempotency_key = batch_key:índice`: repetir la tanda crea solo los que faltan y, si ya estaban todos, responde los guardados con `idempotent: true`. Dos peticiones a la vez dejan un renglón por llave (el otro queda `cancelado`, motivo `duplicado`). Sin `batch_key`, comportamiento anterior | `Comandas:tomar` |
 | `updateItem` | `{ item_id, qty?, modifiers?, notes? }` | `{ item }` — solo si `nuevo`; si no, 409 `already_sent` | `Comandas:tomar` |
 | `removeItem` | `{ item_id }` | `{ ok }` — solo si `nuevo` (borra); si no, 409 `already_sent` | `Comandas:tomar` |
 | `send` | `{ order_id }` | `{ sent: OrderItem[] }` — todos los `nuevo` → `enviado`, `sent_at` = ahora; idempotente | `Comandas:tomar` |
-| `cancelItem` | `{ item_id, reason, prepared: bool }` | `{ item }` — `enviado`/`listo` → `cancelado`; motivo obligatorio | `Comandas:cancelar_enviado` |
+| `cancelItem` | `{ item_id, reason, prepared: bool }` | `{ item, idempotent?, print_warning? }` — `enviado`/`listo` → `cancelado`; motivo obligatorio; repetir la misma cancelación (mismo motivo y persona) responde `idempotent: true` en vez de 409 `invalid_status`; `print_warning` si la comanda de cancelación no se pudo encolar | `Comandas:cancelar_enviado` |
 | `moveTable` | `{ order_id, to_table_id }` | `{ order }` — destino ocupado → 409 `table_busy` | `Comandas:mover_mesas` |
 | `mergeOrders` | `{ into_order_id, from_order_id }` | `{ order }` — mueve renglones, une `table_ids`, cancela la de origen | `Comandas:mover_mesas` |
-| `cancelOrder` | `{ order_id, reason }` | `{ order }` — solo sin pagos (Entrega 1 no tiene pagos) | `Comandas:cancelar_orden` |
-| `upsertTable` | `{ id?, name, seats?, zone?, x?, y? }` | `{ table }` | `Mesas:editar` |
+| `cancelOrder` | `{ order_id, reason }` | `{ order, reason, inventory_warning? }` — solo sin pagos vivos; la comanda queda en total 0 aunque tuviera propina; `inventory_warning` si el inventario quedó a medias | `Comandas:cancelar_orden` |
+| `upsertTable` | `{ id?, name, seats?, zone?, x?, y? }` | `{ table }` — 400 `invalid_seats` (lugares: entero de 0 a 99), `invalid_zone` (zona: texto), `invalid_position` (x/y: número) | `Mesas:editar` |
 | `deleteTable` | `{ id }` | `{ ok }` — 409 `table_busy` si tiene orden abierta | `Mesas:editar` |
 
 Totales de la orden (`subtotal`, `total`) se recalculan en el servidor tras
