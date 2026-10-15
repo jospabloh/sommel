@@ -10,6 +10,7 @@ import {
 import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
 import LicenseBanner from '@/components/LicenseBanner';
+import { useBarSummary } from '@/lib/useBarSummary';
 import ScreenControls from '@/components/ScreenControls';
 import { lockNow } from '@/lib/terminal/lockNow';
 import { usePermission } from '@/lib/usePermission';
@@ -88,6 +89,7 @@ function readNavScroll() {
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const barName = useBarSummary().data?.name?.trim() || '';
   const location = useLocation();
   const navigate = useNavigate();
   // Derivado del pathname en cada render (módulo 23) — nunca de un estado
@@ -177,7 +179,14 @@ export default function Layout() {
           <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 ring-1 ring-border">
             <Image src={SOMMEL_LOGO} alt="Sommel" className="w-full h-full" fittingType="fill" />
           </div>
-          <span className="hidden lg:block font-display font-semibold text-lg tracking-tight">Sommel</span>
+          <div className="hidden lg:block min-w-0">
+            <p className="font-display font-semibold text-lg tracking-tight leading-tight">Sommel</p>
+            {barName && (
+              <p className="text-xs text-muted-foreground truncate" title={barName} data-sidebar-bar-name>
+                {barName}
+              </p>
+            )}
+          </div>
         </div>
         <nav ref={navRef} onScroll={handleNavScroll} className="flex-1 min-h-0 overflow-y-auto p-2 lg:p-3 space-y-1">
           {items.map((it) => {

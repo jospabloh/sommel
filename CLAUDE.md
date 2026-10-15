@@ -558,6 +558,14 @@ rol (`roleLabel` en `src/lib/rbac.js`) arriba de "Cerrar sesión", y la barra
 mide la pantalla (`sticky h-screen`): lo que hace scroll es el menú, no el
 bloque de sesión.
 
+**Nombre del bar en la barra lateral (2026-10-15).** En `lg` sale bajo
+"Sommel" (truncado, con `title`). Viene de `useBarSummary`
+(`src/lib/useBarSummary.js`), el mismo `settings.billing` y la misma
+`queryKey ['license-banner', tenantId]` que `LicenseBanner`, así que React
+Query hace una sola petición. `BarNameCard` invalida esa query al guardar.
+`scan:layout` ahora manda `name` en el billing simulado y acepta
+`--theme dark`; revisado a 390 y 1440, claro y oscuro, 0 problemas.
+
 **Checador por usuario.** Con `Asistencia:ver_equipo` (admins por defecto) es
 la tablet compartida: se ve todo el equipo y se checa a cualquiera con su PIN.
 Sin ese permiso `attendance.roster` solo devuelve a quien inició sesión, la
@@ -1830,13 +1838,17 @@ sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
 - `isolation.sql` exige una base **vacía**. En cuanto el proyecto real tenga
   datos, ya no se corre ahí: se usa una rama de Supabase o el job de CI.
 - **Migración 3 (`support_ticket` sin escritura del navegador), por la revisión
-  de Codex en #84:** en el repo y en CI (1,633 aserciones). **Pendiente en el
-  proyecto real:** las escrituras por el MCP de Supabase (`apply_migration` y
-  `execute_sql` con DDL) se quedan esperando una aprobación que no llega y
-  vencen a los 60 s sin aplicar nada (releído: sigue en la migración 2). Sin
-  riesgo mientras tanto: no hay usuarios ni datos, y sin bar
-  `app.current_tenant()` es nulo, así que la política rechaza todo alta. Se
-  aplica antes de cualquier usuario real.
+  de Codex en #84:** en el repo, en CI (1,633 aserciones) y **aplicada al
+  proyecto real el 2026-10-15** desde el SQL Editor del dashboard (el MCP de
+  Supabase se cuelga al escribir: `apply_migration` y `execute_sql` con DDL
+  vencen a los 60 s sin aplicar nada). Se registró a mano en
+  `supabase_migrations.schema_migrations` como `20261015120000
+  support_ticket_server_only`. Releído después: `support_ticket` solo tiene
+  la política `tenant_read` (SELECT, `authenticated`) y ni `authenticated` ni
+  `anon` tienen INSERT, de tabla ni de columna.
+- **Limpieza de la organización (2026-10-15):** se borraron los proyectos
+  pausados `liuma-dev`, `fidelity-mvp` y `plink-fx`. Quedan `sommel` y
+  `acacia-mission-control`.
 - Base44 sigue siendo producción. Nada del cliente ni de las funciones apunta
   todavía a Supabase. Eso es la fase 2 y la 3 (`docs/migracion-supabase.md` §4).
 

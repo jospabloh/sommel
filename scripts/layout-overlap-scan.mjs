@@ -3,7 +3,7 @@
 // screens of Sommel at phone / tablet / desktop widths, in Chromium.
 //
 // Usage:  node scripts/layout-overlap-scan.mjs [--only mesas,orden] [--width 390,834]
-//                                              [--shots dir] [--json out.json]
+//                                              [--shots dir] [--json out.json] [--theme dark]
 //   Starts Vite's dev server itself and fulfils EVERY /api/ request locally
 //   with simulated data (nothing reaches Base44). Exits 1 when it finds a
 //   problem. Needs a Playwright Chromium (PW_CHROMIUM overrides the path).
@@ -22,6 +22,7 @@ const only = argOf('--width') ? argOf('--width').split(',').map(Number) : null;
 const ONLY_SCREENS = argOf('--only') ? argOf('--only').split(',') : null;
 const SHOTS = argOf('--shots');
 const JSON_OUT = argOf('--json');
+const THEME = argOf('--theme') === 'dark' ? 'dark' : 'light';
 
 // ----------------------------------------------------------------- data --
 const T = 't1';
@@ -72,7 +73,7 @@ const fnData = {
     current: { shift: { id: 's1', opened_at: NOW, opened_by: 'Dueño Prueba', opening_float: 150000, expected_cash: 420000 }, cash_outs: [{ id: 'm1', reason: 'Compra de hielo y limones para la barra', amount: 25000, created_date: NOW }], totals_by_method: [{ key: 'efectivo', label: 'Efectivo', count: 8, amount: 270000 }, { key: 'tarjeta', label: 'Tarjeta', count: 5, amount: 640000 }], sales_total: 910000 },
     list: { shifts: [{ id: 's0', opened_at: NOW, closed_at: NOW, opened_by: 'Dueño Prueba', sales_total: 1200000, difference: -5000, status: 'closed' }] },
   },
-  settings: { get: { bar }, billing: { bar: { billing_status: bar.billing_status, trial_end_at: bar.trial_end_at } } },
+  settings: { get: { bar }, billing: { bar: { name: bar.name, billing_status: bar.billing_status, trial_end_at: bar.trial_end_at } } },
   inventory: { list: { items: inventory, low_ids: ['ii0', 'ii3'] } },
   stations: { getConfig: { bar: { name: bar.name, station_labels: {} } } },
   payments: {
@@ -292,7 +293,7 @@ for (const vp of vps) {
     if (ONLY_SCREENS && !ONLY_SCREENS.includes(scr.key)) continue;
     const who = scr.who || 'admin';
     const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, hasTouch: vp.w <= 1024, isMobile: vp.w <= 834, deviceScaleFactor: 1 });
-    if (!scr.anon) await ctx.addInitScript(() => { try { localStorage.setItem('base44_access_token', 'mock'); localStorage.setItem('sommel-theme', 'light'); } catch { /* none */ } });
+    if (!scr.anon) await ctx.addInitScript((theme) => { try { localStorage.setItem('base44_access_token', 'mock'); localStorage.setItem('sommel-theme', theme); } catch { /* none */ } }, THEME);
     await mockBackend(ctx, who);
     const page = await ctx.newPage();
     const errors = [];
