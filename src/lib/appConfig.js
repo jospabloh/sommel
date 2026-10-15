@@ -30,8 +30,7 @@ export const CHANGELOG = [
     version: "0.15.4",
     date: "2026-10-15",
     changes: [
-      "CLAUDE.md: el correo de verificación sale en español; el asunto lo fija Base44",
-      "Atiende la revisión de Codex de los PRs de hoy",
+      "El correo con tu código de verificación ya llega en español; solo el asunto sigue en inglés, y así lo dicen la pantalla del código y la invitación",
     ],
   },
   {
