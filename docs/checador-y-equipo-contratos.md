@@ -137,6 +137,11 @@ Lógica pura (quién puede cambiar a quién) en `_invite_logic.ts` o un
 - `base44/functions/manageStaff/_invite_email.ts`, paso 2: "Escribe el código
   de 6 números que te llega en un correo en inglés ('Verify your email for
   Sommel')". Actualizar su prueba.
+- **Actualización 2026-10-15:** el cuerpo del correo de verificación ya sale en
+  español (plantilla propia, `base44/emails/EmailVerification.html`); solo el
+  asunto sigue en inglés porque lo fija Base44. El paso del código y el paso 2
+  de la invitación dicen ahora eso, sin nombrar remitente. El de
+  `ForgotPassword.jsx` no cambia: esa plantilla sigue siendo la de Base44.
 
 ## 7. Dueño de cada archivo
 

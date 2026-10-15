@@ -65,7 +65,7 @@ export default function VerifyEmailStep({ email, password, onDone, onCancel }) {
         </div>
       )}
       <p className="text-center text-xs text-muted-foreground mb-4">
-        Te llega en inglés, de no-reply@base44-apps.com, con el asunto "Verify your email for Sommel". Revisa también en spam.
+        Te llega un correo de Sommel en español; el asunto viene en inglés: "Verify your email for Sommel". Revisa también en spam.
       </p>
       <div className="flex justify-center mb-6">
         <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode} autoFocus autoComplete="one-time-code">
