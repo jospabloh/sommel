@@ -112,10 +112,13 @@ async function main() {
   let lastReleaseCommit = '';
   let sinceISO = '1970-01-01T00:00:00Z';
   try {
-    // Anchor on the last real release commit; a feature merge that also
-    // touched appConfig.js (a seeded entry) must not swallow its own PR.
-    lastReleaseCommit = sh("git log -1 --format=%H --grep='^chore: release' -- src/lib/appConfig.js");
-    if (!lastReleaseCommit) lastReleaseCommit = sh('git log -1 --format=%H -- src/lib/appConfig.js');
+    // Anchor on the last real release commit: the last one that changed the
+    // APP_VERSION line. Only a release bumps it, whatever the merged PR was
+    // titled (2026-10-15: a release PR renamed for users stopped matching
+    // '^chore: release' and the next release listed everything since 0.15.1).
+    // A feature merge that only touched the changelog does not count.
+    lastReleaseCommit = sh("git log -1 --format=%H -G'export const APP_VERSION' -- src/lib/appConfig.js");
+    if (!lastReleaseCommit) lastReleaseCommit = sh("git log -1 --format=%H --grep='^chore: release' -- src/lib/appConfig.js");
     if (lastReleaseCommit) sinceISO = sh(`git log -1 --format=%cI ${lastReleaseCommit}`);
   } catch {
     /* no git history: treat everything as new */
