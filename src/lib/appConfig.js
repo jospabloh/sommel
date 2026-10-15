@@ -30,8 +30,7 @@ export const CHANGELOG = [
     version: "0.15.3",
     date: "2026-10-15",
     changes: [
-      "El aviso de versión nueva queda debajo del banner de licencia",
-      "El release automático cuenta desde la última versión real",
+      "El aviso de versión nueva ya no tapa el aviso de periodo de prueba o de licencia",
     ],
   },
   {
