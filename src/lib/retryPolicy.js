@@ -32,11 +32,13 @@ export const READ_ACTIONS = {
  * - addItems: every line is stored with batch_key:index (the client always sends batch_key),
  *   so a repeat answers with the stored lines;
  * - retryInventory: every inventory movement has its own idempotency key;
+ * - voidPayment: it only ever voids the payment_id it was given; a repeat of an already voided
+ *   payment just finishes the order side from the live payments (idempotent: true);
  * - markPrinted / markFailed: marking a job that is already marked is a no-op.
  * Never add a write here without that guarantee on the server.
  */
 export const IDEMPOTENT_WRITES = {
-  payments: ['addPayment', 'requestTicket', 'retryInventory'],
+  payments: ['addPayment', 'requestTicket', 'retryInventory', 'voidPayment'],
   orders: ['addItems'],
   printing: ['markPrinted', 'markFailed'],
 };

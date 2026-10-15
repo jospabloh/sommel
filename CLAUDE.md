@@ -1985,3 +1985,13 @@ gemelos que `addItems` neutraliza (`cancel_reason: 'duplicado'`,
 (`isSystemDuplicate`) ni en el corte (`countsAsCancelled`); prueba en
 `system_duplicate_test.ts`. Verificado: lint, build, check:guards,
 check:functions, validate:rls y deno test (732/0).
+
+## voidPayment idempotente, stock del ledger y zona de la mesa (2026-10-15)
+
+**Qué.** (1) `payments.voidPayment` ya no responde 409 `already_voided` cuando el pago ya está anulado: termina el efecto sobre la comanda desde los pagos VIVOS (`paid`, `tip` = suma de `Payment.tip` vivos) y la reabre (`abierta`, `closed_at/closed_by` limpios, mesas ocupadas, con el mismo chequeo `table_busy`) si seguía `cobrada` y lo vivo ya no cubre el total (`reopenAfterVoid`, puro). Responde `idempotent: true`. Motivo: en producción un 429 dejó el `Payment` anulado y la `Order` en `cobrada` con `paid` 19500; el reintento daba 409 y `cancelOrder` daba `order_closed`. (2) `deductInventory` suma al recálculo de existencias los movimientos que él mismo acaba de escribir si la relectura no los devuelve (`withJustCreated`); el cierre de $0 sí llama `deductInventory` por el mismo camino, y todo fallo ya se reportaba como `inventory_warning`, así que la causa más probable es la lectura atrasada tras escribir. `retryInventory` ya recalculaba el stock aunque no faltaran movimientos. (3) `TableCard` muestra `BarTable.zone` discreta bajo el nombre.
+
+**Decisiones.** El reintento de un pago ya anulado **no pide aprobación del encargado**: esa aprobación se gastó en el primer intento y terminar un efecto ya aprobado no es una acción nueva; no puede anular nada (solo el `payment_id` dado) ni reabrir por un pago que anuló el sistema (`duplicado`, `excede_total`). Tampoco exige turno abierto en esa rama (el primer intento ya lo validó). Por eso `voidPayment` entra a `IDEMPOTENT_WRITES`. Si el primer intento falló antes de anular y la aprobación era por celular (un solo uso), el reintento da `approval_used`: falla cerrado.
+
+**Verificado:** `base44/tests/void_payment_idempotent_test.ts` (lógica pura; falla sin `reopenAfterVoid`/`withJustCreated`), más lint, build, check:guards, check:functions, validate:rls, deno test y deno lint. **No verificado:** nada contra Base44 en vivo (los `entry.ts` importan el SDK; el flujo del handler no se ejerció con entidades), la causa real del desfase de stock (inferida, no observada), la tarjeta de mesa en pantalla a 390/1440.
+
+**Despliegue:** sin cambios de esquema. Publicar la función `payments` y luego el sitio; comprobar por comportamiento que `voidPayment` sobre un pago ya anulado responde `idempotent: true`. La comanda atascada de producción se destraba repitiendo la anulación de ese pago.
