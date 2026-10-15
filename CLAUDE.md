@@ -1972,3 +1972,16 @@ otros campos, con respaldo uno por uno); la hoja de producto en navegador.
 sin él Base44 descarta el campo en silencio y la protección no actúa), luego
 funciones (`orders`, `shifts`) y por último el sitio. Verificar por contenido que
 `addItems` con un `batch_key` repetido responde `idempotent: true`.
+
+### Revisión final antes de publicar (2026-10-15)
+
+Revisión adversarial de todo el diff. Un bloqueante, corregido: la `batch_key` de
+`addItems` solo se soltaba al tener éxito, así que tras un fallo, cerrar la hoja y
+volver a agregar el mismo producto reusaba la llave y el alta se "replayaba" sin
+agregarse (cobro de menos, sin aviso). Ahora elegir un producto o cerrar la hoja
+suelta la llave; solo un reintento con la hoja abierta la reusa. Además, los
+gemelos que `addItems` neutraliza (`cancel_reason: 'duplicado'`,
+`cancelled_by: 'sistema'`) ya no cuentan como cancelaciones en reportes
+(`isSystemDuplicate`) ni en el corte (`countsAsCancelled`); prueba en
+`system_duplicate_test.ts`. Verificado: lint, build, check:guards,
+check:functions, validate:rls y deno test (732/0).

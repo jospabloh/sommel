@@ -30,3 +30,11 @@ export function cancelledOrdersInShift<T extends CancelledOrderLike>(
     return at >= start && (end === '' || at <= end);
   });
 }
+
+
+/** A cancelled line the corte counts. A twin neutralised by orders.addItems'
+ *  duplicate reconciliation (cancel_reason 'duplicado', cancelled_by 'sistema')
+ *  is not a cancellation anyone made. */
+export function countsAsCancelled(i: { status?: unknown; cancel_reason?: unknown; cancelled_by?: unknown }): boolean {
+  return i.status === 'cancelado' && !(i.cancel_reason === 'duplicado' && i.cancelled_by === 'sistema');
+}

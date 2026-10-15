@@ -18,7 +18,7 @@ import {
   type CorteSummary,
   type MethodDef,
 } from './_logic.ts';
-import { cancelledOrdersInShift } from './_cancelled_logic.ts';
+import { cancelledOrdersInShift, countsAsCancelled } from './_cancelled_logic.ts';
 
 /** The bar's payment methods, or the defaults when it has not customised them. */
 export function barMethods(ctx: Ctx): MethodDef[] {
@@ -72,7 +72,7 @@ export async function loadOrdersAndCancellations(ctx: Ctx, shift: any, payments:
 
   const itemLists = await inChunks<string, any[]>(orderIds, 20, (id) => ctx.svc.entities.OrderItem.filter({ order_id: id }));
   let cancelledItems = 0;
-  for (const list of itemLists) cancelledItems += list.filter((i: any) => i.status === 'cancelado').length;
+  for (const list of itemLists) cancelledItems += list.filter(countsAsCancelled).length;
 
   // Orders cancelled outright during the shift. Narrow the read to orders
   // cancelled since the shift opened instead of loading every cancelled order
@@ -87,7 +87,7 @@ export async function loadOrdersAndCancellations(ctx: Ctx, shift: any, payments:
   }
   const duringShift = cancelledOrdersInShift(cancelledOrders, shift, orderIds);
   const cancelledLists = await inChunks<any, any[]>(duringShift, 20, (o: any) => ctx.svc.entities.OrderItem.filter({ order_id: o.id }));
-  for (const list of cancelledLists) cancelledItems += list.filter((i: any) => i.status === 'cancelado').length;
+  for (const list of cancelledLists) cancelledItems += list.filter(countsAsCancelled).length;
 
   return { orders, cancelledItems };
 }

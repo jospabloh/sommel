@@ -428,9 +428,11 @@ export function aggregate(input: AggregateInput) {
     byHour[h].sales += num(o.total);
   }
 
-  // ---- cancellations (item level, by when the line was cancelled)
+  // ---- cancellations (item level, by when the line was cancelled).
+  // A twin line neutralised by addItems' duplicate reconciliation is not a
+  // cancellation anyone made.
   const cancelled = input.cancelledItems
-    .filter((i) => i.status === 'cancelado' && inWindow(i.updated_date, input.fromISO, input.toISO))
+    .filter((i) => i.status === 'cancelado' && !isSystemDuplicate(i) && inWindow(i.updated_date, input.fromISO, input.toISO))
     .sort((a, b) => Date.parse(String(b.updated_date)) - Date.parse(String(a.updated_date)));
   const cancelledByOrder = new Map((input.cancelledOrders ?? []).map((o) => [String(o.id), o.cancelled_by || '']));
   const whoCancelled = (i: ItemRow): string => i.cancelled_by || cancelledByOrder.get(String(i.order_id ?? '')) || '';
@@ -530,4 +532,11 @@ export function aggregate(input: AggregateInput) {
   }
 
   return result;
+}
+
+
+/** A line orders.addItems neutralised as a duplicate of a retried batch. Same
+ *  marker as addLinesIdempotent in orders/handlers/_logic.ts. */
+export function isSystemDuplicate(i: { cancel_reason?: unknown; cancelled_by?: unknown }): boolean {
+  return i.cancel_reason === 'duplicado' && i.cancelled_by === 'sistema';
 }

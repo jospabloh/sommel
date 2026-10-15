@@ -162,11 +162,13 @@ export default function Orden() {
     }
   }, []);
 
-  const handlePickProduct = (product) => setConfiguring(product);
-
   // Same key while the same sheet content is retried, so an "ocupado" answer
-  // that did write the lines cannot add them twice.
+  // that did write the lines cannot add them twice. Picking a product or
+  // closing the sheet is a new intent and drops the key: an identical line
+  // added later must be added, not replayed.
   const batchRef = useRef(null);
+
+  const handlePickProduct = (product) => { batchRef.current = null; setConfiguring(product); };
 
   const handleAddConfirm = async (payload) => {
     setAddingLine(true);
@@ -508,7 +510,7 @@ export default function Orden() {
       <VariantModifierSheet
         product={configuring}
         open={!!configuring}
-        onOpenChange={(v) => !v && setConfiguring(null)}
+        onOpenChange={(v) => { if (!v) { batchRef.current = null; setConfiguring(null); } }}
         onConfirm={handleAddConfirm}
         submitting={addingLine}
       />
