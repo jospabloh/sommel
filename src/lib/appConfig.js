@@ -12,9 +12,9 @@
  * const` lines below and the `export const CHANGELOG = [` opener exactly as
  * they are. Newest entry first. Every entry is written in user language.
  */
-export const APP_VERSION = "0.15.1";
+export const APP_VERSION = "0.15.2";
 
-export const RELEASE_DATE = "2026-10-09";
+export const RELEASE_DATE = "2026-10-15";
 
 // Public contact channels. Not secrets. The same email lives in
 // src/lib/billingNotice.js (SUPPORT_EMAIL); the WhatsApp line is the ACACIA
@@ -26,6 +26,32 @@ export const SUPPORT_WHATSAPP_URL = "https://wa.me/524498958291";
 // #14, one entry per PR, versions 0.<PR number>.0). From here on the release
 // script adds a patch entry per release.
 export const CHANGELOG = [
+  {
+    version: "0.15.2",
+    date: "2026-10-15",
+    changes: [
+      "Nueva barra de arriba: tu cuenta, Acerca de, pantalla completa y cerrar sesión están en el círculo con tus iniciales",
+      "En la terminal, Checar y Cambiar usuario siempre a la vista arriba a la derecha, a un toque",
+      "El menú de la izquierda se contrae a solo íconos con Contraer menú; en la terminal viene contraído",
+      "Enviar sugerencia, al pie del menú, abre Soporte para reportar un problema o pedir una mejora",
+      "Extras con precio (por ejemplo, Shot extra) para un producto o para todos",
+      "Al dividir la cuenta, cada quien deja su propina, también al volver a cobrar una parte anulada",
+      "Arriba de 20 piezas en un renglón, Sommel pregunta si es correcto; el administrador cambia el número en Ajustes",
+      "Ajustes, Servicio: imprimir comandas, entregar solos los productos sin estación (encendido), tope de retiro de efectivo y permitir o no existencia negativa",
+      "Un retiro de efectivo se puede anular con su motivo",
+      "Inventario: un insumo se puede dar de baja, y no se vende ni se da de merma más de lo que hay, salvo que el administrador lo permita",
+      "El PIN entra solo al escribir el último número y el teclado tiembla si es incorrecto",
+      "Pantalla táctil: teclado en pantalla que muestra lo que escribes, y desplazar con el dedo como en un iPad",
+      "La terminal pregunta si mantener la sesión abierta antes de bloquearse, y se actualiza sola cuando está bloqueada",
+      "Impresión en Windows: botón Preparar impresora, un paso único para que la impresora USB funcione",
+      "Aviso cuando hay una versión nueva, con el botón Actualizar",
+      "Reportes con ventas netas, las cortesías aparte y quién canceló cada cosa",
+      "El nombre del bar se ve arriba, y el administrador lo cambia en Ajustes",
+      "Si el correo de invitación no sale, Staff muestra el enlace para mandarlo por WhatsApp",
+      "Menos avisos de \"ocupado\" al cobrar, y repetir una acción ya no duplica renglones ni pagos",
+      "Arreglos: pantalla en blanco al cerrar ventanas de Inventario, ticket viejo después de anular un pago y la cuenta dividida que se perdía al reabrir el cobro",
+    ],
+  },
   {
     version: "0.15.1",
     date: "2026-10-09",

@@ -253,8 +253,12 @@ export const MANUAL_SECTIONS = [
     id: 'checador',
     title: 'Checador y asistencia',
     summary: 'Entrada y salida del equipo con PIN.',
-    keywords: ['pin', 'entrada', 'salida', 'horas', 'asistencia', 'checar', 'bloqueado', 'olvide'],
+    keywords: ['pin', 'entrada', 'salida', 'horas', 'asistencia', 'checar', 'bloqueado', 'olvide', 'terminal', 'cambiar usuario'],
     items: [
+      {
+        q: 'En la terminal, ¿cómo checo o cambio de usuario rápido?',
+        a: 'Arriba a la derecha siempre están Checar y Cambiar usuario. Checar abre el checador para que cualquiera del equipo registre su entrada o salida con su PIN. Cambiar usuario bloquea la terminal para que entre otra persona. Con la terminal bloqueada también puedes checar desde la pantalla ¿Quién eres?.',
+      },
       {
         q: '¿Cómo registro mi entrada y mi salida?',
         a: 'Abre Checador, elige tu nombre y captura tu PIN. Si estabas fuera, se registra tu entrada; si estabas dentro, tu salida.',
@@ -341,8 +345,16 @@ export const MANUAL_SECTIONS = [
     id: 'cuenta',
     title: 'Mi cuenta y la prueba',
     summary: 'Prueba gratuita, licencia, sesiones, exportar o dar de baja el bar, y a quién pedir ayuda.',
-    keywords: ['prueba', 'licencia', 'suspendido', 'solo lectura', 'vencimiento', 'soporte', 'ayuda', 'tema', 'oscuro', 'cuenta', 'sesiones', 'exportar', 'baja', 'ceder', 'version', 'actualizacion'],
+    keywords: ['prueba', 'licencia', 'suspendido', 'solo lectura', 'vencimiento', 'soporte', 'ayuda', 'tema', 'oscuro', 'cuenta', 'sesiones', 'exportar', 'baja', 'ceder', 'version', 'actualizacion', 'cerrar sesion', 'menu', 'contraer', 'sugerencia'],
     items: [
+      {
+        q: '¿Dónde está mi cuenta y cómo cierro sesión?',
+        a: 'Arriba a la derecha está el círculo con tus iniciales. Al tocarlo ves tu nombre, tu rol y el bar, y las opciones Cuenta, Acerca de, Instalar Sommel, Pantalla completa y Cerrar sesión. En una terminal no hay Cerrar sesión: se usa Cambiar usuario.',
+      },
+      {
+        q: 'El menú de la izquierda ocupa mucho, ¿lo puedo achicar?',
+        a: 'Sí: toca Contraer menú, al pie del menú, y quedan solo los íconos. Expandir menú lo regresa. Cada equipo recuerda cómo lo dejaste; en una terminal viene contraído.',
+      },
       {
         q: '¿Qué significa el aviso de prueba, solo lectura o suspendido?',
         a: 'Es el estado de la licencia de tu bar. En prueba ves los días que faltan. En solo lectura o suspendido puedes entrar y consultar, pero no guardar cambios hasta regularizar. El aviso trae el correo de soporte.',
@@ -353,11 +365,11 @@ export const MANUAL_SECTIONS = [
       },
       {
         q: '¿Dónde veo mi licencia y mis sesiones activas?',
-        a: 'En Cuenta, abierta para todo el equipo. Ahí ves el estado de la licencia y los dispositivos con tu sesión abierta, y puedes cerrar cualquiera. El administrador también ve las sesiones del equipo. Por seguridad, la sesión se cierra tras un rato sin actividad y antes te avisa.',
+        a: 'Toca el círculo con tus iniciales, arriba a la derecha, y elige Cuenta; la ve todo el equipo. Ahí ves el estado de la licencia y los dispositivos con tu sesión abierta, y puedes cerrar cualquiera. El administrador también ve las sesiones del equipo. Por seguridad, la sesión se cierra tras un rato sin actividad y antes te avisa.',
       },
       {
         q: '¿Cómo exporto los datos de mi bar?',
-        a: 'En Cuenta, Descargar. Recibes un archivo con menú, pedidos, pagos, turnos, inventario y asistencia; funciona aunque la licencia esté vencida. Si tu permiso no incluye ver costos, el archivo sale sin ellos.',
+        a: 'En Cuenta (círculo de arriba a la derecha), Descargar. Recibes un archivo con menú, pedidos, pagos, turnos, inventario y asistencia; funciona aunque la licencia esté vencida. Si tu permiso no incluye ver costos, el archivo sale sin ellos.',
       },
       {
         q: '¿Cómo cedo el bar o lo doy de baja?',
@@ -365,15 +377,15 @@ export const MANUAL_SECTIONS = [
       },
       {
         q: '¿Cómo abro un ticket de soporte?',
-        a: 'En Soporte dentro de Sommel: elige el tipo, escribe el asunto y el detalle, y envía. Ahí mismo ves si sigue enviado o ya está resuelto.',
+        a: 'Toca Enviar sugerencia, al pie del menú de la izquierda: elige si algo no funciona, una mejora o una baja, escribe el asunto y el detalle, y envía. Ahí mismo ves si sigue enviado o ya está resuelto.',
       },
       {
         q: 'Me apareció un aviso de versión nueva',
-        a: 'Toca Recargar en el aviso para cargar la última versión. Si estás en medio de un cobro, termínalo primero. En Acerca de ves la versión y las novedades.',
+        a: 'Toca Actualizar en el aviso para cargar la última versión. Si estás en medio de un cobro, termínalo primero. En Acerca de (círculo de arriba a la derecha) ves la versión y las novedades.',
       },
       {
         q: '¿Con quién hablo si algo falla?',
-        a: 'Abre un ticket en Soporte, escribe a soporte@acaciaco.com.mx o por WhatsApp al +52 449 895 8291. Los dos últimos aparecen también al final de esta pantalla.',
+        a: 'Abre un ticket con Enviar sugerencia (al pie del menú), escribe a soporte@acaciaco.com.mx o por WhatsApp al +52 449 895 8291. Los dos últimos aparecen también al final de esta pantalla.',
       },
     ],
   },
