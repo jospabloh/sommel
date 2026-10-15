@@ -85,6 +85,15 @@ export async function setTablesStatus(ctx: Ctx, order: any, status: 'available' 
   }
 }
 
+/** Marks the order's tables occupied, skipping any already occupied (by this
+ *  order or another one, which this never takes over). */
+export async function occupyFreeTables(ctx: Ctx, order: any): Promise<void> {
+  for (const tableId of order.table_ids ?? []) {
+    const [t] = await ctx.svc.entities.BarTable.filter({ id: tableId });
+    if (t && t.status !== 'occupied') await ctx.svc.entities.BarTable.update(tableId, { status: 'occupied' });
+  }
+}
+
 /** Refuses (409 table_busy) when another order already took one of the order's tables. */
 export async function assertTablesFree(ctx: Ctx, order: any): Promise<void> {
   for (const tableId of order.table_ids ?? []) {

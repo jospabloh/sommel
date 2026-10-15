@@ -2,7 +2,7 @@
 // own shift is still open; a `cobrada` order goes back to `abierta`.
 import { loadOwned, requirePermission, requireWritable, httpError, type Ctx, type Route } from '../_guard.ts';
 import { validateReason, paidTotal, paymentTips, reopenAfterVoid } from './_logic.ts';
-import { assertTablesFree, loadPayments, rethrow, setTablesStatus, writeTotals } from './_shared.ts';
+import { assertTablesFree, loadPayments, occupyFreeTables, rethrow, setTablesStatus, writeTotals } from './_shared.ts';
 import { recordApproval, requireApproval } from '../_approval.ts';
 
 export const voidPayment: Route = async (ctx: Ctx, body: any) => {
@@ -85,8 +85,11 @@ async function finishVoid(ctx: Ctx, order: any, payment: any) {
     await assertTablesFree(ctx, order);
     updated = await ctx.svc.entities.Order.update(base.id, { status: 'abierta', closed_at: null, closed_by: '', paid });
     await setTablesStatus(ctx, order, 'occupied');
-  } else if ((base.paid ?? 0) !== paid) {
-    updated = await ctx.svc.entities.Order.update(base.id, { paid });
+  } else {
+    if ((base.paid ?? 0) !== paid) updated = await ctx.svc.entities.Order.update(base.id, { paid });
+    // An earlier attempt may have reopened the order and then died before
+    // marking its tables: an open order's free tables are taken again here.
+    if (updated.status === 'abierta') await occupyFreeTables(ctx, updated);
   }
   return { payment, order: updated, idempotent: true };
 }
