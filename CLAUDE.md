@@ -2126,9 +2126,14 @@ panel (Editar con IA) y no desde el repo.
 **Revisado a las 12:14 del 2026-10-15:** la línea "Se envía" ya no aparece en
 Panel → Correos → Verificación del correo (Base44 terminó de revisar la
 versión propia) y la vista previa sale en español ("Hola, Alex:", "Usa este
-código de verificación..."). **El asunto sigue en inglés**, "Verify your email
-for Sommel": en el panel no es un campo editable, solo se cambia con "Editar con
-IA". No se mandó correo de prueba; falta ver un registro real llegar desde
+código de verificación..."). **El asunto sigue en inglés**, "Verify your email for Sommel", y **no se puede
+cambiar**: se le pidió a "Editar con IA" (2026-10-15) y respondió que
+EmailVerification es uno de los cuatro correos reservados de la plataforma; el
+asunto lo genera Base44 a partir del nombre de la app, cualquier `<title>` del
+archivo se descarta, y solo cambia si se cambia el nombre de la app. No tocó el
+archivo ni subió nada a `main`. (Dijo también que el asunto sigue el patrón
+"Verifica tu correo para Sommel", pero el panel muestra la versión en inglés;
+no se comprobó en un correo real.) No se mandó correo de prueba; falta ver un registro real llegar desde
 `no-reply@sommel.acaciaco.com.mx`.
 
 ## Módulo 29: marco de la app (AppShell), 2026-10-15
