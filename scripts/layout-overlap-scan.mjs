@@ -166,6 +166,21 @@ const SCREENS = [
   { key: 'mesas-staff', path: '/mesas', who: 'staff' },
   { key: 'mesas-terminal', path: '/mesas', who: 'terminal', after: unlockTerminal },
   { key: 'orden-terminal', path: '/orden/o1', who: 'terminal', after: unlockTerminal },
+  // Module 30 under module 29: the notice's top must clear the top bar AND the
+  // license banner (PR #77). Fails the step (reported as an error) otherwise.
+  { key: 'mesas-update-offset', path: '/mesas', after: async (page) => {
+    const r = await page.evaluate(() => {
+      const top = getComputedStyle(document.documentElement).getPropertyValue('--update-banner-top').trim();
+      const probe = document.createElement('div');
+      probe.style.cssText = `position:fixed;top:${top};height:1px`;
+      document.body.appendChild(probe);
+      const y = probe.getBoundingClientRect().top;
+      probe.remove();
+      const banner = document.querySelector('[data-license-banner]')?.getBoundingClientRect();
+      return { y, bannerBottom: banner ? banner.bottom : null };
+    });
+    if (r.bannerBottom == null || r.y < r.bannerBottom) throw new Error(`update notice at ${r.y}px, license banner ends at ${r.bannerBottom}px`);
+  } },
   { key: 'mesas-avatar', path: '/mesas', after: async (page) => { await page.getByRole('button', { name: /^Cuenta de/ }).click(); await page.waitForTimeout(300); } },
   { key: 'orden-staff', path: '/orden/o1', who: 'staff' },
   { key: 'turno-salida', path: '/turno', after: async (page) => { await page.getByRole('button', { name: /Registrar salida/ }).first().click(); await page.waitForTimeout(500); } },

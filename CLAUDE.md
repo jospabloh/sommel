@@ -1664,6 +1664,22 @@ palabra junto a los dos botones.
 Este repo no tiene vitest, así que la prueba canónica `useNewVersion.test.js`
 no se copió.
 
+
+### El aviso de versión ya no tapa el banner de licencia (2026-10-14)
+
+Con sesión, el aviso del módulo 30 quedaba a 0.75 rem de arriba, justo sobre
+`LicenseBanner` ("Periodo de prueba", "Solo lectura", "Suspendida"): mientras
+nadie lo cerraba, no se leía el aviso de licencia. `LicenseBanner` publica su
+alto en `--license-banner-h` (`src/lib/useHeightVar.js`, copia del de StockFlow)
+y `index.css` suma ese alto a `--update-banner-top` dentro de la app
+(**actualizado el 2026-10-15 para el marco del módulo 29:** `4rem` de la barra
+superior + el alto del banner; `scan:layout --only mesas-update-offset` lo
+mide y falla si el aviso empieza antes de que termine el banner). Sin banner,
+la variable no existe y el aviso queda donde estaba. Verificado con el build
+local y la sesión real de Sommel QA a 390/834/1440, claro y oscuro: el aviso
+empieza 12 px debajo del banner en los seis casos. Sigue tapando parte del
+encabezado de la página mientras está abierto, como cualquier aviso flotante.
+
 ## Recorrido real de toda la app (2026-10-14): lo que encontró y lo que se arregló
 
 José señaló que el manual se escribió leyendo el código, sin usar la app. Un

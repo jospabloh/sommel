@@ -133,9 +133,11 @@
 
 /* New-version notice (src/components/UpdateBanner.jsx, module 30), placement
    only. Inside the app the shell's top bar (module 29, h-14) holds the menu and
-   the avatar, so the notice goes just beneath it; on login and the 404 there is
-   no bar and it keeps its default top. */
-:root:has([data-app-shell]) { --update-banner-top: 4rem; }
+   the avatar, so the notice goes just beneath it, and below the license banner
+   too when there is one: LicenseBanner publishes its height as
+   --license-banner-h, so the notice never covers the trial or suspension
+   message. On login and the 404 there is no bar and it keeps its default top. */
+:root:has([data-app-shell]) { --update-banner-top: calc(4rem + var(--license-banner-h, 0px)); }
 
 /*
  * On-screen keyboard (touch mode, 2026-10-13). While it is open the page
