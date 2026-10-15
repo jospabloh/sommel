@@ -12,7 +12,7 @@
  * const` lines below and the `export const CHANGELOG = [` opener exactly as
  * they are. Newest entry first. Every entry is written in user language.
  */
-export const APP_VERSION = "0.15.3";
+export const APP_VERSION = "0.15.4";
 
 export const RELEASE_DATE = "2026-10-15";
 
@@ -26,6 +26,13 @@ export const SUPPORT_WHATSAPP_URL = "https://wa.me/524498958291";
 // #14, one entry per PR, versions 0.<PR number>.0). From here on the release
 // script adds a patch entry per release.
 export const CHANGELOG = [
+  {
+    version: "0.15.4",
+    date: "2026-10-15",
+    changes: [
+      "El correo con tu código de verificación ya llega en español; solo el asunto sigue en inglés, y así lo dicen la pantalla del código y la invitación",
+    ],
+  },
   {
     version: "0.15.3",
     date: "2026-10-15",
