@@ -9,9 +9,10 @@
   "properties": {
     "tenant_id": { "type": "string", "description": "WineBar dueño de este insumo" },
     "name": { "type": "string", "description": "Nombre del insumo (p.ej. Malbec Reserva, Tisana de Frutos del Bosque)" },
-    "unit": { "type": "string", "description": "Unidad de medida (pieza, botella, g)" },
+    "unit": { "type": "string", "description": "Unidad de medida (pieza, botella, g o ml)" },
     "stock": { "type": "number", "default": 0, "description": "Existencia actual, recalculada de InventoryMovement" },
     "low_threshold": { "type": "number", "default": 0, "description": "Alerta cuando el stock cae por debajo de este valor" },
+    "archived_at": { "type": ["string", "null"], "description": "Fecha en que se dio de baja el insumo (inventory.archiveItem). Lo saca de las listas y de ligar productos; el registro y sus movimientos se conservan para el historial y los reportes de merma. Solo lo escribe el servidor." },
     "unit_cost": {
       "type": ["integer", "null"],
       "description": "Costo por unidad en centavos MXN. La función inventory lo entrega solo con Menú:ver_costos (D7). Módulo 19, candado de LECTURA (rls.read solo role admin); no gobierna la escritura, que ya es solo de plataforma a nivel entidad. Lo lee y lo escribe solo el servidor (función inventory, asServiceRole). Si se quita el candado, cualquier miembro del bar lee el costo de los insumos sin Menú:ver_costos. Un costo que no aparece en pantalla no se arregla quitando este candado: se diagnostica en la función inventory.",

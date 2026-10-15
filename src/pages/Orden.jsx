@@ -2,7 +2,7 @@
 // Sirve /orden/:orderId y /orden/nueva?tipo=llevar. Todo lo que cambia
 // dinero, estado o inventario pasa por `callFn('orders', ...)` (contrato §1)
 // — esta página nunca escribe `Order`/`OrderItem`/`BarTable` directo.
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Send, MoreVertical, Ban, Wallet } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -30,7 +30,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatMXN } from '@/lib/money';
 import FixedBottomBar from '@/components/orders/FixedBottomBar';
 import { useOrderRealtime } from '@/components/orders/useOrderRealtime';
-import { flattenRow, upsertById } from '@/components/orders/helpers';
+import { flattenRow, upsertById, reuseBatchKey, newBatchKey } from '@/components/orders/helpers';
 import ProductPicker from '@/components/orders/ProductPicker';
 import VariantModifierSheet from '@/components/orders/VariantModifierSheet';
 import OrderLineItem from '@/components/orders/OrderLineItem';
@@ -162,19 +162,29 @@ export default function Orden() {
     }
   }, []);
 
-  const handlePickProduct = (product) => setConfiguring(product);
+  // Same key while the same sheet content is retried, so an "ocupado" answer
+  // that did write the lines cannot add them twice. Picking a product or
+  // closing the sheet is a new intent and drops the key: an identical line
+  // added later must be added, not replayed.
+  const batchRef = useRef(null);
+
+  const handlePickProduct = (product) => { batchRef.current = null; setConfiguring(product); };
 
   const handleAddConfirm = async (payload) => {
     setAddingLine(true);
     try {
+      batchRef.current = reuseBatchKey(batchRef.current, { order_id: order.id, payload }, newBatchKey);
+      const batchKey = batchRef.current.key;
       const res = await withQtyConfirm((extra) => callFn('orders', 'addItems', {
         order_id: order.id,
         items: [payload],
+        batch_key: batchKey,
         ...extra,
       }));
       if (!res) return; // "Corregir": the sheet stays open to fix the quantity
       const { items: created } = res;
       setItems((prev) => upsertById(prev, (created || []).map(flattenRow).filter(Boolean)));
+      batchRef.current = null;
       setConfiguring(null);
       setAddOpen(false);
     } catch (err) {
@@ -342,8 +352,11 @@ export default function Orden() {
     if (!cancelOrderReason.trim()) return;
     setCancelOrderBusy(true);
     try {
-      await callFn('orders', 'cancelOrder', { order_id: order.id, reason: cancelOrderReason.trim() });
+      const res = await callFn('orders', 'cancelOrder', { order_id: order.id, reason: cancelOrderReason.trim() });
       toast({ title: 'Comanda cancelada' });
+      if (res?.inventory_warning) {
+        toast({ title: 'Comanda cancelada, inventario incompleto', description: res.inventory_warning, variant: 'destructive' });
+      }
       navigate('/mesas');
     } catch (err) {
       if (err instanceof ApiError && err.code === 'has_payments') {
@@ -497,7 +510,7 @@ export default function Orden() {
       <VariantModifierSheet
         product={configuring}
         open={!!configuring}
-        onOpenChange={(v) => !v && setConfiguring(null)}
+        onOpenChange={(v) => { if (!v) { batchRef.current = null; setConfiguring(null); } }}
         onConfirm={handleAddConfirm}
         submitting={addingLine}
       />

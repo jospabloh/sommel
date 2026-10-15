@@ -45,6 +45,7 @@ export default function PaymentMethodsCard({ bar, onSaved }) {
   };
 
   const activeCount = methods.filter((m) => m.active).length;
+  const activeCashCount = methods.filter((m) => m.active && m.is_cash).length;
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
@@ -57,7 +58,7 @@ export default function PaymentMethodsCard({ bar, onSaved }) {
 
       <ul className="divide-y divide-border">
         {methods.map((m) => {
-          const lastActive = m.active && activeCount === 1;
+          const lastActive = m.active && (activeCount === 1 || (m.is_cash && activeCashCount === 1));
           return (
             <li key={m.key} className="flex items-center gap-3 py-3 min-h-12">
               <div className="flex-1 min-w-0">

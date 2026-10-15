@@ -34,7 +34,8 @@ export default function TableFormDialog({ open, onOpenChange, table, onSaved, on
         id: table?.id,
         name: name.trim(),
         seats: Number(seats) || 0,
-        zone: zone.trim() || undefined,
+        // '' (not undefined) so the server clears the zone; undefined keeps it.
+        zone: zone.trim(),
       });
       onSaved?.(saved);
       onOpenChange(false);

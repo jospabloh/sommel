@@ -190,7 +190,8 @@ un correo). Sin destinatarios → `fallido`, `email_error: 'sin_destinatarios'`.
 | `addEntry` | `{ item_id, qty, unit_cost?, reason?, idempotency_key }` | `{ movement, item }` — `qty > 0`; `unit_cost` (con permiso) actualiza el costo del insumo | `Inventario:editar` |
 | `addWaste` | `{ item_id, qty, reason, idempotency_key }` | `{ movement, item }` — motivo obligatorio; guarda `qty` negativo y el costo vigente | `Inventario:merma` |
 | `count` | `{ item_id, counted, reason?, idempotency_key }` | `{ movement, item }` — movimiento `conteo` con `qty = counted - stock` | `Inventario:editar` |
-| `linkProduct` | `{ product_id, inventory_item_id \| null, inventory_qty?, variant_qtys?: { [variantKey]: number } }` | `{ product }` — pone `track_inventory` | `Inventario:editar` |
+| `linkProduct` | `{ product_id, inventory_item_id \| null, inventory_qty?, variant_qtys?: { [variantKey]: number } }` | `{ product }` — pone `track_inventory`; un insumo dado de baja responde 400 `item_archived` | `Inventario:editar` |
+| `archiveItem` | `{ item_id }` | `{ ok, item_id, archived_at }` — da de baja el insumo (`archived_at`; conserva fila y movimientos, sale de la lista y del selector); idempotente; con productos ligados responde 409 `item_linked` y los nombra; después, escribir movimientos sobre él responde 400 `item_archived` | `Inventario:editar` |
 
 `stock` nunca se escribe desde el cliente: tras cada movimiento el servidor
 lo **recalcula como Σ qty** de los movimientos del insumo (converge aunque

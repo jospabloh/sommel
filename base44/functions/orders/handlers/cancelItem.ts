@@ -7,7 +7,7 @@
 // handler used to skip that check entirely, so a line on a closed/cobrada
 // order could still be cancelled and its totals recomputed.
 import { loadOwned, requirePermission, requireWritable, hasPermission, httpError, HttpError, redactItemCost, type Ctx, type Route } from '../_guard.ts';
-import { LogicError, validateReason, isOrderOpen, canCancelItem } from './_logic.ts';
+import { LogicError, validateReason, isOrderOpen, canCancelItem, isRepeatedCancel } from './_logic.ts';
 import { recomputeOrderTotals, assertTotalCoversPayments, queueComandas } from './_shared.ts';
 import { recordApproval, requireApproval } from '../_approval.ts';
 
@@ -28,6 +28,14 @@ export const cancelItem: Route = async (ctx: Ctx, body: any) => {
   } catch (err) {
     if (err instanceof LogicError) throw new HttpError(400, err.code, err.message);
     throw err;
+  }
+
+  // A retry of a cancel that already landed (e.g. after a 429): ok, and heal
+  // the totals in case the first attempt died before recomputing them.
+  if (isRepeatedCancel(item, reason, ctx.user.email)) {
+    await recomputeOrderTotals(ctx, item.order_id);
+    const canSee = await hasPermission(ctx, 'Menú:ver_costos');
+    return { item: redactItemCost(item, canSee), idempotent: true };
   }
 
   if (!canCancelItem(item.status)) {

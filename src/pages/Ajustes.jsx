@@ -7,6 +7,7 @@ import { Settings } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { usePermission } from '@/lib/usePermission';
 import { Button } from '@/components/ui/button';
+import BarNameCard from '@/components/settings/BarNameCard';
 import TicketForm from '@/components/settings/TicketForm';
 import PaymentMethodsCard from '@/components/settings/PaymentMethodsCard';
 import CorteEmailsCard from '@/components/settings/CorteEmailsCard';
@@ -71,6 +72,7 @@ export default function Ajustes() {
         </div>
       ) : (
         <div className="space-y-5">
+          {isBarAdmin(user) && !user?.terminal ? <BarNameCard bar={bar} onSaved={setBar} /> : null}
           <TicketForm bar={bar} onSaved={setBar} />
           <PaymentMethodsCard bar={bar} onSaved={setBar} />
           <CorteEmailsCard bar={bar} onSaved={setBar} />

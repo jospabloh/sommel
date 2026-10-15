@@ -1839,3 +1839,149 @@ sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
   aplica antes de cualquier usuario real.
 - Base44 sigue siendo producción. Nada del cliente ni de las funciones apunta
   todavía a Supabase. Eso es la fase 2 y la 3 (`docs/migracion-supabase.md` §4).
+
+## QA 2026-10-14: comandas y mesas (rama qa-fix-orders)
+
+- `orders.cancelOrder` ahora recalcula `subtotal/discount/tip/total` (una comanda toda cancelada vale 0), escribe `cancelled_by` en cada renglón (como `cancelItem`) y ajusta inventario con `cancelOrderInventory` (`_cancelInventory.ts`; reglas puras `planCancelOrderInventory` en `_logic.ts`): renglón preparado sin venta viva = `merma:<id>`; renglón con venta viva (cobro anulado) no preparado = `devolucion` `reversa:<id>`; con venta viva y preparado no se toca (la venta ya es la merma). Idempotente por llave; es best effort y responde `inventory_warning` si algo falla. Hay una copia mínima de la planeación de `payments` porque las funciones no pueden importarse entre sí; `Orden.jsx` aún no muestra ese aviso.
+- `orders.cancelItem`: repetir la misma cancelación (mismo motivo y misma persona) responde ok con `idempotent: true` y vuelve a recalcular totales, en vez de 409 `invalid_status`.
+- `orders.upsertTable` valida (`validateTableFields`): `seats` entero 0..99, `zone` texto, `x/y` números; si no, 400 en español. La UI manda `zone: ''` para borrar la zona.
+- `TableMap`: las mesas sin `x/y` van a la cuadrícula automática bajo el mapa (`tableLayout.js`), nunca encimadas en 0,0.
+- Pruebas: `base44/tests/cancel_order_test.ts`.
+- **No verificado:** nada contra Base44 en vivo (los `entry.ts` importan el SDK); el descuento real de inventario de un cobro anulado y luego cancelado; el mapa con mesas mixtas en pantalla. Sin desplegar.
+
+## Inventario: dar de baja un insumo (2026-10-14)
+
+Hallazgo del recorrido: un insumo creado por error no se podía quitar. Código en
+el repo; nada publicado ni verificado en vivo.
+- **`inventory.archiveItem`** (`Inventario:editar`, `requireWritable`, `loadOwned`)
+  escribe `InventoryItem.archived_at` (campo nuevo; la entidad ya es de escritura
+  solo servicio, así que no hizo falta un candado de campo). No borra nada: el
+  registro y sus movimientos se conservan para el historial y los reportes de
+  merma. Es idempotente.
+- **Decisión de producto simple y segura:** si algún producto sigue ligado al
+  insumo (`track_inventory` + `inventory_item_id`), responde 409 `item_linked`
+  nombrando hasta tres productos; hay que desligarlos primero desde "Productos".
+  Así ninguna venta sigue descontando de un insumo oculto.
+- `list` y la alerta de mínimo ignoran los dados de baja (`activeItems`);
+  `upsertItem`, `addEntry`, `addWaste`, `count` y `linkProduct` rechazan uno
+  dado de baja con 400 `item_archived`. `movements` y reportes lo siguen leyendo.
+  No hay botón para reactivar: sería una acción aparte si hace falta.
+- Pantalla: botón "Dar de baja" en cada insumo (solo con `Inventario:editar`),
+  con confirmación (`ArchiveItemDialog`) que avisa si hay productos ligados.
+- **Existencia negativa:** no se bloquea (puede ser un conteo atrasado). La fila
+  ahora dice "Existencia negativa" y cómo corregirla (un conteo) en vez de un
+  "Agotado" ambiguo.
+- La descripción de `InventoryItem.unit` ahora lista ml; una prueba la amarra a
+  `INVENTORY_UNITS`. Pruebas nuevas en `base44/tests/inventory_logic_test.ts`.
+- **Orden de despliegue:** el esquema (`archived_at`) antes que las funciones;
+  sin él Base44 descarta el campo en silencio y el insumo no se oculta.
+  **No verificado:** nada contra Base44 (los `entry.ts` importan el SDK) ni las
+  pantallas a 390/1440 en claro y oscuro.
+
+## Reportes y corte: ventas netas, cortesías y quién canceló (2026-10-14)
+
+Cierra seis hallazgos del recorrido de QA. **Código en el repo; nada publicado.**
+
+- **Los productos se valoran NETOS.** `aggregate()` reparte el descuento de la
+  orden entre sus renglones en centavos exactos (`prorateDiscount`: el último
+  renglón con importe absorbe el residuo). Por producto, Por categoría y Más
+  vendidos suman ahora lo mismo que `totals.sales_net` (Ventas sin propina, la
+  cifra de la tarjeta "Sin propina"), no la tarjeta Ventas, que incluye la propina.
+- **Cortesías: fuera de las tablas de productos** (ni importe ni piezas; tienen su
+  apartado y su tarjeta), pero **su costo sí resta de la utilidad** como pérdida
+  real: `costs.courtesy_cost` lo expone. Utilidad y margen se calculan sobre venta
+  neta (después de descuento y cortesía, sin propina) menos costo. `items_sold` de
+  las tarjetas no cambió y sigue contando piezas de cortesía.
+- **Un pago de $0 ya no cuenta en "Por forma de pago"**: "Cerrar cuenta sin cobro"
+  guarda un marcador de $0 con el método elegido. Ojo: el corte de turno
+  (`shifts/handlers/_logic.ts` `salesByMethod`) tiene el mismo conteo inflado y NO
+  se tocó (fuera de este grupo).
+- **Quién canceló:** `cancelOrder` ahora escribe `cancelled_by` en cada renglón y
+  en la orden (campo nuevo `Order.cancelled_by`). El reporte usa el del renglón y,
+  si falta, lee la orden. Las cancelaciones ya hechas no tienen a nadie guardado y
+  siguen saliendo "Sin registro".
+- **Cierre de turno:** `loadOrdersAndCancellations` ya no lee todas las comandas
+  canceladas del bar: acota por `closed_at >= apertura` (con respaldo sin rango si
+  el backend rechaza el operador) y decide con `cancelledOrdersInShift`
+  (`_cancelled_logic.ts`): `shift_id` si lo trae; si no, la ventana del turno, con
+  tope superior al cierre (antes no lo tenía).
+- **Por producto a 390 px:** sin `break-all`; el nombre lleva `min-w-[8rem]` y la
+  tabla ya hace scroll horizontal dentro de su tarjeta. Los textos de ayuda de
+  Por producto y Costo y utilidad dicen que es venta neta.
+- Pruebas: `reports_logic_test.ts` (prorrateo, cuadre al centavo, utilidad,
+  marcador de $0, quién canceló) y `shift_cancelled_orders_test.ts`.
+
+**Verificado:** lint, build, check:guards, check:functions, validate:rls (27/14),
+validate:locks, deno test (702/0), deno lint. **No verificado:** nada contra Base44;
+la tabla a 390 px en navegador; que `closed_at: {$gte}` se acepte en `Order.filter`
+(hay respaldo). **Orden de deploy:** `Order.cancelled_by` es campo nuevo, así que
+esquema (`deploy:entities`) antes que funciones, o Base44 lo descarta en silencio.
+
+## QA e2e, grupo pantallas y ajustes (2026-10-14)
+
+Código **en el repo**; nada publicado ni verificado en vivo.
+- **Menú:** si `catalog.listProducts` falla, la página muestra "No se pudo cargar el menú" con "Reintentar" y ya no el vacío "Todavía no hay categorías" (`menuViewState`, `src/lib/menuViewState.js`). Antes un 429 dejaba a la dueña con un menú aparentemente vacío y el botón de crear la primera categoría.
+- **/aprobar/:id con id inválido** respondía 500: Base44 lanza al filtrar por un id que no es de 24 hex. `loadRequest` valida el formato (`security/_request_id_logic.ts`) y responde 404 `not_found`; la pantalla lo explica en español.
+- **Formas de pago:** el servidor exigía una forma `is_cash` pero no que estuviera activa, así que se podía dejar el bar sin efectivo cobrable. Decisión: se exige **al menos una forma en efectivo ACTIVA** (el corte cuenta efectivo contra el cajón) además de una activa cualquiera; `no_cash_method`. El interruptor de la última en efectivo activa se deshabilita en Ajustes.
+- **Nombre del bar:** `settings.update` acepta `name` (1 a 80 caracteres, sin saltos de línea ni caracteres de control) solo con `ctx.appRole === 'bar_admin'`; a otro rol responde 400 `name_admin_only`. Tarjeta `BarNameCard` en Ajustes, solo para el admin y nunca desde una terminal.
+- **Invitación sin correo:** desde el código no se puede saber por qué falla `Core.SendEmail` (candidatas: 429 de la cuota compartida o el límite por hora por destinatario). Se dejó el envío igual, pero ahora se registra el mensaje del error y, con `email_sent: false`, la respuesta trae `invite_url` (`inviteLink`, registro con el correo o login) que Staff muestra para copiar con un aviso claro.
+- **Aviso a Mission Control al crear el bar:** `createWineBar` hace POST sin firma a `https://control.acaciaco.com.mx/api/ingest/tenant-pull` con `{app: 'sommel', tenantId}` (mismo contrato que StockFlow; MC relee el bar por el puente), best effort con timeout de 8 s.
+- Pruebas: `qa_client_fixes_test.ts`, `request_id_test.ts` y casos nuevos en `settings_logic_test.ts`.
+
+**Verificado:** lint, build, `check:guards`, `check:functions`, `deno test` (701/0) y `deno lint`. **No verificado:** nada contra Base44 ni Mission Control (que `tenant-pull` acepte la app `sommel` depende de su fila en `apps`, que existe desde 2026-09-30); las pantallas a 390/1440; el motivo real del fallo del correo de invitación.
+
+## addItems idempotente, corte sin cierres de $0 y cancelOrder en cero (2026-10-15)
+
+- **`orders.addItems` ya no duplica renglones al reintentar.** En producción un
+  `addItems` escribió sus 3 renglones y aun así respondió 429 (la cuota se agotó
+  después de los creates); el reintento los creó otra vez y la cuenta quedó al
+  doble. Ahora el cliente manda `batch_key` (uuid por intento, `Orden.jsx` la
+  conserva mientras la hoja tenga el mismo contenido y la suelta al tener éxito;
+  `reuseBatchKey` en `orders/helpers.js`) y el servidor guarda
+  `OrderItem.idempotency_key = batch_key:índice` (campo nuevo). Antes de crear
+  lee por esas llaves con `$in`: si ya están todas responde los renglones
+  guardados con `idempotent: true` (sin pedir confirmación de cantidad ni leer
+  productos); si faltan algunas, crea solo esas. Después de crear relee y cancela
+  los duplicados de dos peticiones simultáneas (sobreviviente = el más antiguo,
+  `cancel_reason: 'duplicado'`, nunca se borra). La lógica vive en
+  `addLinesIdempotent` (`orders/handlers/_logic.ts`, sin imports). Sin
+  `batch_key` el comportamiento es el de antes. `orders.addItems` entra a
+  `IDEMPOTENT_WRITES` porque `Orden.jsx` (único llamador) siempre la manda; el
+  reenvío tras `qty_confirm_required` reusa la misma llave. Límite aceptado: si
+  alguien cambia la hoja tras un fallo, la llave cambia y no hay forma de saber
+  si el intento anterior sí llegó.
+- **Corte:** `salesByMethod` (`shifts/handlers/_logic.ts`) ignora los pagos de
+  $0 ("Cerrar cuenta sin cobro"), igual que reportes: ya no cuentan como pago ni
+  imprimen "Efectivo $0.00". Esto cierra el pendiente anotado en la sección de
+  reportes del 2026-10-14.
+- **`cancelOrder`** calcula los totales con `tip: 0, tip_pct: null`: una comanda
+  cancelada queda en total 0 aunque tuviera propina fija. `Orden.jsx` muestra un
+  toast cuando `cancelOrder` responde `inventory_warning` (mismo patrón que
+  `CobroPanel`).
+- Docs: `entrega-1-contratos.md` §4 (addItems, cancelItem, cancelOrder,
+  upsertTable) y `entrega-2-contratos.md` §5 (`inventory.archiveItem`,
+  `item_archived`, `item_linked`).
+- Pruebas: `base44/tests/add_items_idempotent_test.ts` (simula el 429 después de
+  escribir, la tanda parcial, dos peticiones a la vez, sin `batch_key`, el corte
+  y el total de `cancelOrder`).
+
+**No verificado:** nada contra Base44 (los `entry.ts` importan el SDK; que
+`OrderItem.filter` acepte `idempotency_key: {$in}` se confía en lo comprobado para
+otros campos, con respaldo uno por uno); la hoja de producto en navegador.
+**Orden de despliegue:** primero el esquema de `OrderItem` (`idempotency_key`;
+sin él Base44 descarta el campo en silencio y la protección no actúa), luego
+funciones (`orders`, `shifts`) y por último el sitio. Verificar por contenido que
+`addItems` con un `batch_key` repetido responde `idempotent: true`.
+
+### Revisión final antes de publicar (2026-10-15)
+
+Revisión adversarial de todo el diff. Un bloqueante, corregido: la `batch_key` de
+`addItems` solo se soltaba al tener éxito, así que tras un fallo, cerrar la hoja y
+volver a agregar el mismo producto reusaba la llave y el alta se "replayaba" sin
+agregarse (cobro de menos, sin aviso). Ahora elegir un producto o cerrar la hoja
+suelta la llave; solo un reintento con la hoja abierta la reusa. Además, los
+gemelos que `addItems` neutraliza (`cancel_reason: 'duplicado'`,
+`cancelled_by: 'sistema'`) ya no cuentan como cancelaciones en reportes
+(`isSystemDuplicate`) ni en el corte (`countsAsCancelled`); prueba en
+`system_duplicate_test.ts`. Verificado: lint, build, check:guards,
+check:functions, validate:rls y deno test (732/0).

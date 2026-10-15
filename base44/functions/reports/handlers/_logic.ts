@@ -157,6 +157,8 @@ export interface AggregateInput {
   payments: PaymentRow[];
   /** Items with status `cancelado`, any order; narrowed by `updated_date`. */
   cancelledItems: ItemRow[];
+  /** Orders that own `cancelledItems`, to tell who cancelled when the line does not say. */
+  cancelledOrders?: { id: string; cancelled_by?: string }[];
   products: { id: string; category_id?: string }[];
   categories: { id: string; name?: string }[];
   wasteMovements: WasteMovementRow[];
@@ -236,6 +238,33 @@ export function computeTotals(orders: OrderRow[], itemsByOrder: Map<string, Item
   };
 }
 
+/**
+ * Splits an order discount across its lines in proportion to their gross
+ * amount, in exact integer centavos (largest remainder), so the shares always
+ * add up to the (capped) discount and none is negative or above its line.
+ */
+export function prorateDiscount(amounts: number[], discount: number): number[] {
+  const total = amounts.reduce((a, b) => a + b, 0);
+  const d = Math.max(0, Math.min(Math.round(num(discount)), total));
+  const shares = amounts.map(() => 0);
+  if (d === 0 || total <= 0) return shares;
+  // Largest remainder: floor every share, then hand the leftover cents to the
+  // biggest fractional parts (earlier line wins a tie). Every share stays
+  // between 0 and its own line amount, and they add up to d exactly.
+  const fracs: { i: number; f: number }[] = [];
+  let given = 0;
+  for (let i = 0; i < amounts.length; i++) {
+    if (!(amounts[i] > 0)) continue;
+    const exact = (d * amounts[i]) / total;
+    shares[i] = Math.floor(exact);
+    given += shares[i];
+    fracs.push({ i, f: exact - shares[i] });
+  }
+  fracs.sort((a, b) => b.f - a.f || a.i - b.i);
+  for (let r = 0; r < d - given; r++) shares[fracs[r].i] += 1;
+  return shares;
+}
+
 function sortDesc<T>(rows: T[], ...keys: ((r: T) => number)[]): T[] {
   return rows.sort((a, b) => {
     for (const k of keys) {
@@ -285,10 +314,35 @@ export function aggregate(input: AggregateInput) {
   let costedSales = 0;
   let uncosted = 0;
 
+  // Lines are valued NET: each one carries its share of the order discount
+  // (exact centavos), so the tables add up to `totals.sales_net` (sales
+  // without tip). Courtesy orders are not sales: they stay out of the
+  // product tables (they have their own "courtesies" list) but their real
+  // cost still counts against profit.
+  let courtesyCost = 0;
   for (const o of current) {
-    for (const it of itemsByOrder.get(o.id) ?? []) {
+    const lines = itemsByOrder.get(o.id) ?? [];
+    const gross = lines.map(lineSales);
+    const isCourtesy = o.discount_kind === 'cortesia';
+    const shares = isCourtesy ? gross : prorateDiscount(gross, num(o.discount));
+    for (let li = 0; li < lines.length; li++) {
+      const it = lines[li];
       const qty = num(it.qty);
-      const sales = lineSales(it);
+      const sales = gross[li] - shares[li];
+      const hasCost = it.unit_cost !== null && it.unit_cost !== undefined;
+
+      if (isCourtesy) {
+        if (includeCosts) {
+          if (!hasCost) uncosted += 1;
+          else {
+            const cost = Math.round(num(it.unit_cost) * qty);
+            costTotal += cost;
+            courtesyCost += cost;
+          }
+        }
+        continue;
+      }
+
       const key = `${it.product_id ?? ''}|${it.variant ?? ''}`;
       let row = byProduct.get(key);
       if (!row) {
@@ -319,7 +373,7 @@ export function aggregate(input: AggregateInput) {
       cat.sales += sales;
 
       if (includeCosts) {
-        if (it.unit_cost === null || it.unit_cost === undefined) {
+        if (!hasCost) {
           uncosted += 1;
           row.uncosted = (row.uncosted ?? 0) + 1;
         } else {
@@ -356,6 +410,9 @@ export function aggregate(input: AggregateInput) {
   const byMethodMap = new Map<string, { method: string; label: string; count: number; amount: number }>();
   for (const p of input.payments) {
     if (p.voided_at) continue;
+    // "Cerrar cuenta sin cobro" stores a $0 marker payment with whatever
+    // method was selected; it is not a payment and must not count as one.
+    if (num(p.amount) === 0) continue;
     if (!currentIds.has(String(p.order_id ?? ''))) continue;
     const key = p.method || '';
     let row = byMethodMap.get(key);
@@ -375,10 +432,14 @@ export function aggregate(input: AggregateInput) {
     byHour[h].sales += num(o.total);
   }
 
-  // ---- cancellations (item level, by when the line was cancelled)
+  // ---- cancellations (item level, by when the line was cancelled).
+  // A twin line neutralised by addItems' duplicate reconciliation is not a
+  // cancellation anyone made.
   const cancelled = input.cancelledItems
-    .filter((i) => i.status === 'cancelado' && inWindow(i.updated_date, input.fromISO, input.toISO))
+    .filter((i) => i.status === 'cancelado' && !isSystemDuplicate(i) && inWindow(i.updated_date, input.fromISO, input.toISO))
     .sort((a, b) => Date.parse(String(b.updated_date)) - Date.parse(String(a.updated_date)));
+  const cancelledByOrder = new Map((input.cancelledOrders ?? []).map((o) => [String(o.id), o.cancelled_by || '']));
+  const whoCancelled = (i: ItemRow): string => i.cancelled_by || cancelledByOrder.get(String(i.order_id ?? '')) || '';
   const cancellations = {
     count: cancelled.length,
     items: cancelled.slice(0, LIST_CAP).map((i) => ({
@@ -386,8 +447,8 @@ export function aggregate(input: AggregateInput) {
       qty: num(i.qty),
       reason: i.cancel_reason || '',
       prepared: !!i.prepared,
-      cancelled_by: i.cancelled_by || '',
-      cancelled_by_name: personName(input.people, i.cancelled_by),
+      cancelled_by: whoCancelled(i),
+      cancelled_by_name: personName(input.people, whoCancelled(i)),
       at: i.updated_date || '',
     })),
   };
@@ -470,8 +531,16 @@ export function aggregate(input: AggregateInput) {
       margin_pct: costedSales > 0 ? Math.round((profit / costedSales) * 1000) / 10 : null,
       uncosted_items: uncosted,
       costed_sales: costedSales,
+      courtesy_cost: courtesyCost,
     };
   }
 
   return result;
+}
+
+
+/** A line orders.addItems neutralised as a duplicate of a retried batch. Same
+ *  marker as addLinesIdempotent in orders/handlers/_logic.ts. */
+export function isSystemDuplicate(i: { cancel_reason?: unknown; cancelled_by?: unknown }): boolean {
+  return i.cancel_reason === 'duplicado' && i.cancelled_by === 'sistema';
 }

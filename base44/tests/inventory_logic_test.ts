@@ -4,6 +4,7 @@ import {
   LogicError, round3, computeStock, lowStockIds, validatePositiveQty, validateCounted, countDelta,
   validateWasteReason, normalizeOptionalReason, validateIdempotencyKey, validateUnitCost, applyUnitCost,
   redactUnitCost, normalizeItemFields, resolveLinkQuantities, redactProductCosts, clampLimit,
+  isArchived, activeItems, assertNotArchived, linkedProductNames, INVENTORY_UNITS,
 } from '../functions/inventory/handlers/_logic.ts';
 
 function eq(actual: unknown, expected: unknown, msg?: string) {
@@ -156,4 +157,36 @@ Deno.test('redactProductCosts strips cost and variants[].cost', () => {
 
 Deno.test('clampLimit', () => {
   eq(clampLimit(undefined), 50); eq(clampLimit(10), 10); eq(clampLimit(9999), 200); eq(clampLimit(-3), 50); eq(clampLimit(2.5), 50);
+});
+
+Deno.test('archived insumos leave the active list and the low-stock alert', () => {
+  const rows = [
+    { id: 'a', stock: 0, low_threshold: 1 },
+    { id: 'b', stock: 0, low_threshold: 1, archived_at: '2026-10-14T10:00:00.000Z' },
+    { id: 'c', stock: 5, low_threshold: 1, archived_at: null },
+  ];
+  eq(activeItems(rows).map((r) => r.id), ['a', 'c']);
+  eq(lowStockIds(activeItems(rows)), ['a']);
+  eq(isArchived(rows[1]), true); eq(isArchived(rows[2]), false); eq(isArchived(null), false);
+});
+
+Deno.test('writes on an archived insumo are refused', () => {
+  throwsCode(() => assertNotArchived({ archived_at: '2026-10-14T10:00:00.000Z' }), 'item_archived');
+  assertNotArchived({ archived_at: null }); assertNotArchived({});
+});
+
+Deno.test('linkedProductNames only counts products that still track this insumo', () => {
+  const products = [
+    { name: 'Copa', track_inventory: true, inventory_item_id: 'i1' },
+    { name: 'Botella', track_inventory: false, inventory_item_id: 'i1' },
+    { name: 'Otro', track_inventory: true, inventory_item_id: 'i2' },
+  ];
+  eq(linkedProductNames(products, 'i1'), ['Copa']);
+  eq(linkedProductNames(products, 'i3'), []);
+});
+
+Deno.test('the entity unit description lists every unit the logic accepts', async () => {
+  const text = await Deno.readTextFile(new URL('../entities/InventoryItem.jsonc', import.meta.url));
+  const line = text.split('\n').find((l) => l.includes('"unit":')) ?? '';
+  for (const u of INVENTORY_UNITS) if (!line.includes(u)) throw new Error(`unit description misses ${u}`);
 });

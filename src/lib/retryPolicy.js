@@ -29,12 +29,15 @@ export const READ_ACTIONS = {
  * cobro "no puede seguir pasando"):
  * - addPayment: the same idempotency_key answers with the payment it made;
  * - requestTicket: one ticket per order, paid amount, total and live payments (dedupe_key);
+ * - addItems: every line is stored with batch_key:index (the client always sends batch_key),
+ *   so a repeat answers with the stored lines;
  * - retryInventory: every inventory movement has its own idempotency key;
  * - markPrinted / markFailed: marking a job that is already marked is a no-op.
  * Never add a write here without that guarantee on the server.
  */
 export const IDEMPOTENT_WRITES = {
   payments: ['addPayment', 'requestTicket', 'retryInventory'],
+  orders: ['addItems'],
   printing: ['markPrinted', 'markFailed'],
 };
 

@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { callFn, ApiError } from '@/lib/api';
 import { cleanCatalog } from '@/lib/catalogShape';
+import { menuViewState } from '@/lib/menuViewState';
 import { usePermission } from '@/lib/usePermission';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -32,9 +33,12 @@ export default function Menu() {
   const [productDialog, setProductDialog] = useState(null); // null | { product?, categoryId }
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [togglingId, setTogglingId] = useState(null);
+  // A failed load must never look like an empty menu (it invites duplicate categories).
+  const [loadError, setLoadError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       // Quien edita necesita ver también lo inactivo, para poder reactivarlo;
       // quien solo consulta el menú ve el menú real que vería un cliente.
@@ -50,7 +54,7 @@ export default function Menu() {
         title: 'No se pudo cargar el menú',
         description: err instanceof ApiError ? err.message : 'Error de red, intenta de nuevo.',
       });
-      setData(EMPTY);
+      setLoadError(err instanceof ApiError && err.message ? err.message : 'Error de red, intenta de nuevo.');
     } finally {
       setLoading(false);
       setHasLoaded(true);
@@ -101,6 +105,8 @@ export default function Menu() {
     }
   };
 
+  const viewState = menuViewState({ loadError, categoryCount: sortedCategories.length });
+
   if (loadingPerms || (loading && !hasLoaded)) {
     return (
       <div className="flex justify-center py-24">
@@ -150,7 +156,17 @@ export default function Menu() {
         </TabsList>
       </Tabs>
 
-      {section === 'extras' ? (
+      {viewState === 'error' ? (
+        <div role="alert" className="text-center py-16 text-muted-foreground">
+          <p className="text-foreground font-medium">No se pudo cargar el menú.</p>
+          <p className="text-sm mt-1">{loadError}</p>
+          <div className="mt-4">
+            <Button variant="outline" onClick={load} disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Reintentar
+            </Button>
+          </div>
+        </div>
+      ) : section === 'extras' ? (
         <ExtrasSection
           extras={data.extras}
           products={data.products}
@@ -158,7 +174,7 @@ export default function Menu() {
           canEdit={canEdit}
           onChanged={load}
         />
-      ) : sortedCategories.length === 0 ? (
+      ) : viewState === 'empty' ? (
         <div className="text-center py-16 text-muted-foreground">
           Todavía no hay categorías.
           {canEdit && (

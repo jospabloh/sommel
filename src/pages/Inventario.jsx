@@ -13,6 +13,7 @@ import InventoryItemRow from '@/components/inventory/InventoryItemRow';
 import MovementDialog from '@/components/inventory/MovementDialog';
 import MovementsDialog from '@/components/inventory/MovementsDialog';
 import ItemFormDialog from '@/components/inventory/ItemFormDialog';
+import ArchiveItemDialog from '@/components/inventory/ArchiveItemDialog';
 import LinkProductsDialog from '@/components/inventory/LinkProductsDialog';
 import { sortItems } from '@/components/inventory/helpers';
 
@@ -31,6 +32,7 @@ export default function Inventario() {
   const [movement, setMovement] = useState({ mode: null, item: null });
   const [historyItem, setHistoryItem] = useState(null);
   const [linkItem, setLinkItem] = useState(null);
+  const [archiveItem, setArchiveItem] = useState(null);
   const [formItem, setFormItem] = useState(undefined); // undefined closed, null new, row edit
   // Product links per item, filled when the link dialog changes something.
   const [linkCounts, setLinkCounts] = useState({});
@@ -163,6 +165,7 @@ export default function Inventario() {
               onHistory={setHistoryItem}
               onLink={setLinkItem}
               onEdit={(i) => setFormItem(i)}
+              onArchive={setArchiveItem}
             />
           ))}
         </ul>
@@ -181,6 +184,15 @@ export default function Inventario() {
         showCost={showCost}
         onOpenChange={(v) => { if (!v) setFormItem(undefined); }}
         onSaved={applyItem}
+      />
+      <ArchiveItemDialog
+        item={archiveItem}
+        linkedCount={archiveItem ? linkCounts[archiveItem.id] || 0 : 0}
+        onOpenChange={(v) => { if (!v) setArchiveItem(null); }}
+        onArchived={(id) => {
+          setItems((prev) => prev.filter((i) => i.id !== id));
+          setLowIds((prev) => prev.filter((x) => x !== id));
+        }}
       />
       <LinkProductsDialog
         item={linkItem}
