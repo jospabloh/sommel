@@ -1848,3 +1848,32 @@ sola aísla). Mapa de entidades, decisiones y preguntas abiertas:
 - `TableMap`: las mesas sin `x/y` van a la cuadrícula automática bajo el mapa (`tableLayout.js`), nunca encimadas en 0,0.
 - Pruebas: `base44/tests/cancel_order_test.ts`.
 - **No verificado:** nada contra Base44 en vivo (los `entry.ts` importan el SDK); el descuento real de inventario de un cobro anulado y luego cancelado; el mapa con mesas mixtas en pantalla. Sin desplegar.
+
+## Inventario: dar de baja un insumo (2026-10-14)
+
+Hallazgo del recorrido: un insumo creado por error no se podía quitar. Código en
+el repo; nada publicado ni verificado en vivo.
+- **`inventory.archiveItem`** (`Inventario:editar`, `requireWritable`, `loadOwned`)
+  escribe `InventoryItem.archived_at` (campo nuevo; la entidad ya es de escritura
+  solo servicio, así que no hizo falta un candado de campo). No borra nada: el
+  registro y sus movimientos se conservan para el historial y los reportes de
+  merma. Es idempotente.
+- **Decisión de producto simple y segura:** si algún producto sigue ligado al
+  insumo (`track_inventory` + `inventory_item_id`), responde 409 `item_linked`
+  nombrando hasta tres productos; hay que desligarlos primero desde "Productos".
+  Así ninguna venta sigue descontando de un insumo oculto.
+- `list` y la alerta de mínimo ignoran los dados de baja (`activeItems`);
+  `upsertItem`, `addEntry`, `addWaste`, `count` y `linkProduct` rechazan uno
+  dado de baja con 400 `item_archived`. `movements` y reportes lo siguen leyendo.
+  No hay botón para reactivar: sería una acción aparte si hace falta.
+- Pantalla: botón "Dar de baja" en cada insumo (solo con `Inventario:editar`),
+  con confirmación (`ArchiveItemDialog`) que avisa si hay productos ligados.
+- **Existencia negativa:** no se bloquea (puede ser un conteo atrasado). La fila
+  ahora dice "Existencia negativa" y cómo corregirla (un conteo) en vez de un
+  "Agotado" ambiguo.
+- La descripción de `InventoryItem.unit` ahora lista ml; una prueba la amarra a
+  `INVENTORY_UNITS`. Pruebas nuevas en `base44/tests/inventory_logic_test.ts`.
+- **Orden de despliegue:** el esquema (`archived_at`) antes que las funciones;
+  sin él Base44 descarta el campo en silencio y el insumo no se oculta.
+  **No verificado:** nada contra Base44 (los `entry.ts` importan el SDK) ni las
+  pantallas a 390/1440 en claro y oscuro.

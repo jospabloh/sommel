@@ -1,7 +1,7 @@
 // One insumo in the list. Low stock is shown with the destructive token, not
 // color alone: a "Bajo" / "Agotado" label rides along.
 import React from 'react';
-import { PackagePlus, Trash2, ClipboardCheck, History, Link2, Pencil } from 'lucide-react';
+import { PackagePlus, Trash2, ClipboardCheck, History, Link2, Pencil, Archive } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatMXN } from '@/lib/money';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,11 @@ import { formatQty, unitShort } from './helpers';
 export default function InventoryItemRow({
   item, isLow, showCost, linkedCount,
   canEdit, canWaste,
-  onEntry, onWaste, onCount, onHistory, onLink, onEdit,
+  onEntry, onWaste, onCount, onHistory, onLink, onEdit, onArchive,
 }) {
-  const depleted = (Number(item.stock) || 0) <= 0;
+  const stockNum = Number(item.stock) || 0;
+  const negative = stockNum < 0;
+  const depleted = stockNum <= 0;
   return (
     <li
       className={cn(
@@ -37,7 +39,10 @@ export default function InventoryItemRow({
           </div>
           <div className="text-xs text-muted-foreground mt-1">{unitShort(item.unit)}</div>
           {isLow && (
-            <div className="text-[11px] font-medium text-destructive mt-1">{depleted ? 'Agotado' : 'Bajo'}</div>
+            <div className="text-[11px] font-medium text-destructive mt-1">{negative ? 'Existencia negativa' : depleted ? 'Agotado' : 'Bajo'}</div>
+          )}
+          {negative && (
+            <div className="text-[11px] text-muted-foreground mt-0.5 max-w-[11rem]">Hay más salidas que entradas. Haz un conteo para corregirla.</div>
           )}
         </div>
       </div>
@@ -66,6 +71,11 @@ export default function InventoryItemRow({
         {canEdit && (
           <Button size="sm" variant="ghost" className="h-9" onClick={() => onEdit(item)} aria-label={`Editar ${item.name}`}>
             <Pencil className="w-4 h-4" />
+          </Button>
+        )}
+        {canEdit && (
+          <Button size="sm" variant="ghost" className="h-9" onClick={() => onArchive(item)} aria-label={`Dar de baja ${item.name}`}>
+            <Archive className="w-4 h-4 mr-1.5" /> Dar de baja
           </Button>
         )}
         <Button size="sm" variant="ghost" className="h-9" onClick={() => onHistory(item)}>

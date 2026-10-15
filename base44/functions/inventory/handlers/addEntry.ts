@@ -1,13 +1,14 @@
 // inventory.addEntry: stock in. `unit_cost` (with Menú:ver_costos) also
 // becomes the item's current cost.
 import { loadOwned, requirePermission, requireWritable, hasPermission, type Ctx, type Route } from '../_guard.ts';
-import { applyUnitCost, normalizeOptionalReason, redactUnitCost, validateIdempotencyKey, validatePositiveQty } from './_logic.ts';
+import { applyUnitCost, assertNotArchived, normalizeOptionalReason, redactUnitCost, validateIdempotencyKey, validatePositiveQty } from './_logic.ts';
 import { guardLogic, recordMovement } from './_shared.ts';
 
 export const addEntry: Route = async (ctx: Ctx, body: any) => {
   const item = await loadOwned(ctx, 'InventoryItem', body?.item_id);
   await requirePermission(ctx, 'Inventario:editar');
   requireWritable(ctx);
+  guardLogic(() => assertNotArchived(item));
 
   const qty = guardLogic(() => validatePositiveQty(body?.qty));
   const reason = guardLogic(() => normalizeOptionalReason(body?.reason));

@@ -1,13 +1,14 @@
 // inventory.count: physical count. Writes a `conteo` movement whose qty is
 // counted minus the stock the movements currently add up to.
 import { loadOwned, requirePermission, requireWritable, hasPermission, type Ctx, type Route } from '../_guard.ts';
-import { countDelta, normalizeOptionalReason, redactUnitCost, validateCounted, validateIdempotencyKey } from './_logic.ts';
+import { assertNotArchived, countDelta, normalizeOptionalReason, redactUnitCost, validateCounted, validateIdempotencyKey } from './_logic.ts';
 import { guardLogic, recordMovement } from './_shared.ts';
 
 export const count: Route = async (ctx: Ctx, body: any) => {
   const item = await loadOwned(ctx, 'InventoryItem', body?.item_id);
   await requirePermission(ctx, 'Inventario:editar');
   requireWritable(ctx);
+  guardLogic(() => assertNotArchived(item));
 
   const counted = guardLogic(() => validateCounted(body?.counted));
   const reason = guardLogic(() => normalizeOptionalReason(body?.reason));

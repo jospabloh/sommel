@@ -11,7 +11,8 @@ import { addEntry } from './handlers/addEntry.ts';
 import { addWaste } from './handlers/addWaste.ts';
 import { count } from './handlers/count.ts';
 import { linkProduct } from './handlers/linkProduct.ts';
+import { archiveItem } from './handlers/archiveItem.ts';
 
 export default function (req: Request): Promise<Response> {
-  return handle(req, { list, movements, upsertItem, addEntry, addWaste, count, linkProduct });
+  return handle(req, { list, movements, upsertItem, addEntry, addWaste, count, linkProduct, archiveItem });
 }
