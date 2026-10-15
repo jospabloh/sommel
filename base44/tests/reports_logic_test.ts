@@ -308,10 +308,18 @@ Deno.test('empty period: zeros, 24 hour buckets, no divide by zero', () => {
 
 // ---- QA fixes 2026-10-14 ----------------------------------------------------
 
-Deno.test('prorateDiscount: exact centavos, the last line with money absorbs the residue', () => {
+Deno.test('prorateDiscount: exact centavos by largest remainder', () => {
   const shares = prorateDiscount([1000, 1000, 1000], 100); // 33.33 each
   eq(shares.reduce((a, b) => a + b, 0), 100);
-  eq(shares, [33, 33, 34]);
+  eq(shares, [34, 33, 33]);
+  // Rounding each share on its own gave [1, 1, 1, -1] here: a product priced
+  // above its gross. Every share must stay between 0 and its line amount.
+  eq(prorateDiscount([10000, 10000, 10000, 10000], 2), [1, 1, 0, 0]);
+  for (const [amts, d] of [[[1, 1, 1, 1, 1, 1, 1], 3], [[999, 1, 1], 2], [[5, 5, 5], 14]] as [number[], number][]) {
+    const s = prorateDiscount(amts, d);
+    eq(s.reduce((a, b) => a + b, 0), d);
+    eq(s.every((x, i) => x >= 0 && x <= amts[i]), true);
+  }
   eq(prorateDiscount([500, 0, 1500], 200), [50, 0, 150]);
   eq(prorateDiscount([300, 700], 0), [0, 0]);
   eq(prorateDiscount([300, 700], 5000), [300, 700]); // capped at the lines' total

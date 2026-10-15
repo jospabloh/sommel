@@ -79,6 +79,19 @@ Deno.test('addItems: two requests at once leave one live row per key', async () 
   eq(store.rows.filter((r) => r.status === 'cancelado').every((r) => r.cancel_reason === 'duplicado'), true);
 });
 
+Deno.test('addItems: a replay neutralises twins an earlier clean-up left live', async () => {
+  const store = fakeStore();
+  const keys = batchLineKeys('abcdefgh-4', 3);
+  // Two concurrent runs wrote every key twice and neither managed to clean up.
+  for (let i = 0; i < 3; i++) { await store.create(lines[i], keys[i]); await store.create(lines[i], keys[i]); }
+  eq(live(store.rows).length, 6);
+  const res = await addLinesIdempotent({ keys, lines, find: store.find, create: store.create, neutralize: store.neutralize, pick: pickSurvivor });
+  eq(res.idempotent, true);
+  eq(store.rows.length, 6); // nothing new created
+  eq(live(store.rows).length, 3); // the order no longer counts the twins
+  eq(res.rows.map((r) => r.name), ['a', 'b', 'c']);
+});
+
 Deno.test('addItems: without batch_key the behavior is the old one', async () => {
   const store = fakeStore();
   const args = { keys: null, lines, find: store.find, create: store.create, neutralize: store.neutralize, pick: pickSurvivor };

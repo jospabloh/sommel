@@ -240,24 +240,28 @@ export function computeTotals(orders: OrderRow[], itemsByOrder: Map<string, Item
 
 /**
  * Splits an order discount across its lines in proportion to their gross
- * amount, in exact integer centavos: every line but the last one that has
- * money takes round(discount * amount / total), and that last line absorbs the
- * residue, so the shares always add up to the (capped) discount.
+ * amount, in exact integer centavos (largest remainder), so the shares always
+ * add up to the (capped) discount and none is negative or above its line.
  */
 export function prorateDiscount(amounts: number[], discount: number): number[] {
   const total = amounts.reduce((a, b) => a + b, 0);
   const d = Math.max(0, Math.min(Math.round(num(discount)), total));
   const shares = amounts.map(() => 0);
   if (d === 0 || total <= 0) return shares;
-  let last = -1;
-  for (let i = 0; i < amounts.length; i++) if (amounts[i] > 0) last = i;
+  // Largest remainder: floor every share, then hand the leftover cents to the
+  // biggest fractional parts (earlier line wins a tie). Every share stays
+  // between 0 and its own line amount, and they add up to d exactly.
+  const fracs: { i: number; f: number }[] = [];
   let given = 0;
   for (let i = 0; i < amounts.length; i++) {
-    if (i === last) continue;
-    shares[i] = amounts[i] > 0 ? Math.round((d * amounts[i]) / total) : 0;
+    if (!(amounts[i] > 0)) continue;
+    const exact = (d * amounts[i]) / total;
+    shares[i] = Math.floor(exact);
     given += shares[i];
+    fracs.push({ i, f: exact - shares[i] });
   }
-  shares[last] = d - given;
+  fracs.sort((a, b) => b.f - a.f || a.i - b.i);
+  for (let r = 0; r < d - given; r++) shares[fracs[r].i] += 1;
   return shares;
 }
 

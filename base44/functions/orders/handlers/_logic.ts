@@ -505,7 +505,9 @@ export async function addLinesIdempotent(args: IdempotentBatchArgs): Promise<{ r
     created.set(keys[i], await create(lines[i], keys[i]));
   }
   if (created.size === 0) {
-    return { rows: keys.map((k) => pick(before.get(k) ?? [])).filter(Boolean), idempotent: true };
+    // A replay. Twins left live by an earlier run whose clean-up failed are
+    // neutralised here too, or the order keeps counting them.
+    return { rows: await keepOnePerKey(keys, before, created, neutralize, pick), idempotent: true };
   }
 
   // Concurrent twin requests: re-read and keep one row per key.
@@ -515,9 +517,21 @@ export async function addLinesIdempotent(args: IdempotentBatchArgs): Promise<{ r
   } catch {
     return { rows: keys.map((k) => created.get(k) ?? pick(before.get(k) ?? [])).filter(Boolean), idempotent: false };
   }
+  return { rows: await keepOnePerKey(keys, after, created, neutralize, pick), idempotent: false };
+}
+
+/** One survivor per key (pick's choice); every other live row of that key is
+ *  neutralised, best effort: whatever fails is retried by the next replay. */
+async function keepOnePerKey(
+  keys: string[],
+  groups: Map<string, any[]>,
+  created: Map<string, any>,
+  neutralize: IdempotentBatchArgs['neutralize'],
+  pick: IdempotentBatchArgs['pick'],
+): Promise<any[]> {
   const rows: any[] = [];
   for (const k of keys) {
-    const group = after.get(k) ?? [];
+    const group = groups.get(k) ?? [];
     const survivor = pick(group) ?? created.get(k) ?? null;
     for (const row of group) {
       if (survivor && row.id !== survivor.id && row.status !== 'cancelado') {
@@ -526,5 +540,5 @@ export async function addLinesIdempotent(args: IdempotentBatchArgs): Promise<{ r
     }
     if (survivor) rows.push(survivor);
   }
-  return { rows, idempotent: false };
+  return rows;
 }
