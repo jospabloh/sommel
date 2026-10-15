@@ -2123,6 +2123,14 @@ que un registro real reciba el código en español y desde
 no está en el archivo de la plantilla; si sigue en inglés, se cambia en el
 panel (Editar con IA) y no desde el repo.
 
+**Revisado a las 12:14 del 2026-10-15:** la línea "Se envía" ya no aparece en
+Panel → Correos → Verificación del correo (Base44 terminó de revisar la
+versión propia) y la vista previa sale en español ("Hola, Alex:", "Usa este
+código de verificación..."). **El asunto sigue en inglés**, "Verify your email
+for Sommel": en el panel no es un campo editable, solo se cambia con "Editar con
+IA". No se mandó correo de prueba; falta ver un registro real llegar desde
+`no-reply@sommel.acaciaco.com.mx`.
+
 ## Módulo 29: marco de la app (AppShell), 2026-10-15
 
 `src/components/AppShell.jsx` y `PageHeader.jsx` son copia exacta de
