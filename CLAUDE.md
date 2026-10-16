@@ -1193,6 +1193,9 @@ Aguascalientes, UTC-6).
 | 2026-10-08 (jueves) 21:07 | José | Confirma lo anotado (corte a los dos correos, staff sin cancelar, descuentos solo gerente, vales como tarjeta) y pregunta: con una mesa sin pagar, ¿se cierra el turno y la cuenta pasa al siguiente, o el gerente la cobra antes del corte? Costos cuando regrese | **Enviado, sin respuesta. El plazo cuenta desde aquí** |
 | 2026-10-15 (jueves) 09:48 | Alby | "Buenos días, José Pablo." y nada más; la pregunta del cierre de turno sigue sin respuesta | Sin contestar hasta el 16 |
 | 2026-10-16 (viernes) 12:22 | José | Avance del proyecto (~65 %, lo de ACACIA casi completo), lo que sigue con ella (visita con impresora y órdenes de prueba, turno comparado con Loyverse, una semana en paralelo y capacitación), pide verse antes del 25 de octubre para llegar a ~15 de noviembre (7 semanas desde el sí del 2026-09-27), costos sin bloquear y el cierre de turno para platicarlo ese día | **Enviado, sin respuesta. El plazo cuenta desde aquí** |
+| 2026-10-16 (viernes) 12:24-12:25 | Alby | Audio de 0:47 (transcrito por José): ya está en Aguascalientes desde el miércoles, con muchos pendientes; los **costos** los actualiza la próxima semana (revisa ingredientes que subieron en 3 meses); puede verse sábado 17 o martes 20; **los lunes Vindima no abre** | Contestado |
+| 2026-10-16 (viernes) 12:32 | José | Elige el martes y le pregunta la hora; propone verse en Vindima para probar la impresora en su laptop y tomar órdenes de prueba (~40 min) | Contestado |
+| 2026-10-16 (viernes) 12:34 | Alby | **Martes 20 de octubre, 6 pm**, en Vindima (mandó la dirección del local) | **Cita confirmada.** Guion en `docs/demo-alby.md`; antes: cancelar las 6 comandas viejas de Sommel QA y abrir el turno |
 
 **Cómo se traduce a Sommel** (para cuando exista su bar; el 2026-10-09 en
 producción solo hay dos bares, los dos de prueba: Vindima todavía **no tiene
