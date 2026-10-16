@@ -1191,6 +1191,8 @@ Aguascalientes, UTC-6).
 | 2026-10-08 (jueves) 13:20 | José | Seguimiento corto: sin repetir las preguntas, ofrece contestar con un audio o pasar el contacto de alguien de su equipo | Contestado el mismo día |
 | 2026-10-08 (jueves) 16:19-16:22 | Alby | **Costos:** aún no los tiene (sigue de viaje). **Vales:** no sabe de qué tipo; algunas tarjetas de empresa/vales pasan en la terminal. **Corte de caja a:** albilda@rochavillanueva.com y vindima.ags@gmail.com. **Permisos:** el equipo no puede cancelar; descuentos solo el gerente. **Cerrar turno con cuentas abiertas:** sí, como excepción; "hay que pagarlas para hacer corte" | Contestado |
 | 2026-10-08 (jueves) 21:07 | José | Confirma lo anotado (corte a los dos correos, staff sin cancelar, descuentos solo gerente, vales como tarjeta) y pregunta: con una mesa sin pagar, ¿se cierra el turno y la cuenta pasa al siguiente, o el gerente la cobra antes del corte? Costos cuando regrese | **Enviado, sin respuesta. El plazo cuenta desde aquí** |
+| 2026-10-15 (jueves) 09:48 | Alby | "Buenos días, José Pablo." y nada más; la pregunta del cierre de turno sigue sin respuesta | Sin contestar hasta el 16 |
+| 2026-10-16 (viernes) 12:22 | José | Avance del proyecto (~65 %, lo de ACACIA casi completo), lo que sigue con ella (visita con impresora y órdenes de prueba, turno comparado con Loyverse, una semana en paralelo y capacitación), pide verse antes del 25 de octubre para llegar a ~15 de noviembre (7 semanas desde el sí del 2026-09-27), costos sin bloquear y el cierre de turno para platicarlo ese día | **Enviado, sin respuesta. El plazo cuenta desde aquí** |
 
 **Cómo se traduce a Sommel** (para cuando exista su bar; el 2026-10-09 en
 producción solo hay dos bares, los dos de prueba: Vindima todavía **no tiene
@@ -2185,3 +2187,16 @@ Lo que se supo después de publicar, sin reescribir las secciones de arriba.
   secciones anteriores; Codex lo marcó y se devolvió a su forma original. Las
   correcciones van aquí.
 
+
+## Demo con Alby en Sommel QA (2026-10-16)
+
+Guion en `docs/demo-alby.md`. Escrito en producción, solo en Sommel QA
+(`6abaa0c3e0af429e71d1752d`), con aprobación de José y releído después:
+`PermissionProfile` de staff con `overrides: {"Comandas:cancelar_enviado":
+false}` (lo que pidió Alby: el equipo no cancela), y el insumo
+`6abaeb5a7b2524334eb71a16` renombrado de "QA Insumo 1790634842485" a "Chai
+Vindima (porción)". Los correos del corte se dejaron en la cuenta QA a
+propósito. **No hecho:** cancelar las 6 comandas viejas sin pagos (Mesa 1, 3
+y 5, Barra 1 y 2, y una sin mesa). La escritura directa se bloqueó y es mejor
+así: se cancelan desde la app con **Cancelar orden**, que libera las mesas y
+registra la merma del Chai entregado.
