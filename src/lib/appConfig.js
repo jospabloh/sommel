@@ -12,9 +12,9 @@
  * const` lines below and the `export const CHANGELOG = [` opener exactly as
  * they are. Newest entry first. Every entry is written in user language.
  */
-export const APP_VERSION = "0.15.4";
+export const APP_VERSION = "0.15.5";
 
-export const RELEASE_DATE = "2026-10-15";
+export const RELEASE_DATE = "2026-10-16";
 
 // Public contact channels. Not secrets. The same email lives in
 // src/lib/billingNotice.js (SUPPORT_EMAIL); the WhatsApp line is the ACACIA
@@ -26,6 +26,14 @@ export const SUPPORT_WHATSAPP_URL = "https://wa.me/524498958291";
 // #14, one entry per PR, versions 0.<PR number>.0). From here on the release
 // script adds a patch entry per release.
 export const CHANGELOG = [
+  {
+    version: "0.15.5",
+    date: "2026-10-16",
+    changes: [
+      "docs: guion de demo para Alby (Vindima)",
+      "CLAUDE.md: cita con Alby el martes 20, 6 pm",
+    ],
+  },
   {
     version: "0.15.4",
     date: "2026-10-15",
