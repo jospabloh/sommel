@@ -66,11 +66,13 @@ tienen PIN para la terminal y el checador.
 
 - En la Mesa 2, **Cobrar** → dividir en **2 partes iguales**.
 - Parte 1: tarjeta, propina **15 %** de su parte.
-- Parte 2: efectivo, propina **10 %**. Abre el cajón si hay impresora USB.
+- Parte 2: efectivo, propina **10 %**.
 - Decir: los vales que pasan por la terminal bancaria se cobran como
   **Tarjeta**. Si Alby quiere verlos aparte en el corte, se agrega la forma
   de pago "Vales" en Ajustes.
-- Si hay impresora conectada, sale el ticket.
+- Al terminar, tocar **Imprimir ticket**. Registrar el pago no imprime nada:
+  el ticket, y la apertura del cajón por el pago en efectivo, salen solo con
+  ese botón y si hay impresora USB conectada.
 
 ### 5. Descuento solo del gerente (1 min) · Mesero Prueba y Admin Prueba
 
@@ -80,11 +82,14 @@ tienen PIN para la terminal y el checador.
 
 ### 6. Corte (2 min) · Admin Prueba, laptop
 
-- **Turno**: ventas por forma de pago, propinas y efectivo esperado.
-- **Cerrar turno** contando el efectivo. Si queda una mesa abierta, Sommel
-  no deja cerrar (`open_orders`). Es la pregunta que Alby tiene pendiente
-  ("hay que pagarlas para hacer corte"), así que conviene mostrarlo y
-  preguntarle ahí mismo.
+- **Turno**: ventas por forma de pago y efectivo esperado.
+- **Cerrar turno** con la mesa del paso 5 todavía abierta: Sommel no deja
+  cerrar (`open_orders`). Es la pregunta que Alby tiene pendiente ("hay que
+  pagarlas para hacer corte"), así que conviene mostrarlo y preguntarle ahí
+  mismo.
+- Cobrar esa mesa y volver a **Cerrar turno** contando el efectivo. El
+  resumen del corte muestra ventas, formas de pago, **propinas** y la
+  diferencia de caja.
 - El corte se manda por correo. En su bar llegará a
   `albilda@rochavillanueva.com` y `vindima.ags@gmail.com`; en esta demo va a
   la cuenta QA.
