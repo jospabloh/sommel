@@ -100,3 +100,12 @@ Deno.test('CORS: preflight and allowed origin; a foreign origin gets no allow he
   const evil = await served(new Request('http://x', { method: 'POST', headers: { Origin: 'https://evil.example' }, body: '{}' }));
   assertEquals(evil.headers.get('Access-Control-Allow-Origin'), null);
 });
+
+Deno.test('security: an approval id is plausible as a uuid here, as 24 hex on Base44', async () => {
+  const { isPlausibleRecordId } = await import('../../functions/security/_request_id_logic.ts');
+  const base44 = await import('../../../base44/functions/security/_request_id_logic.ts');
+  const uuid = '3f2b8c1e-9a4d-4e7b-8c2a-1d5e6f7a8b9c';
+  const hex = '6a750a5d84dcc1b5f5e39eb5';
+  assertEquals([isPlausibleRecordId(uuid), isPlausibleRecordId(hex)], [true, false]);
+  assertEquals([base44.isPlausibleRecordId(uuid), base44.isPlausibleRecordId(hex)], [false, true], 'Base44 untouched');
+});
