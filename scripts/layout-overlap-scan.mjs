@@ -162,6 +162,9 @@ const SCREENS = [
   { key: 'mesas-nueva', path: '/mesas', after: async (page) => { await page.getByRole('button', { name: /^Mesa$/ }).first().click(); await page.waitForTimeout(500); } },
   { key: 'orden-variante', path: '/orden/o1', after: async (page) => { await page.getByRole('button', { name: /Agregar/ }).first().click(); await page.waitForTimeout(500); await page.locator('[role=dialog] button', { hasText: /Malbec 0/ }).first().click().catch(() => {}); await page.waitForTimeout(600); } },
   { key: 'orden-dividir', path: '/orden/o1', after: async (page) => { await page.getByRole('button', { name: /Cobrar/ }).first().click(); await page.waitForTimeout(600); await page.getByRole('button', { name: /Iguales/ }).first().click().catch(() => {}); await page.waitForTimeout(500); } },
+  // Module 12's corner switcher stays put while the page scrolls under it: a
+  // sweep stops at several scroll positions and judges only the switcher.
+  { key: 'orden-sweep', path: '/orden/o1', sweep: true },
   { key: 'orden-menu', path: '/orden/o1', after: async (page) => { await page.locator('button:has(svg.lucide-ellipsis-vertical)').first().click().catch(() => {}); await page.waitForTimeout(400); } },
   { key: 'turno', path: '/turno' },
   { key: 'mesas-staff', path: '/mesas', who: 'staff' },
@@ -202,6 +205,8 @@ const SCREENS = [
   } },
   { key: 'menu', path: '/menu' },
   { key: 'cocina', path: '/estacion/kitchen' },
+  { key: 'cocina-y-barra', path: '/estacion/todo' },
+  { key: 'seguridad', path: '/seguridad' },
   { key: 'barra', path: '/estacion/bar' },
   { key: 'checador', path: '/checador' },
   { key: 'asistencia', path: '/asistencia' },
@@ -262,6 +267,9 @@ async function measure(page, phase) {
       return null;
     };
     const skipFixed = (a, b) => phase === 'top' && scrollable && (!!fixedOf(a) !== !!fixedOf(b));
+    // In a sweep, only a control under the corner theme switcher counts.
+    const inSwitcher = (el) => !!el.closest('[data-theme-switcher]');
+    const notSwitcherPair = (a, b) => phase === 'sweep' && inSwitcher(a) === inSwitcher(b);
     // b sits fully inside a and is the thing hit at its own centre: a deliberate overlay.
     const nestedOnTop = (a, b, ra, rb) => ra.left <= rb.left + 1 && ra.right >= rb.right - 1 && ra.top <= rb.top + 1 && ra.bottom >= rb.bottom - 1 && (() => {
       const cx = rb.left + rb.width / 2, cy = rb.top + rb.height / 2;
@@ -283,7 +291,7 @@ async function measure(page, phase) {
         // a label wrapping the control it labels (radio rows) is one hit area
         if (a.closest('label') && a.closest('label') === b.closest('label')) continue;
         const area = inter(rects[i], rects[j]);
-        if (area && skipFixed(a, b)) continue;
+        if (area && (skipFixed(a, b) || notSwitcherPair(a, b))) continue;
         // Sticky chrome (the shell's top bar, module 29; Orden's own header) is
         // drawn over the page, which scrolls beneath it: not an overlap, but
         // only once the page has scrolled. Unscrolled, a control under sticky
@@ -305,7 +313,7 @@ async function measure(page, phase) {
         if (at.closest('label') && at.closest('label') === els[i].closest('label')) continue;
         // A <label>/<td> or sibling text is not a competing control.
         const hit = at.closest(SEL) || at.closest('[data-theme-switcher], [class*="fixed"]');
-        if (!hit || hit === els[i] || skipFixed(els[i], hit) || (scrolledNow && stickyOf(els[i]) !== stickyOf(hit))) continue;
+        if (!hit || hit === els[i] || skipFixed(els[i], hit) || notSwitcherPair(els[i], hit) || (scrolledNow && stickyOf(els[i]) !== stickyOf(hit))) continue;
         covered.push(`${label(els[i])} covered by ${label(hit)}`);
         break;
       }
@@ -363,15 +371,25 @@ for (const vp of vps) {
       await page.waitForTimeout(600);
       if (scr.after) await scr.after(page);
     } catch (e) { errors.push(`nav: ${String(e.message).slice(0, 120)}`); }
-    for (const phase of ['top', 'bottom']) {
+    // A sweep: every 20px from top to bottom (scrolled, so sticky chrome is skipped).
+    const stops = scr.sweep ? await page.evaluate(() => {
+      const max = document.scrollingElement.scrollHeight - innerHeight;
+      const out = [];
+      for (let y = 20; y < max; y += 20) out.push(y);
+      return out;
+    }) : [];
+    const phases = scr.sweep ? stops.map((y) => ({ name: 'sweep', y })) : [{ name: 'top' }, { name: 'bottom' }];
+    if (scr.sweep && !stops.length) errors.push('sweep: la página no hace scroll');
+    for (const { name: phase, y } of phases) {
       if (phase === 'bottom') { await page.evaluate(() => window.scrollTo(0, document.scrollingElement.scrollHeight)); await page.waitForTimeout(200); }
+      if (phase === 'sweep') { await page.evaluate((y) => window.scrollTo(0, y), y); await page.waitForTimeout(60); }
       const m = await measure(page, phase);
-      const finding = { vp: `${vp.w}x${vp.h}`, screen: scr.key, phase, path: page.url().replace(base, ''), errors: phase === 'top' ? errors : [], ...m };
+      const finding = { vp: `${vp.w}x${vp.h}`, screen: scr.key, phase: y == null ? phase : `${phase} y=${y}`, path: page.url().replace(base, ''), errors: phase === 'top' ? errors : [], ...m };
       const bad = m.overlaps.length + m.covered.length + (m.overflowX ? 1 : 0) + m.wide.length + m.clipped.length;
       if (bad) { problems += bad; report.push(finding); }
       if (SHOTS && (bad || phase === 'top')) {
         await mkdir(SHOTS, { recursive: true });
-        await page.screenshot({ path: `${SHOTS}/${scr.key}-${vp.w}x${vp.h}-${phase}.png` });
+        await page.screenshot({ path: `${SHOTS}/${scr.key}-${vp.w}x${vp.h}-${phase}${y == null ? "" : `-${y}`}.png` });
       }
     }
     // A page error or a failed step (an `after` that throws, e.g. the update

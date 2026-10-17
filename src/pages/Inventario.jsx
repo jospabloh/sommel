@@ -3,7 +3,7 @@
 // servidor la recalcula de los movimientos. Productos ligados vía
 // callFn('catalog','listProducts'); nunca se lee Product directo.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Package, Plus, RotateCw, AlertTriangle } from 'lucide-react';
+import { Plus, RotateCw, AlertTriangle } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { cleanCatalog } from '@/lib/catalogShape';
 import { usePermission } from '@/lib/usePermission';
@@ -16,6 +16,7 @@ import ItemFormDialog from '@/components/inventory/ItemFormDialog';
 import ArchiveItemDialog from '@/components/inventory/ArchiveItemDialog';
 import LinkProductsDialog from '@/components/inventory/LinkProductsDialog';
 import { sortItems } from '@/components/inventory/helpers';
+import PageHeader from '@/components/PageHeader';
 
 export default function Inventario() {
   const { can } = usePermission();
@@ -101,23 +102,22 @@ export default function Inventario() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-3xl">
-      <div className="flex flex-wrap items-center gap-3 mb-5">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-          <Package className="w-6 h-6 text-primary" />
-        </div>
-        <div className="flex-1 min-w-[9rem]">
-          <h1 className="font-display text-2xl sm:text-3xl font-semibold">Inventario</h1>
-          <p className="text-muted-foreground mt-0.5">Existencias, entradas, mermas y conteos.</p>
-        </div>
-        <Button variant="ghost" size="icon" onClick={load} aria-label="Actualizar" disabled={loading}>
-          <RotateCw className={loading ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />
-        </Button>
-        {canEdit && (
-          <Button onClick={() => setFormItem(null)} className="h-10">
-            <Plus className="w-4 h-4 mr-1.5" /> Nuevo insumo
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Inventario"
+        description="Existencias, entradas, mermas y conteos."
+        actions={
+          <>
+            <Button variant="ghost" size="icon" onClick={load} aria-label="Actualizar" disabled={loading}>
+              <RotateCw className={loading ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />
+            </Button>
+            {canEdit && (
+              <Button onClick={() => setFormItem(null)} className="h-10">
+                <Plus className="w-4 h-4 mr-1.5" /> Nuevo insumo
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {lowCount > 0 && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-destructive/50 bg-destructive/10 px-3 py-2.5 text-sm">

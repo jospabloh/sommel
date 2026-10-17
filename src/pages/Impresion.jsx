@@ -17,6 +17,7 @@ import { BAR_ADMIN } from '@/lib/rbac';
 import { useAuth } from '@/lib/AuthContext';
 import usePrintStationContext from '@/components/printing/usePrintStationContext';
 import { CHOOSABLE_KINDS, KIND_LABELS, formatTime, jobMatchesKinds, shortDevice } from '@/components/printing/printingHelpers';
+import PageHeader from '@/components/PageHeader';
 
 function Section({ title, hint, count, children }) {
   return (
@@ -117,15 +118,7 @@ export default function Impresion() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-3xl space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-          <Printer className="w-6 h-6 text-primary" />
-        </div>
-        <div className="min-w-0">
-          <h1 className="font-display text-2xl sm:text-3xl font-semibold">Estación de impresión</h1>
-          <p className="text-muted-foreground mt-0.5">Tickets y cortes desde la laptop de caja.</p>
-        </div>
-      </div>
+      <PageHeader title="Estación de impresión" description="Tickets y cortes desde la laptop de caja." />
 
       <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-3">
         <div className="flex items-center justify-between gap-4">

@@ -2203,3 +2203,43 @@ propósito. **No hecho:** cancelar las 6 comandas viejas sin pagos (Mesa 1, 3
 y 5, Barra 1 y 2, y una sin mesa). La escritura directa se bloqueó y es mejor
 así: se cancelan desde la app con **Cancelar orden**, que libera las mesas y
 registra la merma del Chai entregado.
+
+## Módulo 29, segunda mitad: `PageHeader` en cada página (2026-10-16)
+
+Cada página dentro de `Layout` abre con `PageHeader` (copia exacta del
+estándar; no se edita aquí): Mesas, Menú, Cocina y barra, Turno, Checador,
+Asistencia, Inventario, Reportes, Impresión, Staff, Seguridad, Permisos,
+Ajustes, Cuenta, Soporte, Acerca de, Plataforma y el alta de "Pedido para
+llevar" (con ruta "Mesas › Pedido para llevar" en lugar del botón de
+regresar).
+- Se quitó el cuadrito con ícono junto a cada título: `PageHeader` no tiene
+  dónde ponerlo, y el punto del módulo es que todas las páginas se vean igual.
+  Textos, botones y permisos de cada encabezado no cambiaron.
+- **Una acción primaria como máximo:** solo Menú ("Producto") e Inventario
+  ("Nuevo insumo") tienen una; las demás acciones del encabezado son
+  `outline` o `ghost`. Ninguna destructiva está en un encabezado. "Pedido
+  para llevar" de Mesas sigue en la página, no en el encabezado.
+- **Orden (`/orden/:id`) conserva su barra compacta `sticky top-14`, a
+  propósito.** Es pantalla de trabajo: el nombre de la mesa, regresar y el
+  menú ⋮ (mover/unir, cancelar comanda, que es destructiva y por eso vive en
+  el ⋮) tienen que seguir a la vista mientras se recorren los renglones.
+  `PageHeader` no es `sticky` y con ruta, título de 3xl y `mb-6` ocuparía
+  ~110 px de un teléfono que ya tiene la barra de cobro abajo. Lo que sí se
+  alineó: el título es el `<h1>` de la página, y regresar y ⋮ tienen nombre
+  ("Volver a Mesas", "Más acciones").
+- **Selector de tema en Orden:** la lista de renglones lleva `pr-16`. El
+  selector (40 px, a 1rem del borde, sobre la barra de cobro) ya no tapa
+  "Quitar renglón" / "Cancelar renglón" al hacer scroll. Sin mover el
+  selector (módulo 12).
+- `scan:layout` gana `orden-sweep` (para cada 20 px de scroll revisa **solo**
+  lo que queda bajo el selector; antes del arreglo marcaba "Quitar renglón" a
+  320 px), `cocina-y-barra` y `seguridad`. Plataforma no entra al escaneo (el
+  mock no tiene usuario de plataforma).
+- `Layout` sigue deshaciendo el margen del `<main>` del marco: las páginas
+  conservan su propio padding y ancho máximo.
+- **Verificado:** `scan:layout` completo (todas las pantallas, 320 a 1440)
+  con `--theme light` y `--theme dark`: 0 problemas; `lint`, `build`,
+  `validate:rls` (27/14), `check:guards` (50), `check:functions` y
+  `deno test` con el comando de CI (747/0). **No verificado:** las pantallas
+  contra Base44 real (el escaneo usa el backend simulado) ni Plataforma en
+  navegador.

@@ -5,7 +5,7 @@
 // solo se muestran a quien tiene Turno:ver_corte, y el servidor ni los manda
 // al resto.
 import React, { useCallback, useEffect, useState } from 'react';
-import { Clock, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { usePermission } from '@/lib/usePermission';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import CashOutDialog from '@/components/shifts/CashOutDialog';
 import CloseShiftDialog from '@/components/shifts/CloseShiftDialog';
 import ClosedShiftCard from '@/components/shifts/ClosedShiftCard';
 import ShiftHistory from '@/components/shifts/ShiftHistory';
+import PageHeader from '@/components/PageHeader';
 
 export default function Turno() {
   const { can } = usePermission();
@@ -102,20 +103,17 @@ export default function Turno() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-3xl space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-          <Clock className="w-6 h-6 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="font-display text-2xl sm:text-3xl font-semibold">Turno</h1>
-          <p className="text-muted-foreground mt-0.5">Abre el turno, registra salidas de efectivo y haz el corte.</p>
-        </div>
-        {!justClosed ? (
-          <Button type="button" variant="ghost" size="icon" onClick={load} aria-label="Actualizar">
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Turno"
+        description="Abre el turno, registra salidas de efectivo y haz el corte."
+        actions={
+          !justClosed ? (
+            <Button type="button" variant="ghost" size="icon" onClick={load} aria-label="Actualizar">
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          ) : null
+        }
+      />
 
       {body}
 

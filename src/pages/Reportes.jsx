@@ -2,7 +2,6 @@
 // callFn('reports', 'summary'); la página solo presenta. Los porcentajes de
 // comparación son de lectura, el dinero siempre lo calcula el servidor.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BarChart3 } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { formatMXN } from '@/lib/money';
 import { usePermission } from '@/lib/usePermission';
@@ -17,6 +16,7 @@ import HourBars from '@/components/reports/HourBars';
 import CostsCard from '@/components/reports/CostsCard';
 import { Cancellations, Courtesies, Waste, CashDifferences } from '@/components/reports/Incidents';
 import { barToday, daysBetween, fmtRange, thisWeekRange } from '@/components/reports/periods';
+import PageHeader from '@/components/PageHeader';
 
 const MAX_DAYS = 92;
 const PERIODS = [
@@ -105,15 +105,7 @@ export default function Reportes() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-5xl">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center">
-          <BarChart3 className="w-6 h-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-semibold">Reportes</h1>
-          <p className="text-muted-foreground mt-0.5">Ventas, productos y caja por periodo.</p>
-        </div>
-      </div>
+      <PageHeader title="Reportes" description="Ventas, productos y caja por periodo." />
 
       <div className="flex flex-wrap items-end gap-2 mb-2">
         <div className="flex gap-2 flex-wrap" role="group" aria-label="Periodo">

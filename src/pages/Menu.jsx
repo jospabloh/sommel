@@ -11,11 +11,12 @@ import { usePermission } from '@/lib/usePermission';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { GlassWater, Plus, Settings2, Loader2 } from 'lucide-react';
+import { Plus, Settings2, Loader2 } from 'lucide-react';
 import ProductFormDialog from '@/components/menu/ProductFormDialog';
 import CategoryManagerDialog from '@/components/menu/CategoryManagerDialog';
 import ProductCard from '@/components/menu/ProductCard';
 import ExtrasSection from '@/components/menu/ExtrasSection';
+import PageHeader from '@/components/PageHeader';
 
 const EMPTY = { categories: [], products: [], extras: [] };
 
@@ -121,30 +122,25 @@ export default function Menu() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-4xl">
-      <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-            <GlassWater className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="font-display text-3xl font-semibold">Menú</h1>
-            <p className="text-muted-foreground mt-0.5">Categorías, productos y extras del bar</p>
-          </div>
-        </div>
-        {canEdit && section === 'products' && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setCategoryManagerOpen(true)}>
-              <Settings2 className="w-4 h-4" /> Categorías
-            </Button>
-            <Button
-              onClick={() => setProductDialog({ categoryId: activeCategory })}
-              disabled={!activeCategory}
-            >
-              <Plus className="w-4 h-4" /> Producto
-            </Button>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="Menú"
+        description="Categorías, productos y extras del bar"
+        actions={
+          canEdit && section === 'products' ? (
+            <>
+              <Button variant="outline" onClick={() => setCategoryManagerOpen(true)}>
+                <Settings2 className="w-4 h-4" /> Categorías
+              </Button>
+              <Button
+                onClick={() => setProductDialog({ categoryId: activeCategory })}
+                disabled={!activeCategory}
+              >
+                <Plus className="w-4 h-4" /> Producto
+              </Button>
+            </>
+          ) : null
+        }
+      />
 
       <Tabs value={section} onValueChange={setSection} className="mb-4">
         <TabsList>

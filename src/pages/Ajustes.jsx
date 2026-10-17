@@ -3,7 +3,6 @@
 // nunca lee ni escribe WineBar directo.
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { usePermission } from '@/lib/usePermission';
 import { Button } from '@/components/ui/button';
@@ -17,6 +16,7 @@ import TerminalsCard from '@/components/settings/TerminalsCard';
 import TouchScreenCard from '@/components/settings/TouchScreenCard';
 import { useAuth } from '@/lib/AuthContext';
 import { isBarAdmin } from '@/lib/rbac';
+import PageHeader from '@/components/PageHeader';
 
 export default function Ajustes() {
   const { can } = usePermission();
@@ -47,15 +47,7 @@ export default function Ajustes() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-2xl">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center">
-          <Settings className="w-6 h-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-semibold">Ajustes</h1>
-          <p className="text-muted-foreground mt-0.5">{bar?.name || 'Tu bar'}</p>
-        </div>
-      </div>
+      <PageHeader title="Ajustes" description={bar?.name || 'Tu bar'} />
 
       <div className="mb-5">
         <TouchScreenCard />
