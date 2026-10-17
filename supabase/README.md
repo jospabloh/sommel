@@ -10,12 +10,18 @@ campos es `base44/entities/*.jsonc` y `scripts/lib/locks-rules.mjs`.
 |---|---|
 | `migrations/20261014000001_core.sql` | Las 27 tablas de entidad, las 3 tablas de costo, índices, restricciones de idempotencia, claves foráneas compuestas, triggers de `updated_date` y el trigger que crea el `profile` al registrarse |
 | `migrations/20261014000002_rls.sql` | Funciones `app.*`, RLS activo en todas las tablas, privilegios, políticas, publicación de Realtime |
+| `migrations/20261014000003_support_ticket_server_only.sql` | Quita el alta de `support_ticket` desde el navegador (D9) |
+| `migrations/20261015000004_bar_service_defaults.sql` | Defaults de entrega sin estación y existencia negativa |
+| `migrations/20261016000005_base44_parity.sql` | Campos que Base44 ganó después de la fase 1: `order_item.idempotency_key` (con índice único parcial), `orders.cancelled_by`, `inventory_item.archived_at` |
 | `tests/00_supabase_stub.sql` | Solo para un Postgres de pruebas: emula roles, `auth.users`, `auth.uid()` y los privilegios por omisión de Supabase. **Nunca** se aplica a un proyecto de Supabase |
-| `tests/isolation.sql` | Pruebas de aislamiento, 1,633 aserciones, una sola transacción con `rollback`. Corre en Postgres con el stub **y** en una base de Supabase real |
+| `tests/isolation.sql` | Pruebas de aislamiento (el conteo exacto lo imprime al terminar), una sola transacción con `rollback`. Corre en Postgres con el stub **y** en una base de Supabase real |
 
 ## Cómo aplicar
 
-Orden estricto: `core`, luego `rls`.
+Orden estricto: por nombre de archivo (`core`, `rls`, y luego las demás).
+`npm run check:supabase-schema` (dentro de `lint`) falla si un campo de
+`base44/entities/*.jsonc` no tiene columna aquí: mientras Base44 sea producción,
+cada campo nuevo allá necesita su migración acá.
 
 - **Supabase CLI**: `supabase db push` (los nombres ya llevan marca de tiempo).
 - **MCP de Supabase**: `apply_migration` dos veces, en ese orden, con el contenido de cada archivo.
@@ -29,9 +35,7 @@ Contra un Postgres de pruebas (16 o más reciente), no contra producción:
 ```bash
 createdb sommel_scratch
 psql -v ON_ERROR_STOP=1 -1 -d sommel_scratch -f supabase/tests/00_supabase_stub.sql
-psql -v ON_ERROR_STOP=1 -1 -d sommel_scratch -f supabase/migrations/20261014000001_core.sql
-psql -v ON_ERROR_STOP=1 -1 -d sommel_scratch -f supabase/migrations/20261014000002_rls.sql
-psql -v ON_ERROR_STOP=1 -1 -d sommel_scratch -f supabase/migrations/20261014000003_support_ticket_server_only.sql
+for f in $(ls supabase/migrations/*.sql | sort); do psql -v ON_ERROR_STOP=1 -1 -d sommel_scratch -f "$f" || break; done
 psql -v ON_ERROR_STOP=1 -d sommel_scratch -f supabase/tests/isolation.sql
 ```
 
@@ -40,7 +44,7 @@ sale con `ASSERTION FAILED: ...` y código distinto de cero. El script crea sus
 propios datos y hace `rollback`, así que se puede repetir.
 
 Contra una rama de Supabase o un proyecto de pruebas **vacío** (sin el stub):
-aplicar las dos migraciones y correr solo `isolation.sql`, con el rol `postgres`
+aplicar todas las migraciones y correr solo `isolation.sql`, con el rol `postgres`
 (puede hacer `SET ROLE` a `anon`, `authenticated` y `service_role`). Es el mismo
 script: crea los usuarios con `isotest.add_user`, que mira qué columnas tiene
 `auth.users` y rellena solo las que existen (`instance_id`, `aud`, `role`,

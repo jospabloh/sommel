@@ -41,8 +41,7 @@ jobs:
       - uses: actions/checkout@v7
       # Plain Postgres: the stub emulates Supabase's roles and auth schema.
       - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/tests/00_supabase_stub.sql
-      - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261014000001_core.sql
-      - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261014000002_rls.sql
-      - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261014000003_support_ticket_server_only.sql
-      - run: psql -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261015000004_bar_service_defaults.sql
+      # Every migration, in file-name order, each in its own transaction, so a
+      # new one cannot be left out of this job.
+      - run: for f in $(ls supabase/migrations/*.sql | sort); do echo "== $f"; psql -v ON_ERROR_STOP=1 -1 -f "$f" || exit 1; done
       - run: psql -v ON_ERROR_STOP=1 -f supabase/tests/isolation.sql

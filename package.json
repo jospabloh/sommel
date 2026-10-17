@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint . --quiet && npm run validate:functions && npm run validate:locks && npm run check:bridge && npm run check:auth-me && npm run check:version",
+    "lint": "eslint . --quiet && npm run validate:functions && npm run validate:locks && npm run check:bridge && npm run check:auth-me && npm run check:version && npm run check:supabase-schema",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
@@ -16,6 +16,7 @@
     "check:bridge": "node scripts/check-bridge-drift.mjs",
     "check:auth-me": "node scripts/check-auth-me-usage.mjs",
     "check:version": "node scripts/check-version-sync.mjs",
+    "check:supabase-schema": "node scripts/check-supabase-schema.mjs",
     "release": "node scripts/publish-release.mjs",
     "test:smoke": "playwright test",
     "scan:layout": "node scripts/layout-overlap-scan.mjs",
