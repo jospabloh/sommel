@@ -310,3 +310,33 @@ invitación pendiente por correo y bar, y las restricciones de idempotencia.
 - **OQ11. `CloudPrinter.created_by_id`** es en Base44 un campo propio (id de quien
   la dio de alta) además del `created_by_id` integrado; aquí es una sola columna
   `created_by_id uuid`. Mismo significado, sin duplicar.
+
+# Fase 2: la capa `entities` (2026-10-16)
+
+`functions/_shared/entities.ts` da a los handlers de Base44 la misma interfaz
+del SDK (`entities.<Nombre>.filter(query, sort, limit, skip)`, `list`, `get`,
+`create`, `update`, `delete`) sobre un cliente de supabase-js con la llave de
+servicio. Las decisiones viven en `entities_logic.ts` (sin imports) y las fija
+`base44/tests/supabase_entities_test.ts`, con un cliente falso que registra
+cada llamada.
+
+| Base44 | Supabase |
+|---|---|
+| `{campo: valor}`, `{campo: null}` | `eq`, `is null` |
+| `$in`, `$gte`, `$lt` | `in`, `gte`, `lt`. Cualquier otro operador, un campo que la tabla no tiene o un valor lista **falla** (500), nunca se ignora: ignorar un `tenant_id` mal escrito leería todos los bares |
+| `'-campo'` | `order(campo, desc)` |
+| `limit`, `skip` | `range`. Sin `limit`, PostgREST corta en 1,000 filas |
+| `User` | `profile`: `id` es `user_id`, `role` es `is_platform` (`admin` = `true`). `User.delete` borra la cuenta de Auth y el `profile` cae en cascada |
+| `unit_cost` de `OrderItem`, `InventoryItem`, `InventoryMovement` | Se lee unido (`*, <tabla>_cost(unit_cost)`) y se escribe aparte con `upsert` (OQ12: siempre unido, porque la capa solo corre en el servidor; los handlers siguen redactándolo) |
+| `''` en un campo uuid, fecha, número, booleano o JSON | `null` (OQ3). En `text` se queda `''` |
+| Campo que la entidad no declara | Se descarta, como Base44 |
+| Id que no es uuid (por ejemplo uno de 24 hex de Base44) | No coincide con nada y no hace viaje: `filter` devuelve `[]`, `get`/`update`/`delete` dan 404 |
+| `create` que choca con una llave única (D6) | Llave de idempotencia (`payment`, `cash_movement`, `inventory_movement`, `order_item`: `idempotency_key`; `print_job`: `dedupe_key`; `attendance` abierta: `user_id`): devuelve la fila que ya la tiene, porque llaves iguales son la misma escritura. Llave de una fila que se edita (`permission_profile`: `role`; `staff_pin`: `user_id`): aplica la escritura sobre la fila existente (gana la última), porque llaves iguales **no** prueban la misma carga (revisión de Codex en #100). Un `passkey` duplicado sigue siendo error |
+
+`functions/_shared/schema.generated.ts` (los tipos de cada columna) lo escribe
+`npm run generate:supabase-schema` desde las migraciones; `lint` falla si quedó
+viejo. No se edita a mano.
+
+Lo que la capa no hace, a propósito: transacciones (un renglón y su costo son
+dos escrituras; las rutas calientes pasan a funciones SQL en la fase 7) ni
+tiempo real (es del cliente, fase 3).
