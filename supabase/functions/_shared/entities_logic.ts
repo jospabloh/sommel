@@ -55,19 +55,28 @@ export const COST_TABLE: Record<string, [string, string]> = {
   inventory_movement: ['inventory_movement_cost', 'inventory_movement_id'],
 };
 
-// Unique keys (besides tenant_id) that make a create idempotent (D6). When an
-// insert hits one of them the shim returns the row that already holds the key,
-// which is what Base44's "create, re-read, keep the oldest" code expects to
-// find. `openOnly` adds `clock_out is null` (one open attendance per person).
-export const NATURAL_KEYS: Record<string, { columns: string[]; openOnly?: boolean }> = {
-  payment: { columns: ['idempotency_key'] },
-  cash_movement: { columns: ['idempotency_key'] },
-  inventory_movement: { columns: ['idempotency_key'] },
-  order_item: { columns: ['idempotency_key'] },
-  print_job: { columns: ['dedupe_key'] },
-  permission_profile: { columns: ['role'] },
-  staff_pin: { columns: ['user_id'] },
-  attendance: { columns: ['user_id'], openOnly: true },
+// Unique keys (besides tenant_id) a create can collide on (D6), and what the
+// shim does when it does:
+// - 'return': an idempotency key. Equal keys mean the same write (a retried
+//   cobro, a re-sent batch), so the row already holding it is returned, which
+//   is what Base44's "create, re-read, keep the oldest" code expects to find.
+//   The open attendance (`openOnly`: `clock_out is null`) is the same: a second
+//   clock-in for a person already in is the same punch, and Base44 kept the
+//   oldest one too.
+// - 'update': a uniqueness key whose rows are edited in place (the bar's
+//   permission profile for a role, a person's PIN). Equal keys do NOT mean the
+//   same payload: two first-time saves racing must not report success for the
+//   one the database dropped. The losing create is applied to the existing row
+//   instead (last write wins, as the handler's own update branch would do).
+export const NATURAL_KEYS: Record<string, { columns: string[]; onConflict: 'return' | 'update'; openOnly?: boolean }> = {
+  payment: { columns: ['idempotency_key'], onConflict: 'return' },
+  cash_movement: { columns: ['idempotency_key'], onConflict: 'return' },
+  inventory_movement: { columns: ['idempotency_key'], onConflict: 'return' },
+  order_item: { columns: ['idempotency_key'], onConflict: 'return' },
+  print_job: { columns: ['dedupe_key'], onConflict: 'return' },
+  attendance: { columns: ['user_id'], onConflict: 'return', openOnly: true },
+  permission_profile: { columns: ['role'], onConflict: 'update' },
+  staff_pin: { columns: ['user_id'], onConflict: 'update' },
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

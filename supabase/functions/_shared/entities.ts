@@ -14,6 +14,7 @@ import {
   idColumn,
   isUniqueViolation,
   isUuid,
+  NATURAL_KEYS,
   naturalKeyFilter,
   planFilter,
   planRange,
@@ -97,6 +98,7 @@ export function entityApi(client: SupabaseLike, entity: string): EntityApi {
       if (!key) fail(table, 'create', error);
       const [existing] = await filter(key, 'created_date', 1);
       if (!existing) fail(table, 'create', error);
+      if (NATURAL_KEYS[table].onConflict === 'update') return await update(existing.id as string, data);
       return existing;
     }
     const out = fromRow(table, created as Row) as Row;

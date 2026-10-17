@@ -331,7 +331,7 @@ cada llamada.
 | `''` en un campo uuid, fecha, número, booleano o JSON | `null` (OQ3). En `text` se queda `''` |
 | Campo que la entidad no declara | Se descarta, como Base44 |
 | Id que no es uuid (por ejemplo uno de 24 hex de Base44) | No coincide con nada y no hace viaje: `filter` devuelve `[]`, `get`/`update`/`delete` dan 404 |
-| `create` que choca con una llave de idempotencia (D6) | Devuelve la fila que ya tiene esa llave: es lo que el código de "crear, releer y quedarse con el más antiguo" espera encontrar. Llaves: `payment`, `cash_movement`, `inventory_movement`, `order_item` (`idempotency_key`), `print_job` (`dedupe_key`), `permission_profile` (`role`), `staff_pin` (`user_id`), `attendance` abierta (`user_id`). Un `passkey` duplicado sigue siendo error |
+| `create` que choca con una llave única (D6) | Llave de idempotencia (`payment`, `cash_movement`, `inventory_movement`, `order_item`: `idempotency_key`; `print_job`: `dedupe_key`; `attendance` abierta: `user_id`): devuelve la fila que ya la tiene, porque llaves iguales son la misma escritura. Llave de una fila que se edita (`permission_profile`: `role`; `staff_pin`: `user_id`): aplica la escritura sobre la fila existente (gana la última), porque llaves iguales **no** prueban la misma carga (revisión de Codex en #100). Un `passkey` duplicado sigue siendo error |
 
 `functions/_shared/schema.generated.ts` (los tipos de cada columna) lo escribe
 `npm run generate:supabase-schema` desde las migraciones; `lint` falla si quedó

@@ -174,6 +174,19 @@ Deno.test('a create that hits an idempotency key returns the row already holding
   assertEquals(naturalKeyFilter('passkey', { tenant_id: A, credential_id: 'c' }), null, 'a duplicate passkey stays an error');
 });
 
+Deno.test('a create that hits an editable unique key applies its payload to the existing row', async () => {
+  // Two first saves of the staff profile race: the loser must not report
+  // overrides the database never stored (Codex review on #100).
+  const { client, chains } = fakeClient([
+    { data: null, error: { code: '23505', message: 'duplicate key' } },
+    { data: [{ id: ROW, tenant_id: A, role: 'staff', overrides: { x: true } }], error: null },
+    { data: { id: ROW, tenant_id: A, role: 'staff', overrides: { x: false } }, error: null },
+  ]);
+  const saved = await createEntities(client).PermissionProfile.create({ tenant_id: A, role: 'staff', overrides: { x: false } });
+  assertEquals(saved.overrides, { x: false });
+  assertEquals(chains[2].slice(0, 3), [['from', 'permission_profile'], ['update', { tenant_id: A, role: 'staff', overrides: { x: false } }], ['eq', 'id', ROW]]);
+});
+
 Deno.test('other database errors surface as errors', async () => {
   const { client } = fakeClient([{ data: null, error: { code: '23503', message: 'fk' } }]);
   await assertRejects(() => createEntities(client).Payment.create({ tenant_id: A, idempotency_key: 'k' }), 500, 'fk violation');
