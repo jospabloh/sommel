@@ -86,7 +86,9 @@ Deno.test('a bar\'s first day: create, invite, claim, menu with stock, sell, rep
   const stock = await ok(inventory, owner.token, { action: 'list' });
   assertEquals(stock.items.find((i: { id: string }) => i.id === item.id)?.stock, 450, '750 in, 2 x 150 sold');
 
-  const today = new Date(Date.now() - 6 * 3600_000).toISOString().slice(0, 10);
+  // The bar's day (UTC-6) of the sale itself, not of a second clock read that
+  // could cross midnight (Codex, #105).
+  const today = new Date(Date.parse(paid.order.closed_at) - 6 * 3600_000).toISOString().slice(0, 10);
   const report = await ok(reports, owner.token, { action: 'summary', from: today, to: today });
   assertEquals(report.totals?.sales_net, 24000, JSON.stringify(report.totals));
 
