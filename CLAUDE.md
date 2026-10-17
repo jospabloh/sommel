@@ -2203,3 +2203,51 @@ propósito. **No hecho:** cancelar las 6 comandas viejas sin pagos (Mesa 1, 3
 y 5, Barra 1 y 2, y una sin mesa). La escritura directa se bloqueó y es mejor
 así: se cancelan desde la app con **Cancelar orden**, que libera las mesas y
 registra la merma del Chai entregado.
+
+## Migración a Supabase, fase 2: backend generado desde Base44 (2026-10-16)
+
+Plan aprobado por José el 2026-10-16, con sus cuatro decisiones: las funciones
+se generan desde `base44/functions` (no se mantienen dos copias), las pruebas de
+integración corren solo en CI, las funciones se publican en el proyecto `sommel`
+al cerrar la fase, y el correo queda apagado hasta la fase 4 (Resend). Detalle en
+`supabase/README.md`, secciones "Fase 2". Base44 sigue siendo producción y **nada
+del cliente apunta a Supabase**.
+
+- **Base44 es la única fuente.** `npm run generate:supabase-functions` copia las
+  21 funciones (no `processSale`) a `supabase/functions/<router>/`, **sin
+  commitear** (`.gitignore`), y cambia solo la importación del SDK por
+  `supabase/functions/_shared/base44_compat.ts`: el mismo `createClientFromRequest`
+  sobre Supabase. `_guard.ts` y los handlers corren sin cambios. Un arreglo en
+  Base44 llega solo a Supabase. Dos archivos se sustituyen en la copia:
+  `terminals/_platform.ts` (stub `not_ported`: nada en Supabase puede llamar a la
+  API de plataforma de Base44) y `security/_request_id_logic.ts` (uuid en vez de
+  24 hex; el de Base44 no cambia).
+- **Capa `entities`** (`_shared/entities.ts` + `entities_logic.ts`): un filtro,
+  campo u operador que no entiende **falla**, nunca se ignora; `User` es
+  `profile`; `unit_cost` vive en su tabla de costo; `''` pasa a `null` fuera de
+  `text`; un id que no es uuid no coincide con nada. Un `create` que choca con una
+  llave de idempotencia devuelve la fila existente; con una llave de fila editable
+  (`permission_profile.role`, `staff_pin.user_id`) aplica la escritura sobre la
+  existente (revisión de Codex en #100).
+- **Paridad de esquema.** `check:supabase-schema` (en `lint`) falla si un campo de
+  `base44/entities` no tiene columna en `supabase/migrations`. Ya pasó una vez: la
+  migración 5 agrega `order_item.idempotency_key` (con índice único),
+  `orders.cancelled_by` e `inventory_item.archived_at`, que Base44 ganó el
+  2026-10-15. **Mientras Base44 sea producción, todo campo nuevo allá necesita su
+  migración acá en el mismo PR.**
+- **Pruebas.** `npm run test:supabase-functions` (en CI): barrido de cada acción de
+  las 21 funciones como admin y staff (ninguna da 500), una cuenta completa
+  (turno, comanda, envío, cobro, ticket, impresora, corte) y el primer día de un
+  bar (crear, invitar sin correo, reclamar, menú con insumo, venta, reporte,
+  soporte), sobre un PostgREST en memoria. Job `supabase-stack`: `supabase start`
+  + las funciones generadas contra GoTrue, PostgREST y Edge Runtime reales. La
+  prueba de integración se niega a correr fuera de localhost.
+- **Hallado al probar contra la pila real:** el caché de 20 s del guard
+  (2026-10-06) también vive en Supabase: un cambio de permisos tarda hasta 20 s en
+  la instancia caliente de otra función. Es lo decidido, no un bug.
+- `support.createTicket` (#106, aditivo en Base44): el alta de tickets por el
+  servidor, que Supabase necesita (D9). El cliente la usará en la fase 3.
+
+**No verificado todavía:** la migración 5 en el proyecto real; las funciones
+publicadas en `sommel`; `purgeStaleSessions` con `pg_cron`; terminales, correo,
+CloudPRNT y el puente con Mission Control contra Supabase (fases 4 y 5).
