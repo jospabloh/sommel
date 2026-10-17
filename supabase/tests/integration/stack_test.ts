@@ -87,7 +87,13 @@ Deno.test('functions: each admin edits only their bar\'s permission profile', as
   const saved = await call('permissions', adminA.token, { action: 'upsertProfile', overrides: { 'Estaciones:barra': false } });
   assertEquals(saved.status, 200);
   assertEquals((await call('permissions', adminB.token, { action: 'getProfile' })).body.profile?.overrides, {});
-  const r = await call('stations', staffA.token, { action: 'getConfig' });
+  // A fresh bar: the warm stations instance caches a bar's profile for 20 s
+  // (by design, CLAUDE.md 2026-10-06), and bar A's was read above.
+  const barC = await entities.WineBar.create({ name: `Bar C ${run}`, billing_status: 'active' });
+  const adminC = await person('admin-c', barC.id as string, 'bar_admin');
+  const staffC = await person('staff-c', barC.id as string, 'staff');
+  await call('permissions', adminC.token, { action: 'upsertProfile', overrides: { 'Estaciones:barra': false } });
+  const r = await call('stations', staffC.token, { action: 'getConfig' });
   assertEquals(r.body.stations, { kitchen: true, bar: false });
 });
 
