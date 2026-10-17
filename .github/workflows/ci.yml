@@ -22,6 +22,10 @@ jobs:
       # reaches Base44, whose deploy fails silently and keeps the old code.
       - run: npm run check:functions
       - run: deno test --allow-env --allow-read=base44/entities base44/tests/ base44/functions/acaciaSign.test.ts
+      # Supabase (migration phase 2): generate the Edge Functions from
+      # base44/functions, compile them, and run them end to end in memory.
+      - run: npm run check:supabase-functions
+      - run: npm run test:supabase-functions
   supabase-isolation:
     runs-on: ubuntu-latest
     services:

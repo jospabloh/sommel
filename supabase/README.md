@@ -340,3 +340,40 @@ viejo. No se edita a mano.
 Lo que la capa no hace, a propósito: transacciones (un renglón y su costo son
 dos escrituras; las rutas calientes pasan a funciones SQL en la fase 7) ni
 tiempo real (es del cliente, fase 3).
+
+## Fase 2: las funciones se generan desde Base44 (2026-10-16)
+
+`npm run generate:supabase-functions` copia cada función de `base44/functions`
+a `supabase/functions/<router>/`. Las copias **no se commitean** (`.gitignore`):
+CI y el deploy las regeneran, así nunca se separan de lo que sirve Base44. Base44
+sigue siendo la única fuente: un arreglo allá llega solo acá.
+
+Lo único que cambia en una copia:
+- La línea `import { createClientFromRequest } from 'npm:@base44/sdk@…'` apunta a
+  `_shared/base44_compat.ts`, que da la misma función sobre Supabase: `auth.me()`
+  valida el JWT de Supabase (`Authorization: Bearer`), `asServiceRole.entities` es
+  la capa `entities` con la llave de servicio, y `Core.SendEmail` falla con
+  `email_not_configured` hasta la fase 4 (los handlers ya lo tratan como
+  `email_sent: false`). `_guard.ts` y los handlers corren **sin cambios**.
+- `entry.ts` pasa a `router.ts`, y un `index.ts` generado lo sirve con
+  `Deno.serve` y CORS (`_shared/serve.ts`: solo `sommel.acaciaco.com.mx` y
+  `localhost:5173`, nunca `*`).
+- `terminals/_platform.ts` se sustituye por
+  `scripts/templates/supabase/terminals_platform.ts`: en Supabase las terminales y
+  personas sin correo responden `not_ported` hasta la fase 4, y **nada puede
+  llamar a la API de plataforma de Base44**.
+- `processSale` (retirada) no se genera. Las pruebas no se copian.
+
+Comprobaciones (las dos en CI):
+- `npm run check:supabase-functions`: genera y compila los 21 `index.ts` (con
+  supabase-js sustituido por `scripts/typecheck/supabase-js-stub.ts`).
+- `npm run test:supabase-functions`: corre los routers generados de punta a punta
+  sobre un PostgREST en memoria (`supabase/tests/functions/_fake_postgrest.ts`), con
+  dos bares. No es Postgres (sin RLS ni tipos): las pruebas contra la base real son
+  `isolation.sql` y, después, la pila local de Supabase en CI.
+
+- `security/_request_id_logic.ts` se sustituye por
+  `scripts/templates/supabase/security_request_id_logic.ts`: en Base44 un id
+  plausible tiene 24 hex y aquí es uuid. El archivo de Base44 no cambia (revisión
+  de Codex en #102: aceptar uuid allá mandaría un uuid al filtro de Base44, que
+  truena).
