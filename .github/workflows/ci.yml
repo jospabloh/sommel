@@ -49,3 +49,39 @@ jobs:
       # new one cannot be left out of this job.
       - run: for f in $(ls supabase/migrations/*.sql | sort); do echo "== $f"; psql -v ON_ERROR_STOP=1 -1 -f "$f" || exit 1; done
       - run: psql -v ON_ERROR_STOP=1 -f supabase/tests/isolation.sql
+
+  # Phase 2 of the Supabase migration against a REAL local stack: migrations,
+  # GoTrue JWTs, PostgREST and the Edge Runtime serving the functions generated
+  # from base44/functions. Throwaway: nothing here touches the real project.
+  supabase-stack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.119.0
+      - run: node scripts/generate-supabase-functions.mjs
+      - run: supabase start -x studio,imgproxy,storage-api,logflare,vector,supavisor,postgres-meta,realtime
+      - name: Serve the generated functions
+        run: |
+          supabase functions serve > functions.log 2>&1 &
+          eval "$(supabase status -o env)"
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS "$API_URL/functions/v1/stations" -H "apikey: $ANON_KEY" || true)
+            [ "$code" = "204" ] && echo "functions up after ${i}s" && exit 0
+            sleep 1
+          done
+          cat functions.log; exit 1
+      - name: Integration tests
+        run: |
+          eval "$(supabase status -o env)"
+          SUPABASE_URL="$API_URL" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" SUPABASE_ANON_KEY="$ANON_KEY" \
+            deno test --node-modules-dir=none --allow-env --allow-net supabase/tests/integration/
+      - if: failure()
+        run: cat functions.log || true

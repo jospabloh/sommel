@@ -44,3 +44,6 @@ playwright-report/
 # (npm run generate:supabase-functions); only the shared code is tracked.
 supabase/functions/*
 !supabase/functions/_shared/
+supabase/.temp/
+supabase/.branches/
+functions.log

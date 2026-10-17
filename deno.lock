@@ -1,0 +1,148 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:@supabase/supabase-js@2.117.2": "2.117.2"
+  },
+  "npm": {
+    "@supabase/auth-js@2.117.2": {
+      "integrity": "sha512-Z3WnGwrphYZubrLbxp5Iv0tLA9A5GhvKzJ/ZXglxqwd2QEH2R4dXRltjVJ8sIn4xEW2BSFIGT0yALVJIgZeDYw==",
+      "dependencies": [
+        "tslib"
+      ]
+    },
+    "@supabase/functions-js@2.117.2": {
+      "integrity": "sha512-6DT4ZIjmZxa9ANKaBIrjc86AyKrX8M376ynvNeOBBVad3eP7x3UHqWfDR2ynFkHGzCuOpr1A+kObmnahxuwuog==",
+      "dependencies": [
+        "tslib"
+      ]
+    },
+    "@supabase/phoenix@0.4.5": {
+      "integrity": "sha512-aAn9H9ovVyeApKy11OWOrrOGq8DV68yWeH4ud2lN9fzn4aO8Zb5GLL9m1pUg9nLqIcT+ZDfAcsZe0E/nqdv2lw=="
+    },
+    "@supabase/postgrest-js@2.117.2": {
+      "integrity": "sha512-V1Qhn+M8xzJqCasOxHZ2KG19Fj39PxU7weEAmOK65/KTsWCRXboB4hcQwFvxRvM7ZikeP9IZWNvQkfjvSxzYFw==",
+      "dependencies": [
+        "tslib"
+      ]
+    },
+    "@supabase/realtime-js@2.117.2": {
+      "integrity": "sha512-lYXSAIg3eAKA58riUED6Vb+TCzF8jtx18uOoiCaVJ7ZMre6FWBpwB1MPeW+B6vykJT/hPdiuqwcSB7ILMS21ew==",
+      "dependencies": [
+        "@supabase/phoenix",
+        "tslib"
+      ]
+    },
+    "@supabase/storage-js@2.117.2": {
+      "integrity": "sha512-8gAJoVaxZa/War2kFRfJMxGk4M190Q7lJ70BofwGlRxU/u9pIodd6XyTvmXkxOKXWuIYtkDaYPZrIAUt1T/7FQ==",
+      "dependencies": [
+        "iceberg-js",
+        "tslib"
+      ]
+    },
+    "@supabase/supabase-js@2.117.2": {
+      "integrity": "sha512-eSG2VKnHR+Clp1PmidZ1/weJ8PJwoybjva3L2GgKqFG4YDS1Iqmc61psKGZP5xw6OMT2O7ZorPR42PY6q1BOXg==",
+      "dependencies": [
+        "@supabase/auth-js",
+        "@supabase/functions-js",
+        "@supabase/postgrest-js",
+        "@supabase/realtime-js",
+        "@supabase/storage-js"
+      ]
+    },
+    "iceberg-js@0.8.1": {
+      "integrity": "sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA=="
+    },
+    "tslib@2.8.1": {
+      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@base44/sdk@~0.8.54",
+        "npm:@base44/vite-plugin@^1.0.47",
+        "npm:@eslint/js@^9.19.0",
+        "npm:@hello-pangea/dnd@17",
+        "npm:@hookform/resolvers@^4.1.2",
+        "npm:@playwright/test@^1.63.0",
+        "npm:@radix-ui/react-accordion@^1.2.3",
+        "npm:@radix-ui/react-alert-dialog@^1.1.6",
+        "npm:@radix-ui/react-aspect-ratio@^1.1.2",
+        "npm:@radix-ui/react-avatar@^1.1.3",
+        "npm:@radix-ui/react-checkbox@^1.1.4",
+        "npm:@radix-ui/react-collapsible@^1.1.3",
+        "npm:@radix-ui/react-context-menu@^2.2.6",
+        "npm:@radix-ui/react-dialog@^1.1.6",
+        "npm:@radix-ui/react-dropdown-menu@^2.1.6",
+        "npm:@radix-ui/react-hover-card@^1.1.6",
+        "npm:@radix-ui/react-label@^2.1.2",
+        "npm:@radix-ui/react-menubar@^1.1.6",
+        "npm:@radix-ui/react-navigation-menu@^1.2.5",
+        "npm:@radix-ui/react-popover@^1.1.6",
+        "npm:@radix-ui/react-progress@^1.1.2",
+        "npm:@radix-ui/react-radio-group@^1.2.3",
+        "npm:@radix-ui/react-scroll-area@^1.2.3",
+        "npm:@radix-ui/react-select@^2.1.6",
+        "npm:@radix-ui/react-separator@^1.1.2",
+        "npm:@radix-ui/react-slider@^1.2.3",
+        "npm:@radix-ui/react-slot@^1.1.2",
+        "npm:@radix-ui/react-switch@^1.1.3",
+        "npm:@radix-ui/react-tabs@^1.1.3",
+        "npm:@radix-ui/react-toast@^1.2.2",
+        "npm:@radix-ui/react-toggle-group@^1.1.2",
+        "npm:@radix-ui/react-toggle@^1.1.2",
+        "npm:@radix-ui/react-tooltip@^1.1.8",
+        "npm:@tanstack/react-query@^5.84.1",
+        "npm:@types/node@^22.13.5",
+        "npm:@types/react-dom@^18.2.22",
+        "npm:@types/react@^18.2.66",
+        "npm:@vitejs/plugin-react@^6.0.5",
+        "npm:autoprefixer@^10.4.20",
+        "npm:baseline-browser-mapping@^2.8.32",
+        "npm:canvas-confetti@^1.9.4",
+        "npm:class-variance-authority@~0.7.1",
+        "npm:clsx@^2.1.1",
+        "npm:cmdk@1",
+        "npm:date-fns@^3.6.0",
+        "npm:embla-carousel-react@^8.5.2",
+        "npm:eslint-plugin-react-hooks@5",
+        "npm:eslint-plugin-react-refresh@~0.4.18",
+        "npm:eslint-plugin-react@^7.37.4",
+        "npm:eslint-plugin-unused-imports@^4.3.0",
+        "npm:eslint@^9.19.0",
+        "npm:framer-motion@^11.16.4",
+        "npm:globals@^15.14.0",
+        "npm:html2canvas@^1.4.1",
+        "npm:input-otp@^1.4.2",
+        "npm:jspdf@^4.2.1",
+        "npm:lodash@^4.17.21",
+        "npm:lucide-react@0.475",
+        "npm:moment@^2.30.1",
+        "npm:next-themes@~0.4.4",
+        "npm:nitro@^3.0.260610-beta",
+        "npm:postcss@^8.5.3",
+        "npm:qrcode@^1.5.4",
+        "npm:react-day-picker@^8.10.1",
+        "npm:react-dom@^18.2.0",
+        "npm:react-hook-form@^7.54.2",
+        "npm:react-hot-toast@^2.6.0",
+        "npm:react-leaflet@^4.2.1",
+        "npm:react-markdown@^9.0.1",
+        "npm:react-quill-new@^3.8.3",
+        "npm:react-resizable-panels@^2.1.7",
+        "npm:react-router-dom@^6.26.0",
+        "npm:react@^18.2.0",
+        "npm:recharts@^2.15.4",
+        "npm:sonner@^2.0.1",
+        "npm:tailwind-merge@^3.0.2",
+        "npm:tailwindcss-animate@^1.0.7",
+        "npm:tailwindcss@^3.4.17",
+        "npm:three@0.171",
+        "npm:typescript@^5.8.2",
+        "npm:vaul@^1.1.2",
+        "npm:vite@^8.2.0",
+        "npm:zod@^3.24.2"
+      ]
+    }
+  }
+}

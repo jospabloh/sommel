@@ -16,6 +16,7 @@
  *   CORS (`_shared/serve.ts`): Supabase's entry point is `index.ts` and calls
  *   `Deno.serve`, where Base44 took a default export.
  * - REPLACED files: Base44-only plumbing swapped for a Supabase stand-in.
+ * - Each router gets a `deno.json` (`nodeModulesDir: none`).
  * - Tests (`*_test.ts`, `*.test.ts`) are not copied.
  */
 
@@ -87,12 +88,21 @@ export function generate() {
       if (!existsSync(join(from, relPath))) throw new Error(`REPLACED ${router}/${relPath} no longer exists in base44/functions`);
     }
     writeFileSync(join(to, "index.ts"), INDEX);
+    // npm: imports resolve from Deno's cache, never from the repo's
+    // node_modules (the frontend's), which has no supabase-js.
+    writeFileSync(join(to, "deno.json"), JSON.stringify({ nodeModulesDir: "none" }, null, 2) + "\n");
   }
   return list;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const list = generate();
+  const config = readFileSync(join(root, "supabase", "config.toml"), "utf8");
+  const unconfigured = list.filter((r) => !new RegExp(`\\[functions\\.${r}\\]\\s*\\nverify_jwt = false`).test(config));
+  if (unconfigured.length) {
+    console.error(`✗ supabase/config.toml has no [functions.<name>] verify_jwt = false for: ${unconfigured.join(", ")}`);
+    process.exit(1);
+  }
   const leftover = list
     .flatMap((r) => walk(join(OUT, r)))
     .filter((p) => /npm:@base44\/sdk/.test(readFileSync(p, "utf8").replace(/\/\/[^\n]*/g, "")))
