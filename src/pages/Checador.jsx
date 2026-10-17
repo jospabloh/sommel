@@ -4,7 +4,7 @@
 // solo devuelve a quien inició sesión y la pantalla abre directo su teclado.
 // Todo pasa por callFn('attendance', ...).
 import React, { useCallback, useEffect, useState } from 'react';
-import { Fingerprint, KeyRound, RefreshCw } from 'lucide-react';
+import { KeyRound, RefreshCw } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { usePermission } from '@/lib/usePermission';
@@ -13,6 +13,7 @@ import PersonGrid from '@/components/attendance/PersonGrid';
 import PunchEntry from '@/components/attendance/PunchEntry';
 import PunchSuccess from '@/components/attendance/PunchSuccess';
 import MyPinDialog from '@/components/attendance/MyPinDialog';
+import PageHeader from '@/components/PageHeader';
 
 const REFRESH_MS = 60_000;
 
@@ -108,29 +109,26 @@ export default function Checador() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-4xl space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-          <Fingerprint className="w-6 h-6 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="font-display text-2xl sm:text-3xl font-semibold">Checador</h1>
-          <p className="text-muted-foreground mt-0.5">
-            {solo
-              ? 'Escribe tu PIN para registrar tu entrada o salida.'
-              : 'Toca tu nombre y escribe tu PIN para registrar entrada o salida.'}
-          </p>
-        </div>
-        {!result && (solo || !picked) ? (
-          <>
-            <Button type="button" variant="outline" className="h-11" onClick={() => setPinOpen(true)}>
-              <KeyRound className="w-4 h-4" /> <span className="hidden min-[420px]:inline">Mi PIN</span>
-            </Button>
-            <Button type="button" variant="ghost" size="icon" className="h-11 w-11" onClick={load} aria-label="Actualizar">
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          </>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Checador"
+        description={
+          solo
+            ? 'Escribe tu PIN para registrar tu entrada o salida.'
+            : 'Toca tu nombre y escribe tu PIN para registrar entrada o salida.'
+        }
+        actions={
+          !result && (solo || !picked) ? (
+            <>
+              <Button type="button" variant="outline" className="h-11" onClick={() => setPinOpen(true)}>
+                <KeyRound className="w-4 h-4" /> <span className="hidden min-[420px]:inline">Mi PIN</span>
+              </Button>
+              <Button type="button" variant="ghost" size="icon" className="h-11 w-11" onClick={load} aria-label="Actualizar">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </>
+          ) : null
+        }
+      />
 
       {body}
 

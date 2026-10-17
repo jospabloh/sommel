@@ -16,6 +16,7 @@ import TableMap from '@/components/orders/TableMap';
 import TableFormDialog from '@/components/orders/TableFormDialog';
 import { flattenRow } from '@/components/orders/helpers';
 import { applyRealtimeEvent } from '@/lib/realtimeMerge';
+import PageHeader from '@/components/PageHeader';
 
 export default function Mesas() {
   const { user } = useAuth();
@@ -137,22 +138,22 @@ export default function Mesas() {
 
   return (
     <div className="p-4 sm:p-6 pb-24 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between gap-3 mb-5">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-display font-semibold">Mesas</h1>
-          <p className="text-sm text-muted-foreground">Toca una mesa libre para abrir comanda, u ocupada para verla.</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={load} aria-label="Actualizar">
-            <RotateCw className="w-4 h-4" />
-          </Button>
-          {canEditTables && (
-            <Button variant="outline" size="sm" onClick={() => setEditingTable(null)}>
-              <Plus className="w-4 h-4 mr-1.5" /> Mesa
+      <PageHeader
+        title="Mesas"
+        description="Toca una mesa libre para abrir comanda, u ocupada para verla."
+        actions={
+          <>
+            <Button variant="ghost" size="icon" onClick={load} aria-label="Actualizar">
+              <RotateCw className="w-4 h-4" />
             </Button>
-          )}
-        </div>
-      </div>
+            {canEditTables && (
+              <Button variant="outline" size="sm" onClick={() => setEditingTable(null)}>
+                <Plus className="w-4 h-4 mr-1.5" /> Mesa
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {canTakeOrders && (
         <Button

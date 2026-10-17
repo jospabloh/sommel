@@ -3,7 +3,7 @@
 // últimos 30 días, que se borran solas. Se pide foto por persona en Staff.
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldAlert, Camera, CheckCheck, X } from 'lucide-react';
+import { Camera, CheckCheck, X } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
 import { isBarAdmin } from '@/lib/rbac';
 import PhoneApprovalCard from '@/components/security/PhoneApprovalCard';
+import PageHeader from '@/components/PageHeader';
 
 const KIND_LABEL = {
   photo_missing: 'Sin foto',
@@ -118,13 +119,7 @@ export default function Seguridad() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-3xl">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center"><ShieldAlert className="w-6 h-6 text-primary" /></div>
-        <div className="min-w-0">
-          <h1 className="font-display text-3xl font-semibold">Seguridad</h1>
-          <p className="text-muted-foreground mt-0.5">Para que nadie use el PIN de otra persona</p>
-        </div>
-      </div>
+      <PageHeader title="Seguridad" description="Para que nadie use el PIN de otra persona" />
 
       <p className="text-sm text-muted-foreground mb-6">
         Elige en <Link to="/staff" className="underline text-primary">Staff</Link> a quién se le toma foto (ícono de cámara).

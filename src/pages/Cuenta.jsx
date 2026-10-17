@@ -6,12 +6,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { UserCircle } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import LicenseCard from '@/components/settings/LicenseCard';
 import ActiveSessions from '@/components/settings/ActiveSessions';
 import DangerZone from '@/components/settings/DangerZone';
+import PageHeader from '@/components/PageHeader';
 
 export default function Cuenta() {
   const { user } = useAuth();
@@ -39,15 +39,7 @@ export default function Cuenta() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-2xl">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center">
-          <UserCircle className="w-6 h-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-semibold">Cuenta</h1>
-          <p className="text-muted-foreground mt-0.5">{bar?.name || 'Tu bar'}</p>
-        </div>
-      </div>
+      <PageHeader title="Cuenta" description={bar?.name || 'Tu bar'} />
 
       {error ? (
         <div className="rounded-xl border border-border bg-card p-6 text-center space-y-3">

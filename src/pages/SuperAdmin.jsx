@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { dropNullItems } from '@/lib/apiShape';
-import { Building2, Wine, Crown, Pencil } from 'lucide-react';
+import { Wine, Crown, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from '@/components/ui/use-toast';
 import { formatMXN } from '@/lib/money';
 import { isPlatformUser } from '@/lib/rbac';
+import PageHeader from '@/components/PageHeader';
 
 // Platform panel. Reads and writes go through settings.platformListBars /
 // settings.platformSetLicense (platform-only on the server); this page writes
@@ -109,13 +110,7 @@ export default function SuperAdmin() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-6xl">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center"><Building2 className="w-6 h-6 text-primary" /></div>
-        <div>
-          <h1 className="font-display text-3xl font-semibold">Plataforma</h1>
-          <p className="text-muted-foreground mt-0.5">Gestión de wine bars suscritos</p>
-        </div>
-      </div>
+      <PageHeader title="Plataforma" description="Gestión de wine bars suscritos" />
 
       {!bars ? (
         <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-border border-t-primary rounded-full animate-spin" /></div>

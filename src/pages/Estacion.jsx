@@ -29,6 +29,7 @@ import {
   normalizeCombinedFilter,
   stationsForView,
 } from '@/components/stations/stationHelpers';
+import PageHeader from '@/components/PageHeader';
 
 // El reloj de la pantalla avanza cada 30 s (contrato §5) — no en cada render
 // ni con un timer más rápido, para que la barra de calor "salte" en pasos
@@ -314,12 +315,14 @@ export default function Estacion() {
 
   return (
     <div className="p-4 sm:p-6 pb-24 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between gap-3 mb-5">
-        <h1 className="font-display text-2xl font-bold">{VIEW_TITLES[station]}</h1>
-        <Button variant="ghost" size="icon" onClick={load} aria-label="Actualizar">
-          <RotateCw className="w-5 h-5" />
-        </Button>
-      </div>
+      <PageHeader
+        title={VIEW_TITLES[station]}
+        actions={
+          <Button variant="ghost" size="icon" onClick={load} aria-label="Actualizar">
+            <RotateCw className="w-5 h-5" />
+          </Button>
+        }
+      />
 
       {isCombined && (
         <div className="flex gap-2 flex-wrap mb-4" role="group" aria-label="Mostrar">

@@ -3,7 +3,7 @@
 // guarda al momento con permissions.upsertProfile, que REEMPLAZA el mapa
 // completo; por eso los guardados van en cola y siempre mandan el mapa entero.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ShieldCheck, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { callFn } from '@/lib/api';
 import { usePermission } from '@/lib/usePermission';
 import { useAuth } from '@/lib/AuthContext';
@@ -18,6 +18,7 @@ import {
   withValue,
   withoutKey,
 } from '@/components/permissions/permissionsLogic';
+import PageHeader from '@/components/PageHeader';
 
 export default function Permisos() {
   const { appRole, isPlatform, loading: permLoading } = usePermission();
@@ -100,15 +101,7 @@ export default function Permisos() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-2xl">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center">
-          <ShieldCheck className="w-6 h-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-semibold">Permisos</h1>
-          <p className="text-muted-foreground mt-0.5">Qué puede hacer tu equipo</p>
-        </div>
-      </div>
+      <PageHeader title="Permisos" description="Qué puede hacer tu equipo" />
       <p className="text-sm text-muted-foreground mb-5">
         Los administradores siempre pueden todo. Aquí eliges qué puede hacer el equipo.
         Los cambios se guardan al momento y aplican la próxima vez que cada persona abra la app.

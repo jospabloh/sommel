@@ -39,6 +39,7 @@ import { useQtyConfirm } from '@/components/orders/QtyConfirmDialog';
 import MoveMergeSheet from '@/components/orders/MoveMergeSheet';
 import CobroPanel from '@/components/payments/CobroPanel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import PageHeader from '@/components/PageHeader';
 
 const REMOVE_UNDO_MS = 4000;
 
@@ -62,15 +63,11 @@ function NewTakeawayScreen() {
 
   return (
     <div className="p-6 max-w-sm mx-auto pt-16">
-      <button
-        type="button"
-        onClick={() => navigate('/mesas')}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground mb-6"
-      >
-        <ArrowLeft className="w-4 h-4" /> Mesas
-      </button>
-      <h1 className="text-2xl font-display font-semibold mb-1">Pedido para llevar</h1>
-      <p className="text-sm text-muted-foreground mb-6">¿A nombre de quién es?</p>
+      <PageHeader
+        breadcrumbs={[{ label: 'Mesas', to: '/mesas' }, { label: 'Pedido para llevar' }]}
+        title="Pedido para llevar"
+        description="¿A nombre de quién es?"
+      />
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           value={name}
@@ -403,13 +400,13 @@ export default function Orden() {
   return (
     <div className="flex flex-col h-full min-h-screen">
       <div className="sticky top-14 z-10 bg-background border-b border-border px-4 py-3 flex items-center gap-3">
-        <button type="button" onClick={() => navigate('/mesas')} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted shrink-0">
+        <button type="button" onClick={() => navigate('/mesas')} aria-label="Volver a Mesas" title="Volver a Mesas" className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="min-w-0 flex-1">
-          <div className="font-display font-semibold truncate">
+          <h1 className="font-display font-semibold truncate">
             {order.type === 'llevar' ? order.customer_name || 'Para llevar' : tableLabel}
-          </div>
+          </h1>
           <div className="text-xs text-muted-foreground">
             {order.type === 'llevar' ? 'Para llevar' : 'Mesa'} · {order.status === 'abierta' ? 'Abierta' : order.status}
           </div>
@@ -417,7 +414,7 @@ export default function Orden() {
         {!closed && (canMoveMerge || canCancelOrder) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted shrink-0">
+              <button type="button" aria-label="Más acciones" title="Más acciones" className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted shrink-0">
                 <MoreVertical className="w-5 h-5" />
               </button>
             </DropdownMenuTrigger>
@@ -433,7 +430,10 @@ export default function Orden() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-2.5 pb-[calc(var(--bottom-bar-h,8rem)+1rem)]">
+      {/* pr-16 keeps the rows' right column (quitar / cancelar) clear of the
+          corner theme switcher (module 12: 40px wide, 1rem from the edge),
+          which stays put above the bottom bar while the rows scroll past it. */}
+      <div className="flex-1 overflow-y-auto p-4 pr-16 space-y-2.5 pb-[calc(var(--bottom-bar-h,8rem)+1rem)]">
         {closed && (
           <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
             Esta comanda ya no está abierta.

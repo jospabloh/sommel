@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { dropNullItems } from '@/lib/apiShape';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, UserPlus, Mail, Clock, X, Pencil, Camera, CameraOff, SlidersHorizontal, KeyRound, UserRoundPlus } from 'lucide-react';
+import { UserPlus, Mail, Clock, X, Pencil, Camera, CameraOff, SlidersHorizontal, KeyRound, UserRoundPlus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import MemberActions from '@/components/staff/MemberActions';
 import RemoveMemberDialog from '@/components/staff/RemoveMemberDialog';
@@ -14,6 +14,7 @@ import AddPersonDialog from '@/components/staff/AddPersonDialog';
 import PersonPinDialog from '@/components/staff/PersonPinDialog';
 import { memberErrorMessage } from '@/components/staff/memberErrors';
 import { BAR_ADMIN, isWithoutEmail, personName } from '@/lib/rbac';
+import PageHeader from '@/components/PageHeader';
 
 export default function Staff() {
   const { user } = useAuth();
@@ -135,13 +136,7 @@ export default function Staff() {
 
   return (
     <div className="p-6 lg:p-10 max-w-3xl">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center"><Users className="w-6 h-6 text-primary" /></div>
-        <div>
-          <h1 className="font-display text-3xl font-semibold">Staff</h1>
-          <p className="text-muted-foreground mt-0.5">Invita meseros a tu bar</p>
-        </div>
-      </div>
+      <PageHeader title="Staff" description="Invita meseros a tu bar" />
 
       <form onSubmit={invite} className="flex gap-3 mb-8">
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@mesero.com" className="flex-1 h-11" required />

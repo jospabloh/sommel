@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LifeBuoy, CheckCircle2, Send, ChevronDown, MessageSquare } from 'lucide-react';
+import { CheckCircle2, Send, ChevronDown, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import {
   ticketConversation,
   ticketStatusLabel,
 } from '@/lib/supportTickets';
+import PageHeader from '@/components/PageHeader';
 
 function formatDateTime(value) {
   if (!value) return '';
@@ -141,13 +142,7 @@ export default function Soporte() {
 
   return (
     <div className="p-6 lg:p-10 max-w-3xl">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center"><LifeBuoy className="w-6 h-6 text-primary" /></div>
-        <div>
-          <h1 className="font-display text-3xl font-semibold">Soporte</h1>
-          <p className="text-muted-foreground mt-0.5">Cuéntanos qué necesitas. Te respondemos aquí y te avisamos por correo</p>
-        </div>
-      </div>
+      <PageHeader title="Soporte" description="Cuéntanos qué necesitas. Te respondemos aquí y te avisamos por correo" />
 
       {sent && (
         <div role="status" className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/50 dark:text-emerald-200">

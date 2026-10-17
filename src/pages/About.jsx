@@ -16,6 +16,7 @@ import {
   SUPPORT_WHATSAPP_URL,
 } from '@/lib/appConfig';
 import { SUPPORT_EMAIL } from '@/lib/billingNotice';
+import PageHeader from '@/components/PageHeader';
 
 function formatDate(iso) {
   const d = new Date(`${iso}T12:00:00`);
@@ -32,9 +33,11 @@ export default function About() {
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-3xl space-y-5">
       <header>
-        <h1 className="font-display text-2xl sm:text-3xl font-semibold">Acerca de Sommel</h1>
-        <p className="text-muted-foreground mt-1">Punto de venta para wine bars: comandas, cobro, turno, inventario y equipo.</p>
-        <div className="flex flex-wrap items-center gap-2 mt-3">
+        <PageHeader
+          title="Acerca de Sommel"
+          description="Punto de venta para wine bars: comandas, cobro, turno, inventario y equipo."
+        />
+        <div className="-mt-3 flex flex-wrap items-center gap-2">
           <Badge variant="secondary" className="text-sm px-3 py-1" data-app-version={APP_VERSION}>
             <Tag className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
             Versión {APP_VERSION}
