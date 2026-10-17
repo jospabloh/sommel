@@ -372,6 +372,8 @@ Comprobaciones (las dos en CI):
   dos bares. No es Postgres (sin RLS ni tipos): las pruebas contra la base real son
   `isolation.sql` y, después, la pila local de Supabase en CI.
 
-Diferencia con Base44 que sí toca a Base44: `security/_request_id_logic.ts` ahora
-acepta también uuid (antes solo ids de 24 hex), porque el mismo código corre en
-los dos lados.
+- `security/_request_id_logic.ts` se sustituye por
+  `scripts/templates/supabase/security_request_id_logic.ts`: en Base44 un id
+  plausible tiene 24 hex y aquí es uuid. El archivo de Base44 no cambia (revisión
+  de Codex en #102: aceptar uuid allá mandaría un uuid al filtro de Base44, que
+  truena).

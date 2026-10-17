@@ -35,6 +35,8 @@ export const SKIP = new Set(["processSale"]);
 // router -> { file inside the router: template that replaces it }.
 const REPLACED = {
   terminals: { "_platform.ts": join(root, "scripts", "templates", "supabase", "terminals_platform.ts") },
+  // Base44 ids are 24 hex; Supabase ids are uuids.
+  security: { "_request_id_logic.ts": join(root, "scripts", "templates", "supabase", "security_request_id_logic.ts") },
 };
 
 const SDK_IMPORT = /(['"])npm:@base44\/sdk@[^'"]+\1/g;
