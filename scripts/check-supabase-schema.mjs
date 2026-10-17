@@ -15,6 +15,7 @@ import process from "node:process";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readMigrationColumns } from "./lib/supabase-migrations.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ENTITIES_DIR = join(root, "base44", "entities");
@@ -57,35 +58,7 @@ function stripJsonc(text) {
   return out;
 }
 
-function columnsFromMigrations() {
-  const sql = readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith(".sql"))
-    .sort()
-    .map((f) => readFileSync(join(MIGRATIONS_DIR, f), "utf8"))
-    .join("\n")
-    .replace(/--[^\n]*/g, "");
-  const cols = new Map();
-  const add = (t, c) => {
-    if (!cols.has(t)) cols.set(t, new Set());
-    cols.get(t).add(c);
-  };
-  const KEYWORDS = new Set(["unique", "primary", "foreign", "constraint", "check", "exclude"]);
-  for (const m of sql.matchAll(/create table (?:if not exists )?(?:public\.)?(\w+)\s*\(([\s\S]*?)\n\);/gi)) {
-    const table = m[1].toLowerCase();
-    cols.set(table, cols.get(table) ?? new Set());
-    for (const line of m[2].split("\n")) {
-      const w = line.match(/^\s*([a-z_][a-z0-9_]*)\s+\S/i);
-      if (w && !KEYWORDS.has(w[1].toLowerCase())) add(table, w[1].toLowerCase());
-    }
-  }
-  for (const m of sql.matchAll(/alter table (?:only )?(?:public\.)?(\w+)\s+([\s\S]*?);/gi)) {
-    for (const a of m[2].matchAll(/add column (?:if not exists )?(\w+)/gi)) add(m[1].toLowerCase(), a[1].toLowerCase());
-    for (const d of m[2].matchAll(/drop column (?:if exists )?(\w+)/gi)) cols.get(m[1].toLowerCase())?.delete(d[1].toLowerCase());
-  }
-  return cols;
-}
-
-const cols = columnsFromMigrations();
+const cols = readMigrationColumns(MIGRATIONS_DIR);
 const has = (ref) => {
   const [t, c] = ref.split(".");
   return cols.get(t)?.has(c) ?? false;
