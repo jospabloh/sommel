@@ -80,8 +80,18 @@ function columnsFromMigrations() {
   }
   for (const m of sql.matchAll(/alter table (?:only )?(?:public\.)?(\w+)\s+([\s\S]*?);/gi)) {
     for (const a of m[2].matchAll(/add column (?:if not exists )?(\w+)/gi)) add(m[1].toLowerCase(), a[1].toLowerCase());
-    for (const d of m[2].matchAll(/drop column (?:if exists )?(\w+)/gi)) cols.get(m[1].toLowerCase())?.delete(d[1].toLowerCase());
+    const t = m[1].toLowerCase();
+    for (const d of m[2].matchAll(/drop column (?:if exists )?(\w+)/gi)) cols.get(t)?.delete(d[1].toLowerCase());
+    for (const r of m[2].matchAll(/rename column (\w+) to (\w+)/gi)) {
+      if (cols.get(t)?.delete(r[1].toLowerCase())) add(t, r[2].toLowerCase());
+    }
+    const renamed = m[2].match(/^rename to (\w+)/i);
+    if (renamed && cols.has(t)) {
+      cols.set(renamed[1].toLowerCase(), cols.get(t));
+      cols.delete(t);
+    }
   }
+  for (const m of sql.matchAll(/drop table (?:if exists )?(?:public\.)?(\w+)/gi)) cols.delete(m[1].toLowerCase());
   return cols;
 }
 
