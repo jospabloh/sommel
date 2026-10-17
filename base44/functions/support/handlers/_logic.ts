@@ -43,3 +43,36 @@ export function buildBarReply(ticket: Ticket, rawBody: unknown, author: Author, 
     status: ticket.status === 'cerrado' ? 'abierto' : (ticket.status || 'abierto'),
   };
 }
+
+// support.createTicket (D9 of the Supabase migration): opening a ticket goes
+// through the server, which takes the bar and the author from the session.
+// The limits and kinds match the client's (src/lib/supportTickets.js).
+export const TICKET_KINDS = ['soporte', 'mejora', 'baja'] as const;
+export const MAX_SUBJECT = 200;
+export const MAX_TICKET_BODY = 4000;
+
+/** The new SupportTicket row. Only `kind`, `subject` and `body` come from the caller. */
+export function buildNewTicket(
+  input: { kind?: unknown; subject?: unknown; body?: unknown },
+  tenantId: string,
+  authorEmail: string | null,
+  nowIso: string,
+) {
+  const kind = typeof input?.kind === 'string' ? input.kind : '';
+  if (!(TICKET_KINDS as readonly string[]).includes(kind)) {
+    throw new LogicError(400, 'invalid_kind', 'Elige un tipo de ticket.');
+  }
+  const subject = typeof input?.subject === 'string' ? input.subject.trim() : '';
+  if (!subject) throw new LogicError(400, 'subject_required', 'Escribe un asunto.');
+  const body = typeof input?.body === 'string' ? input.body.trim() : '';
+  return {
+    tenant_id: tenantId,
+    kind,
+    subject: subject.slice(0, MAX_SUBJECT),
+    body: body.slice(0, MAX_TICKET_BODY),
+    status: 'abierto',
+    created_by_email: authorEmail ?? '',
+    responses: [],
+    last_activity_at: nowIso,
+  };
+}
