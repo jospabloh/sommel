@@ -4,8 +4,9 @@
 // the Edge Functions' `entities` shim uses to normalise writes).
 //
 // It understands the subset of DDL our migrations use: `create table` with one
-// column per line, `alter table ... add column` and `drop column`. A migration
-// that needs more (renames, type changes) must extend this parser on purpose.
+// column per line, `alter table ... add column / drop column / rename column /
+// rename to` and `drop table`. A migration that needs more (type changes) must
+// extend this parser on purpose.
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -48,6 +49,20 @@ export function readMigrationColumns(migrationsDir) {
     const table = m[1].toLowerCase();
     for (const a of m[2].matchAll(/add column (?:if not exists )?(\w+)\s+([^,;]+)/gi)) set(table, a[1].toLowerCase(), baseType(a[2].trim()));
     for (const d of m[2].matchAll(/drop column (?:if exists )?(\w+)/gi)) tables.get(table)?.delete(d[1].toLowerCase());
+    for (const r of m[2].matchAll(/rename column (\w+) to (\w+)/gi)) {
+      const cols = tables.get(table);
+      const type = cols?.get(r[1].toLowerCase());
+      if (type !== undefined) {
+        cols.delete(r[1].toLowerCase());
+        cols.set(r[2].toLowerCase(), type);
+      }
+    }
+    const renamed = m[2].match(/^rename to (\w+)/i);
+    if (renamed && tables.has(table)) {
+      tables.set(renamed[1].toLowerCase(), tables.get(table));
+      tables.delete(table);
+    }
   }
+  for (const m of sql.matchAll(/drop table (?:if exists )?(?:public\.)?(\w+)/gi)) tables.delete(m[1].toLowerCase());
   return tables;
 }

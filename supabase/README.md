@@ -24,7 +24,7 @@ Orden estricto: por nombre de archivo (`core`, `rls`, y luego las demás).
 cada campo nuevo allá necesita su migración acá.
 
 - **Supabase CLI**: `supabase db push` (los nombres ya llevan marca de tiempo).
-- **MCP de Supabase**: `apply_migration` dos veces, en ese orden, con el contenido de cada archivo.
+- **MCP de Supabase**: `apply_migration` una vez por archivo de `migrations/`, todos, en orden de nombre. Ojo: el MCP se cuelga con DDL (vence a los 60 s sin aplicar nada); desde la migración 3 se aplican en el SQL Editor del panel y se registran a mano en `supabase_migrations.schema_migrations`.
 
 `pg_cron` no se habilita aquí (la purga de sesiones es de otra fase).
 
