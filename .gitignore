@@ -39,3 +39,8 @@ base44/.app.jsonc
 # Playwright smoke output
 test-results/
 playwright-report/
+
+# Supabase Edge Functions are generated from base44/functions
+# (npm run generate:supabase-functions); only the shared code is tracked.
+supabase/functions/*
+!supabase/functions/_shared/
