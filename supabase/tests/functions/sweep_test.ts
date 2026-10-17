@@ -10,15 +10,30 @@ import { setAdminClientForTests } from '../../functions/_shared/base44_compat.ts
 
 const ROOT = new URL('../../../', import.meta.url);
 
-// Action names straight from each Base44 entry.ts: the keys of
-// `handle(req, { ... })`, or the `action === '...'` branches of the routers
-// that dispatch by hand.
-function actionsOf(router: string): string[] {
-  const src = Deno.readTextFileSync(new URL(`base44/functions/${router}/entry.ts`, ROOT));
-  const block = src.match(/handle\(req,\s*\{([\s\S]*?)\}\s*\)/);
-  if (block) {
-    return [...block[1].matchAll(/^\s*(?:'([\w.]+)'|([\w]+))\s*(?::|,|$)/gm)].map((m) => m[1] ?? m[2]).filter(Boolean);
+// Action names straight from each Base44 entry.ts: the keys of the object
+// given to `handle(req, { ... })` or of a `ROUTES = { ... }` table (one per
+// line or all on one line), else the `action === '...'` branches of the
+// routers that dispatch by hand.
+function objectKeys(body: string): string[] {
+  const keys: string[] = [];
+  let depth = 0;
+  let entry = '';
+  for (const ch of body + ',') {
+    if ('([{'.includes(ch)) depth++;
+    if (')]}'.includes(ch)) depth--;
+    if (ch === ',' && depth === 0) {
+      const m = entry.replace(/\/\/[^\n]*/g, '').trim().match(/^'?([\w.]+)'?\s*(?::|$)/);
+      if (m) keys.push(m[1]);
+      entry = '';
+    } else entry += ch;
   }
+  return keys;
+}
+
+export function actionsOf(router: string): string[] {
+  const src = Deno.readTextFileSync(new URL(`base44/functions/${router}/entry.ts`, ROOT));
+  const block = src.match(/handle\(req,\s*\{([\s\S]*?)\}\s*\)/) ?? src.match(/const ROUTES[^\n]*?=\s*\{([\s\S]*?)\};/);
+  if (block) return objectKeys(block[1]);
   const names = new Set<string>();
   for (const m of src.matchAll(/(?:action\s*===\s*|case\s+)'([\w.]+)'/g)) names.add(m[1]);
   // createWineBar takes no action: one call is the whole router.
@@ -70,6 +85,12 @@ Deno.test('the sweep finds every router and its actions', () => {
   for (const r of routers.filter((r) => !SELF_AUTH.has(r))) {
     if (actionsOf(r).length === 0) throw new Error(`no actions parsed for ${r}`);
   }
+  // Pinned so a parser regression cannot silently skip routes (Codex, #104).
+  const counts = Object.fromEntries(['inventory', 'shifts', 'session', 'orders', 'manageStaff'].map((r) => [r, actionsOf(r).length]));
+  if (JSON.stringify(counts) !== JSON.stringify({ inventory: 8, shifts: 8, session: 5, orders: 11, manageStaff: 8 })) {
+    throw new Error(`action counts changed: ${JSON.stringify(counts)} (update this pin if a route was added on purpose)`);
+  }
+  if (actionsOf('session').includes('string')) throw new Error('session parsed a typeof check as an action');
 });
 
 for (const router of routers.filter((r) => !SELF_AUTH.has(r))) {
@@ -91,7 +112,9 @@ Deno.test('self-authenticating routers refuse an unsigned call without a 500', a
   world();
   for (const router of SELF_AUTH) {
     const r = await call(router, null, { action: 'ping' });
-    // Without their secrets they answer 4xx or a deliberate 503, never a crash.
-    if (r.status >= 500 && r.status !== 503) throw new Error(`${router}: ${r.status} ${r.text.slice(0, 200)}`);
+    // Without a signature or secret they must REFUSE: a 4xx, or a deliberate
+    // 503 when the secret is not configured. A 2xx would mean auth is gone.
+    const refused = (r.status >= 400 && r.status < 500) || r.status === 503;
+    if (!refused) throw new Error(`${router} accepted or crashed on an unsigned call: ${r.status} ${r.text.slice(0, 200)}`);
   }
 });
